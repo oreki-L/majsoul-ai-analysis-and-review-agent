@@ -36,7 +36,7 @@
             let start = prefix.length - 1;
             while (start >= 0 && prefix[start].kind !== 'NewRound') start--;
             // The worker applies the actual data-selection whitelist again before storing or sending.
-            const windowStart = Math.max(0, start, prefix.length - 64);
+            const windowStart = Math.max(0, start);
             const window = prefix.slice(windowStart);
             const replay = view.mode === 'replay' && !view.historical;
             const eventPosition = e => replay ? (Number.isInteger(e.recordIndex) ? e.recordIndex + 1 : null) : (Number.isInteger(e.step) ? e.step : null);

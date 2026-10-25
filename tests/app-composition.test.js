@@ -99,8 +99,8 @@ test('agent composition keeps collection, floating analysis and hand hints on in
   assert.equal(mounted[1].analysisContext().historyComplete, false);
   for (let i = 0; i < 65; i++) configured.controller.receive({ type: 'event', payload: { kind: 'DiscardTile', source: 'live', step: 10 + i * 2, seat: 0, tile: '1m' } });
   const coverage = mounted[1].analysisContext();
-  assert.equal(coverage.events.length, 64); assert.equal(coverage.historyComplete, false);
-  assert.equal(coverage.eventWindowStart, 12); assert.ok(coverage.events.every(e => e.kind !== 'NewRound'));
+  assert.equal(coverage.events.length, 67); assert.equal(coverage.historyComplete, false);
+  assert.equal(coverage.eventWindowStart, 1); assert.ok(coverage.events.every(e => e.kind !== 'NewRound'));
 });
 test('presentation module loads with no DOM and never mounts automatically', () => {
   const context = {}; vm.runInNewContext(read('overlay.js'), context);

@@ -101,7 +101,7 @@ test('injected chrome.local-compatible storage survives worker restart without s
 test('bounded histories and sessions remain bounded through restart and reset invalidates handles', async () => {
   const storage = memory(), limits = { checkpoints: 2, exchanges: 2, sessions: 2, events: 2 };
   const store = createStore({ storage, limits }); let handle;
-  for (let step = 0; step < 6; step++) {
+  for (let step = 0; step < 2; step++) {
     handle = await store.observe(input(step));
     await store.appendExchange(handle, { id: `q${step}`, answer: 'a'.repeat(20000) });
   }
@@ -137,10 +137,17 @@ test('events obey field selection; baseline-position events never append or inva
 
 test('total serialized storage has a conservative byte budget', async () => {
   const storage = memory(), store = createStore({ storage, limits: { bytes: 80000, sessions: 12, exchanges: 20 } });
+  let rejected = false;
   for (let i = 0; i < 10; i++) {
     const handle = await store.observe(input(i));
-    await store.appendExchange(handle, { id: `q${i}`, answer: 'a'.repeat(12000) });
+    const before = await store.getContext(handle);
+    try { await store.appendExchange(handle, { id: `q${i}`, answer: 'a'.repeat(12000) }); }
+    catch (error) {
+      assert.match(error.message, /安全上限/); rejected = true;
+      assert.deepEqual(await store.getContext(handle), before); break;
+    }
   }
+  assert.equal(rejected, true);
   assert.ok(Buffer.byteLength(JSON.stringify(storage.values.agentRoundContextV1)) <= 80000);
 });
 
@@ -289,26 +296,21 @@ test('round-start origin requires the snapshot itself to be at NewRound', async 
   assert.equal((await middle.getContext(await middle.observe(input(10, { events, historyComplete: true })))).baseline.origin, 'mid-round');
 });
 
-test('capacity rotates whole checkpoints on observe, never truncates successful conversation tails', async () => {
+test('capacity rejects observations and answers atomically instead of rotating complete history', async () => {
   const store = createStore({ limits: { exchanges: 2, events: 2 } });
-  let handle = await store.observe(input(1));
+  const handle = await store.observe(input(1));
   await store.appendExchange(handle, { id: 'one', answer: 'one' });
   await store.appendExchange(handle, { id: 'two', answer: 'two' });
-  assert.equal(await store.appendExchange(handle, { id: 'three', answer: 'three' }), false);
-  assert.deepEqual((await store.getContext(handle)).exchanges.map(e => e.id), ['one', 'two']);
-  const rotated = await store.observe(input(1));
-  assert.equal(rotated.branch, handle.branch + 1);
-  assert.equal(await store.isCurrent(handle), false);
-  let ctx = await store.getContext(rotated);
-  assert.equal(ctx.baseline.reason, 'unrecorded-exchange');
-  assert.deepEqual(ctx.timeline, []);
-  handle = await store.observe(input(2, { events: [{ kind: 'DealTile', source: 'live', seat: 0, tile: '2m', step: 2 }] }));
-  handle = await store.observe(input(3, { events: [{ kind: 'DealTile', source: 'live', seat: 0, tile: '3m', step: 3 }] }));
-  const overflow = await store.observe(input(4, { events: [{ kind: 'DealTile', source: 'live', seat: 0, tile: '4m', step: 4 }] }));
-  ctx = await store.getContext(overflow);
-  assert.equal(overflow.branch, handle.branch + 1);
-  assert.equal(ctx.baseline.position, 4);
-  assert.deepEqual(ctx.timeline, []);
+  const before = await store.getContext(handle);
+  await assert.rejects(store.appendExchange(handle, { id: 'three', answer: 'three' }));
+  await assert.rejects(store.observe(input(2)));
+  assert.deepEqual(await store.getContext(handle), before);
+  const events = createStore({ limits: { events: 2 } });
+  let current;
+  for (const step of [1, 2]) current = await events.observe(input(step, { events: [{ kind: 'DealTile', source: 'live', seat: 0, tile: '2m', step }] }));
+  const prior = await events.getContext(current);
+  await assert.rejects(events.observe(input(3, { events: [{ kind: 'DealTile', source: 'live', seat: 0, tile: '3m', step: 3 }] })));
+  assert.deepEqual(await events.getContext(current), prior);
 });
 
 test('huge requests are refused atomically without changing the run prefix or prior success', async () => {
@@ -316,14 +318,12 @@ test('huge requests are refused atomically without changing the run prefix or pr
   const handle = await store.observe(input());
   await store.appendExchange(handle, { id: 'saved', answer: 'SAVED', request: 'FULL_REQUEST' });
   const before = await store.getContext(handle), disk = structuredClone(storage.values);
-  assert.equal(await store.appendExchange(handle, { id: 'huge', answer: 'valid', request: 'x'.repeat(1000000) }), false);
+  await assert.rejects(store.appendExchange(handle, { id: 'huge', answer: 'valid', request: 'x'.repeat(1000000) }));
   assert.deepEqual(await store.getContext(handle), before);
   assert.deepEqual(storage.values.agentRoundContextV1.sessions[0].timeline, disk.agentRoundContextV1.sessions[0].timeline);
-  assert.equal(storage.values.agentRoundContextV1.sessions[0].needsCheckpoint, true);
+  assert.equal(storage.values.agentRoundContextV1.sessions[0].needsCheckpoint, false);
   assert.equal(await store.isCurrent(handle), true);
-  const rotated = await store.observe(input());
-  assert.equal(rotated.branch, handle.branch + 1);
-  assert.equal((await store.getContext(rotated)).baseline.reason, 'unrecorded-exchange');
+  assert.deepEqual(await store.observe(input()), handle);
 });
 
 test('schema 1 rolling histories are discarded rather than reused as complete prefixes', async () => {
@@ -406,23 +406,18 @@ test('storage identity is opaque and does not retain a provider endpoint', async
   assert.equal(saved.includes('SECRET'), false);
 });
 
-test('byte limits rotate a whole current snapshot and invalidate old prefix handles', async () => {
+test('byte limits refuse observations without cropping the current prefix', async () => {
   const storage = memory(), store = createStore({ storage, limits: { bytes: 12000 } });
-  let handle = await store.observe(input(0)), rotated = false;
+  let handle = await store.observe(input(0)), rejected = false;
   for (let step = 1; step <= 60; step++) {
-    const previous = handle;
-    handle = await store.observe(input(step));
-    if (handle.branch > previous.branch) {
-      rotated = true;
-      assert.equal(await store.isCurrent(previous), false);
-      const context = await store.getContext(handle);
-      assert.equal(context.baseline.position, step);
-      assert.equal(context.baseline.reason, 'byte-budget');
-      assert.deepEqual(context.timeline, []);
+    const before = await store.getContext(handle), disk = structuredClone(storage.values);
+    try { handle = await store.observe(input(step)); } catch (error) {
+      rejected = true;
+      assert.deepEqual(await store.getContext(handle), before);
+      assert.deepEqual(storage.values, disk); break;
     }
-    assert.ok(Buffer.byteLength(JSON.stringify(storage.values.agentRoundContextV1)) <= 12000);
   }
-  assert.equal(rotated, true);
+  assert.equal(rejected, true);
 });
 
 test('failed storage mutations preserve the prior in-memory and persisted prefix', async () => {
@@ -504,12 +499,12 @@ test('oversized event windows are rejected intact rather than sliced into an app
 });
 
 
-test('prompt version 3 never reuses version 2 requests as a supposedly identical prefix', async () => {
+test('prompt version 4 never reuses version 3 requests as a supposedly identical prefix', async () => {
   const local = memory(), legacy = createStore({ storage: local });
-  const old = await legacy.observe(input(1, { config: { promptVersion: 2 } }));
+  const old = await legacy.observe(input(1, { config: { promptVersion: 3 } }));
   await legacy.appendExchange(old, { id: 'v2', request: 'OLD_FULL_SNAPSHOT_REQUEST', answer: 'OLD_PREFIX' });
   const restored = createStore({ storage: local });
-  const next = await restored.observe(input(2, { config: { promptVersion: 3 } }));
+  const next = await restored.observe(input(2, { config: { promptVersion: 4 } }));
   assert.notEqual(next.id, old.id);
   const context = await restored.getContext(next);
   assert.deepEqual(context.timeline, []);

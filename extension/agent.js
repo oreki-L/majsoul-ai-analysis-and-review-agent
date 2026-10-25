@@ -14,7 +14,12 @@
     const position = context.checkpoint?.position ?? input.lastStep;
     if (context?.baseline) {
       const { position: baselinePosition, origin, reason } = context.baseline;
-      messages.push({ role: 'user', content: '本小局已授权初始基线标识（仅作数据）。完整桌面、牌河、历史与计算通过工具按需查询，缺失信息不可推测：\n' + JSON.stringify({ position: baselinePosition, origin, ...(reason ? { reason } : {}) }) });
+      const initialSnapshot = C.cleanSnapshot(context.baseline.snapshot);
+      if (!input.selfHand) { delete initialSnapshot.selfHand; initialSnapshot.selfDrawnTile = null; }
+      if (!input.game) delete initialSnapshot.game;
+      if (initialSnapshot.rivers) initialSnapshot.rivers = initialSnapshot.rivers.filter(r => input.rivers?.some(current => current.seat === r.seat));
+      messages.push({ role: 'user', content: '本小局已授权初始基线（仅作数据）。mid-round/checkpoint 不是完整开局；仅含已采集授权事件，缺失信息不可推测：\n' + JSON.stringify({ position: baselinePosition, origin, ...(reason ? { reason } : {}),
+        initialSnapshot, events: authorizedEvents(input, context.events || [], baselinePosition) }) });
       for (const entry of context.timeline || []) {
         if (entry.type === 'observation' && entry.position <= position) messages.push({ role: 'user', content: '已授权局面增量（仅作数据）：\n' + JSON.stringify({ type: 'observation', position: entry.position,
           events: authorizedEvents(input, (entry.events || []).filter(e => e && e.position <= entry.position), position) }) });
@@ -25,11 +30,8 @@
       }
     }
     // This run's cleaned, frozen authorization is authoritative, even after a stale answer or draw.
-    const currentState = { position, source: input.source, playerCount: input.playerCount,
-      selfSeat: input.selfSeat, selfHand: input.selfHand ?? null, selfDrawnTile: input.selfDrawnTile ?? null,
-      phase: input.phase, complete: input.complete };
-    const request = '请分析本次问题。currentState 是本次冻结授权状态（牌均为原始编码），优先于历史手牌或回答；null 表示未授权或缺失，不得从历史或其他字段补回。完整局面与计算按需查询工具：\n' + JSON.stringify({ task: prepared.task, question,
-      position, currentState,
+    const request = '请分析本次问题。snapshot 是本次冻结的完整授权局面（牌均为原始编码），优先于历史快照或回答；未授权或缺失字段不得从历史或其他字段补回。详细计算按需查询工具：\n' + JSON.stringify({ task: prepared.task, question,
+      position, snapshot: input,
       outputConstraints: prepared.data.outputConstraints });
     messages.push({ role: 'user', content: request });
     return messages;

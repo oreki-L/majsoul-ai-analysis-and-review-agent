@@ -32,7 +32,7 @@ test('real Pi round requests append one baseline, ordered deltas and exact final
     assert.equal(sent.filter(m => m.content?.includes('已授权局面增量')).length, i);
     const current = JSON.parse(sent.at(-1).content.split('\n')[1]);
     assert.equal(current.position, i); assert.equal(current.localSummary, undefined);
-    assert.equal(current.localAnalysis, undefined); assert.equal(current.snapshot, undefined);
+    assert.equal(current.localAnalysis, undefined); assert.deepEqual(current.snapshot, require('../extension/contracts/snapshot.js').cleanSnapshot(snapshot));
     assert.equal(result.sessionTurn.request, sent.at(-1).content);
     assert.equal(result.sessionTurn.answer, `\n${JSON.stringify(result.result)}\n`);
     previous = [...sent, { role: 'assistant', content: result.sessionTurn.answer }];
@@ -61,7 +61,7 @@ test('real Pi demand tools use frozen authorized current facts and bounded sanit
         const proactive = T.messages(request).map(m => m.content).join('\n');
         const projected = JSON.parse(T.messages(request).at(-2).content.split('\n')[1]);
         assert.deepEqual(projected.events.map(e => e.tile), ['?', '3m']);
-        assert.doesNotMatch(proactive, /PRIVATE_KEY|HIDDEN|WRONG_SOURCE|9p|9s|8m|"snapshot"|"changes"|"game"|"rivers"/);
+        assert.doesNotMatch(proactive, /PRIVATE_KEY|HIDDEN|WRONG_SOURCE|9p|9s|8m|"changes"/);
         snapshot.selfHand[0] = '9m'; snapshot.game.remaining = 999; context.timeline[0].events[0].tile = '8p';
         return { toolCalls: [
           { id: 'hand', name: 'get_self_hand', arguments: {} },
@@ -148,7 +148,7 @@ test('missing session uses only a temporary mid-round baseline and tools are alw
     const messages = T.messages(request);
     assert.match(messages[1].content, /mid-round/);
     assert.doesNotMatch(messages.at(-1).content, /localAnalysis|请分析以下已授权局面数据/);
-    assert.deepEqual(JSON.parse(messages.at(-1).content.split('\n')[1]).currentState.selfHand, snapshot.selfHand);
+    assert.deepEqual(JSON.parse(messages.at(-1).content.split('\n')[1]).snapshot.selfHand, snapshot.selfHand);
     return answer;
   } });
   assert.equal(result.sessionTurn.answer, answer); assert.equal(result.runtime.turns, 1);
@@ -179,7 +179,7 @@ test('current state follows draws, discards, calls, kans, north extraction and s
     if (scenario.kind === 'BaBei') snapshot.game.players[0].norths++;
     if (scenario.kind === 'DiscardTile') snapshot.rivers[0].discards.push({ tile: scenario.tile });
     events.push({ ...scenario, source: snapshot.source, position, seat: 0 });
-    // All event extras, old complete snapshots and patches stay off the model's proactive input.
+    // Event extras and patches stay off the model input; authorized snapshots are proactive.
     const handle = await store.observe({ snapshot, identity: { matchId: 'transition-match', roundStartId: 'transition-round' },
       position, events, historyComplete: true, config: { promptVersion: 3 } });
     const context = await store.getContext(handle);
@@ -189,10 +189,9 @@ test('current state follows draws, discards, calls, kans, north extraction and s
       sent = T.messages(request);
       if (previousMessages) assert.deepEqual(sent.slice(0, previousMessages.length), previousMessages);
       const current = JSON.parse(sent.at(-1).content.split('\n')[1]);
-      assert.deepEqual(current.currentState, { position, source: 'replay', playerCount: 4, selfSeat: 0,
-        selfHand: scenario.hand, selfDrawnTile: scenario.drawn, phase: 'playing', complete: true });
+      assert.deepEqual(current.snapshot, C.cleanSnapshot(snapshot));
       assert.equal(current.question, '当前怎么打');
-      assert.doesNotMatch(sent.map(m => m.content).join('\n'), /"snapshot"|"changes"|"rivers"|"game"|"localAnalysis"|"remaining"|"scores"/);
+      assert.doesNotMatch(sent.map(m => m.content).join('\n'), /"changes"|"localAnalysis"/);
       const observation = sent.filter(m => m.role === 'user' && m.content.startsWith('已授权局面增量')).at(-1);
       if (position) {
         const projected = JSON.parse(observation.content.split('\n')[1]);
@@ -215,8 +214,8 @@ test('current state follows draws, discards, calls, kans, north extraction and s
     assert.deepEqual(sent.slice(0, previousMessages.length), previousMessages);
     const current = JSON.parse(sent.at(-1).content.split('\n')[1]);
     assert.equal(current.question, '再解释一下');
-    assert.deepEqual(current.currentState.selfHand, scenarios.at(-1).hand);
-    assert.equal(current.currentState.selfDrawnTile, '5p');
+    assert.deepEqual(current.snapshot.selfHand, scenarios.at(-1).hand);
+    assert.equal(current.snapshot.selfDrawnTile, '5p');
     return answer;
   } });
 });
@@ -237,9 +236,9 @@ test('missing current hand stays null despite old canonical hand and game-side p
     if (++calls === 1) {
       const messages = T.messages(request);
       const current = JSON.parse(messages.at(-1).content.split('\n')[1]);
-      assert.equal(current.currentState.position, 5);
-      assert.equal(current.currentState.selfHand, null); assert.equal(current.currentState.selfDrawnTile, null);
-      assert.doesNotMatch(messages.map(m => m.content).join('\n'), /"snapshot"|"changes"|"game"|"rivers"/);
+      assert.equal(current.position, 5);
+      assert.equal(current.snapshot.selfHand, undefined); assert.equal(current.snapshot.selfDrawnTile, undefined);
+      assert.doesNotMatch(messages.map(m => m.content).join('\n'), /"changes"|"localAnalysis"/);
       const observation = JSON.parse(messages.at(-2).content.split('\n')[1]);
       assert.deepEqual(observation.events.map(e => e.tile), ['?', '?']);
       assert.doesNotMatch(JSON.stringify(observation), /7z|6z|6m/);
@@ -264,7 +263,7 @@ test('proactive state and tools share frozen input while replay cursor bounds ev
     if (++calls === 1) {
       const messages = T.messages(request);
       const current = JSON.parse(messages.at(-1).content.split('\n')[1]);
-      assert.equal(current.currentState.position, 3); assert.equal(current.currentState.selfDrawnTile, '0p');
+      assert.equal(current.position, 3); assert.equal(current.snapshot.selfDrawnTile, '0p');
       assert.doesNotMatch(JSON.stringify(messages), /9s/);
       snapshot.selfHand.fill('9m'); snapshot.selfDrawnTile = '9m'; context.checkpoint.position = 99;
       return { toolCalls: [{ id: 'hand', name: 'get_self_hand', arguments: {} }, { id: 'events', name: 'get_round_events', arguments: {} }] };

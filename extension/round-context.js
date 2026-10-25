@@ -203,7 +203,8 @@
         const events = cleanEvents(rawEvents, snapshot).filter(e => position !== null && e.position <= position);
         const observations = s.timeline.filter(e => e.type === 'observation');
         const exchanges = s.timeline.filter(e => e.type === 'exchange');
-        let reason = s.needsCheckpoint ? 'unrecorded-exchange' : null;
+        if (s.needsCheckpoint) throw new Error('小局完整历史不可继续：先前问答未能完整保存，请清理会话或等待下一小局。');
+        let reason = null;
         if (last && !same && (position === null || last.position === null || position <= last.position)) reason = 'rewind-or-conflict';
         // Window bounds describe coverage, never assume consecutive supported event steps.
         const eventPosition = e => Number.isInteger(e.recordIndex) ? e.recordIndex + (snapshot.source === 'replay' ? 1 : 0) : e.step ?? e.position;
@@ -213,15 +214,17 @@
           ((Number.isInteger(input.eventWindowStart) && input.eventWindowStart > last.position) ||
           (Number.isInteger(predecessor) && predecessor > last.position))) reason = 'event-window-gap';
         const fresh = events.filter(e => last && e.position > last.position);
-        if (last && !reason && (exchanges.length >= maxExchanges ||
-          s.prefixEvents.length + observations.reduce((n, e) => n + e.events.length, 0) + fresh.length > maxEvents)) reason = 'checkpoint-rotation';
+        if (!reason && (exchanges.length >= maxExchanges ||
+          (last ? s.prefixEvents.length + observations.reduce((n, e) => n + e.events.length, 0) + fresh.length : events.length) > maxEvents))
+          throw new Error('小局完整历史已达到问答或事件安全上限；未裁剪历史，请清理会话或等待下一小局。');
         function rebase(why) {
           if (s.baseline) s.branch++;
           const start = !why && position !== null && events.some(e => e.kind === 'NewRound' && e.position === position);
           s.baseline = { position, snapshot, origin: why ? 'checkpoint' : start ? 'round-start' : 'mid-round', ...(why ? { reason: why } : {}) };
           s.timeline = []; s.needsCheckpoint = false;
-          // Tool-only captured history is not replayed as observations before this baseline.
-          s.prefixEvents = events.length <= maxEvents ? events : [];
+          // Retain captured same-round events without inventing an earlier snapshot.
+          if (events.length > maxEvents) throw new Error('小局完整事件超过安全上限；未裁剪历史。');
+          s.prefixEvents = events;
         }
         if (!s.baseline || reason) rebase(reason);
         else if (!same) s.timeline.push({ type: 'observation', position, events: fresh, changes: delta(previous, snapshot) });
@@ -229,7 +232,7 @@
         data.sessions = data.sessions.filter(x => x !== s).concat(s).slice(-maxSessions);
         data.active[activeKey(scope, lane)] = s.id;
         evictInactive(s);
-        if (size() > maxBytes && s.timeline.length) { rebase('byte-budget'); evictInactive(s); }
+        if (size() > maxBytes) throw new Error('小局完整历史超过本地存储安全上限；未裁剪历史。');
         await save(); return clone(handleFor(s));
       } catch (error) { data = before; throw error; }
     }); }
@@ -239,15 +242,14 @@
       const s = current(handle); if (!s) return false;
       const id = short(exchange?.id); if (!id) throw new Error('Exchange requires a stable id');
       if (s.timeline.some(e => e.type === 'exchange' && e.id === id)) return true;
-      // Do not rotate this run's prefix. A rejected successful answer requires the next observation to rebase.
+      // Refuse atomically instead of losing a successful answer or rotating its prefix.
       const before = clone(data);
       try {
         const refused = s.needsCheckpoint || s.timeline.filter(e => e.type === 'exchange').length >= maxExchanges;
         if (!refused) s.timeline.push(cleanExchange({ ...exchange, id, version: s.version }));
         if (refused || size() > maxBytes) {
           if (!refused) s.timeline.pop();
-          s.needsCheckpoint = true;
-          await save(); return false;
+          throw new Error('小局完整问答超过安全上限，无法保存本次回答；未裁剪已有历史。');
         }
         await save();
         if (signal?.aborted) {

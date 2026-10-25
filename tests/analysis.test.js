@@ -346,15 +346,15 @@ test('worker uses separate task prompts, current authorized hand and local previ
     const baseline = JSON.parse(body.messages[1].content.split('\n')[1]);
     const data = JSON.parse(body.messages.at(-1).content.split('\n')[1]);
     assert.equal(data.task, task); assert.equal('response_format' in body, false);
-    assert.equal(data.localAnalysis, undefined); assert.equal(baseline.snapshot, undefined);
+    assert.equal(data.localAnalysis, undefined); assert.ok(baseline.initialSnapshot);
     assert.equal(baseline.origin, 'mid-round');
     const authorized = C.snapshot(state('live'), { game: true, hand: true, rivers: 'all' });
-    assert.equal(data.currentState.position, authorized.lastStep);
-    assert.deepEqual(data.currentState.selfHand, authorized.selfHand);
-    assert.equal(data.currentState.selfSeat, authorized.selfSeat);
-    assert.equal(data.currentState.selfDrawnTile, authorized.selfDrawnTile);
-    assert.equal(data.currentState.source, 'live');
-    assert.doesNotMatch(body.messages.map(m => m.content).join('\n'), /"game"|"rivers"|"localAnalysis"|"changes"/);
+    assert.equal(data.position, authorized.lastStep);
+    assert.deepEqual(data.snapshot.selfHand, authorized.selfHand);
+    assert.equal(data.snapshot.selfSeat, authorized.selfSeat);
+    assert.equal(data.snapshot.selfDrawnTile, authorized.selfDrawnTile);
+    assert.equal(data.snapshot.source, 'live');
+    assert.doesNotMatch(body.messages.map(m => m.content).join('\n'), /"localAnalysis"|"changes"/);
     assert.equal(body.tools.length, 6);
     if (task === 'combined') { assert.match(body.messages[0].content, /任务：防守风险分析/); assert.match(body.messages[0].content, /任务：牌效率分析/); }
     const preview = await w.call({ type: 'model:prepare', task, snapshot: C.snapshot(state('live'), { game: true, hand: true, rivers: 'all' }) });
