@@ -6,8 +6,11 @@ const A = require('../extension/analysis.js');
 const S = require('../extension/state.js');
 const C = require('../extension/collector/snapshot-adapter.js');
 const Contract = require('../extension/contracts/snapshot.js');
+const Discussions = require('../extension/decision-discussions.js');
 const flush = () => new Promise(resolve => setImmediate(resolve));
 function panel(options = {}) {
+  const discussionStorage = options.discussionStorage || { value: {}, async get() { return structuredClone(this.value); }, async set(value) { this.value = structuredClone(value); } };
+  const discussions = Discussions.create({ storage: discussionStorage });
   let mount, configChanged, resolveAnalysis, timerId = 0; const timers = new Map(); const messages = [], elements = new Map(), hints = [], details = [{ dataset: { section: 'controls' }, open: false }], section = { scrollTop: 0 };
   const position = { mode: 'live' }; let collectorCalls = 0, historyCalls = 0, calibrateCalls = 0, roundStartCalls = 0;
   const content = { innerHTML: '', querySelectorAll() { return details; }, querySelector(id) { if (id === '.analysis') return section; if (!elements.has(id)) elements.set(id, {}); return elements.get(id); } };
@@ -18,13 +21,18 @@ function panel(options = {}) {
     clearTimeout: options.manualTimers ? id => timers.delete(id) : clearTimeout,
     document: { currentScript: { src: 'https://fixture/extension/analysis-panel.js' } }, location: { href: 'https://fixture/tests/preview.html' }, window: { addEventListener() {}, removeEventListener() {} },
     chrome: { runtime: { id: 'fixture', getURL: p => 'chrome-extension://fixture/' + p, sendMessage: async m => {
-      messages.push(m); if (m.type === 'model:status') return options.status ? options.status() : { enabled: true, provider: options.provider || 'chat', preferences: options.preferences || { useModel: true, consent: true } };
+      messages.push(m);
+      if (options.discussions && m.type === 'discussion:list') return { ok: true, records: await discussions.list() };
+      if (options.discussions && m.type === 'discussion:save') return { ok: true, record: await discussions.save(m.record) };
+      if (options.discussions && m.type === 'discussion:ask') return { ok: true, record: await discussions.ask(m.id, m.question, m.token) };
+      if (options.discussions && m.type === 'discussion:patch') return { ok: true, record: await discussions.patch(m.id, m.patch) };
+      if (m.type === 'model:status') return options.status ? options.status() : { enabled: true, provider: options.provider || 'chat', preferences: options.preferences || { useModel: true, consent: true } };
       if (m.type === 'model:prepare') return { ok: true, data: m.provider === 'mjai' ? m.engineRequest : A.prepare(m.snapshot, m.task).data };
-      if (m.type === 'model:analyze') return new Promise(resolve => { resolveAnalysis = resolve; }); return { ok: true };
+      if (m.type === 'model:analyze') return new Promise(resolve => { resolveAnalysis = async value => { if (options.discussions && m.discussionId) await discussions.answer(m.discussionId, m.discussionToken, value); resolve(value); }; }); return { ok: true };
     }, onMessage: { addListener: fn => { configChanged = fn; }, removeListener: fn => { if (configChanged === fn) configChanged = null; } } } } };
   if (options.offline) delete context.chrome;
   vm.runInNewContext(fs.readFileSync(require.resolve('../extension/analysis-panel.js'), 'utf8'), context);
-  const render = () => context.MJAnalysisPanel.mount(container, { snapshot: selection => C.snapshot(state, selection), analysisContext: options.analysisContext, engineRequest: options.engineRequest, seatLabels: state.players.map((_, seat) => S.seatWind(state, seat) + '家 · 座位 ' + seat), phase: state.phase, round: state.round, selfSeat: state.selfSeat, hintsReady: options.hintsReady !== false, hintsCalibrated: !!options.hintsCalibrated, selfHand: state.selfHand, drawnTile: state.drawnTiles[state.selfSeat], riichiLabels: options.riichiLabels || [], recordCount: options.recordCount || 0,
+  const render = () => context.MJAnalysisPanel.mount(container, { snapshot: selection => C.snapshot(state, selection), analysisContext: options.analysisContext, engineRequest: options.engineRequest, seatLabels: state.players.map((_, seat) => S.seatWind(state, seat) + '家 · 座位 ' + seat), phase: state.phase, matchEnded: state.result?.gameEnded === true, round: state.round, selfSeat: state.selfSeat, hintsReady: options.hintsReady !== false, hintsCalibrated: !!options.hintsCalibrated, selfHand: state.selfHand, drawnTile: state.drawnTiles[state.selfSeat], riichiLabels: options.riichiLabels || [], recordCount: options.recordCount || 0,
     onMode: mode => { position.mode = mode; position.cursor = mode === 'replay' ? 1 : null; render(); },
     onCursor: cursor => { position.cursor = cursor; render(); }, onSelfSeat: seat => { state.selfSeat = seat; render(); }, onRoundStart: () => roundStartCalls++,
     onCollector: () => collectorCalls++, onHistory: () => historyCalls++, onCalibrateHints: () => calibrateCalls++ }, position, render, { onHints: value => hints.push(value) });
@@ -140,6 +148,71 @@ test('late status responses cannot overwrite configuration refreshed by a backgr
 
 const modelResult = () => ({ ok: true, model: 'fixture', result: { danger: [{ tile: '1m', opponents: [{ seat: 2, level: 'high', reasons: ['警戒'] }] }], efficiency: [{ tile: '2m', reasons: ['候选'] }], decision: { action: 'attack', tile: '1m', reasons: ['测试结论'] }, limitations: ['仅供参考'] } });
 const globalSection = p => p.html().split('<section class="analysis-global"')[1].split('</section>')[0];
+
+test('decision discussion stays tied to original event across live turns; late answer never replaces current card', async () => {
+  const p = panel({ discussions: true }); await flush();
+  const analysis = p.element('model-run').onclick({ isTrusted: true }); await flush();
+  p.resolve(modelResult()); await analysis; await flush();
+  assert.match(p.html(), /最新分析/);
+  p.element('discussion-question-0').oninput({ target: { value: '为什么旧决策？' } });
+  const ask = p.element('discussion-send-0').onclick({ isTrusted: true }); await flush(); await flush();
+  const req = p.messages.find(m => m.discussionId);
+  assert.ok(req); assert.deepEqual(JSON.parse(JSON.stringify(req.selection)), { game: true, rivers: 'all', hand: true });
+  p.state.lastStep += 2; p.state.selfHand[0] = '9p'; p.render();
+  assert.equal(p.messages.filter(m => m.type === 'model:cancel').length, 0);
+  p.resolve({ ...modelResult(), result: { ...modelResult().result, decision: { action: 'attack', tile: '1m', reasons: ['旧决策的回答'] } } });
+  await ask;
+  assert.match(p.html(), /旧决策的回答/); assert.match(p.html(), /为什么旧决策/);
+  const next = p.element('model-run').onclick({ isTrusted: true }); await flush(); p.resolve(modelResult()); await next;
+  assert.match(p.html(), /保留讨论/); assert.match(p.html(), /旧决策的回答/);
+  assert.equal(p.messages.filter(m => m.type === 'discussion:list').length, 2);
+  p.destroy();
+});
+
+test('remove during question response preserves hidden chat and history can reopen it after reload', async () => {
+  const storage = { value: {}, async get() { return structuredClone(this.value); }, async set(value) { this.value = structuredClone(value); } };
+  const p = panel({ discussions: true, discussionStorage: storage }); await flush();
+  const analysis = p.element('model-run').onclick({ isTrusted: true }); await flush(); p.resolve(modelResult()); await analysis;
+  p.element('discussion-question-0').oninput({ target: { value: '保留问题' } });
+  const ask = p.element('discussion-send-0').onclick({ isTrusted: true }); await flush(); await flush();
+  await p.element('discussion-remove-0').onclick();
+  p.resolve(modelResult()); await ask;
+  assert.doesNotMatch(p.html(), /保留问题/);
+  p.element('discussion-history').onclick();
+  assert.match(p.html(), /重新打开讨论/);
+  await p.element('discussion-open-0').onclick();
+  assert.match(p.html(), /保留问题/);
+  p.destroy();
+  const restored = panel({ discussions: true, discussionStorage: storage }); await flush(); await flush();
+  assert.match(restored.html(), /保留问题/); restored.destroy();
+});
+
+test('recorded decision selector distinguishes events, keeps live collection running and exposes match/round only after play', async () => {
+  const p = panel({ discussions: true }); await flush();
+  for (const step of [1, 2]) {
+    p.state.lastStep = step; p.render();
+    const run = p.element('model-run').onclick({ isTrusted: true }); await flush(); p.resolve(modelResult()); await run;
+  }
+  assert.match(p.html(), /id="decision-position"[^]*事件 1[^]*事件 2/);
+  assert.doesNotMatch(p.html(), /id="decision-match"|id="decision-round"/);
+  p.element('decision-position').onchange({ target: { value: '0' } });
+  assert.match(p.html(), /历史决策/); assert.match(p.html(), /所选决策手牌/);
+  assert.equal(p.hints.at(-1), null);
+  p.state.lastStep = 3; p.render();
+  assert.equal(p.state.lastStep, 3); assert.match(p.html(), /历史决策/);
+  p.element('decision-current').onclick();
+  assert.doesNotMatch(p.html(), /历史决策 ·/); assert.match(p.html(), /最新分析/);
+  p.state.phase = 'ended'; p.render();
+  assert.doesNotMatch(p.html(), /id="decision-match"/);
+  p.state.result = { gameEnded: true }; p.render();
+  assert.match(p.html(), /id="decision-match"/); assert.match(p.html(), /id="decision-round"/);
+  p.element('decision-position').onchange({ target: { value: '0' } });
+  p.element('discussion-question-0').oninput({ target: { value: '赛后追问旧巡目' } });
+  const ask = p.element('discussion-send-0').onclick({ isTrusted: true }); await flush(); await flush();
+  assert.equal(p.messages.findLast(m => m.discussionId).question, '赛后追问旧巡目');
+  p.resolve(modelResult()); await ask; assert.match(p.html(), /赛后追问旧巡目/);
+  p.destroy();
+});
 const automaticPanel = (options = {}) => panel({ ...options, manualTimers: true, preferences: { automatic: true, useModel: true, ...options.preferences } });
 async function automaticResult(p, response = modelResult()) {
   p.state.turn = p.state.selfSeat; p.render(); p.fireTimer(); await flush();

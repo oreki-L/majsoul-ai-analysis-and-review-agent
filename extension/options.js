@@ -119,7 +119,7 @@ $('clear').onclick = async () => {
   try {
     await writeInOrder(async () => {
       try { await chrome.runtime?.sendMessage?.({ type: 'agent:clear-data' }); }
-      finally { await chrome.storage.local.remove(['modelConfig', 'analysisProviders', 'agentRoundContextV1', 'agentRunsV1']); }
+      finally { await chrome.storage.local.remove(['modelConfig', 'analysisProviders', 'agentRoundContextV1', 'agentRunsV1', 'decisionDiscussionsV1']); }
     });
     if (generation === operationGeneration) status('已清除所有服务配置、密钥、本地会话和运行用量。');
   } catch (_) { if (generation === operationGeneration) status('清除失败，请重试。'); }

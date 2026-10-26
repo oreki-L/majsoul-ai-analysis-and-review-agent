@@ -8,7 +8,7 @@ export const providers = {
   MJSnapshotContract: 'contracts/snapshot.js', MJCollectorSnapshot: 'collector/snapshot-adapter.js',
   MJModelEndpoint: 'adapters/model-endpoint.js', MJAnalysis: 'analysis.js', MJHarness: 'harness.js', MJAgent: 'agent.js',
   MJPiRuntime: 'pi-runtime.js', MJRoundContext: 'round-context.js', MJModelUsage: 'model-usage.js',
-  MJModelSessionTransport: 'model-session-transport.js', MJRunStore: 'agent-run-store.js',
+  MJModelSessionTransport: 'model-session-transport.js', MJRunStore: 'agent-run-store.js', MJDecisionDiscussions: 'decision-discussions.js',
   MJUserMemoryWorker: 'user-memory-worker.js', MJUserMemory: 'user-memory.js', MJUserMemoryAgent: 'user-memory-agent.js', MJUserMemoryCapture: 'user-memory-capture.js',
   MJMjaiAdapter: 'adapters/mjai.js', MJEngineEndpoint: 'adapters/engine-endpoint.js',
   MJNagaReplay: 'adapters/naga-replay.js', MJNagaPanel: 'naga-panel.js',
@@ -98,7 +98,7 @@ export function dependencies(file, source) {
   return [...result];
 }
 const browser = new Set(['document', 'window', 'chrome', 'localStorage', 'sessionStorage', 'WebSocket', 'fetch', 'XMLHttpRequest', 'location', 'navigator']);
-export const agentOnlyModules = ['pi-runtime.js', 'round-context.js', 'model-usage.js', 'model-session-transport.js', 'agent-run-store.js', 'user-memory.js', 'user-memory-agent.js', 'user-memory-capture.js', 'user-memory-worker.js'];
+export const agentOnlyModules = ['pi-runtime.js', 'round-context.js', 'model-usage.js', 'model-session-transport.js', 'agent-run-store.js', 'decision-discussions.js', 'user-memory.js', 'user-memory-agent.js', 'user-memory-capture.js', 'user-memory-worker.js'];
 // Only this generated vendor artifact bypasses project-global resolution. It has
 // its own stricter capability check and is checked against a reproducible build.
 export function checkPiBundle(source) {
@@ -126,6 +126,7 @@ export function checkSourceBoundary(file, source) {
   else if (file === 'user-memory.js') { allowed = new Set(['contracts/snapshot.js']); pure = true; }
   else if (file === 'user-memory-agent.js') { allowed = new Set(['user-memory.js', 'harness.js']); pure = true; }
   else if (file === 'user-memory-capture.js') { allowed = new Set(); pure = true; }
+  else if (file === 'decision-discussions.js') { allowed = new Set(['contracts/snapshot.js']); pure = true; }
   else if (file === 'round-context.js') { allowed = new Set(['contracts/snapshot.js']); pure = true; }
   else if (['model-usage.js', 'model-session-transport.js', 'agent-run-store.js'].includes(file)) { allowed = new Set(); pure = true; }
   else if (file === 'harness.js') { allowed = new Set(); pure = true; }

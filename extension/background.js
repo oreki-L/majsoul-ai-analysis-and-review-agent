@@ -3,9 +3,11 @@ importScripts('contracts/snapshot.js', 'adapters/model-endpoint.js', 'adapters/e
 importScripts('harness.js', 'agent.js');
 importScripts('pi-runtime.js', 'round-context.js', 'model-usage.js', 'model-session-transport.js', 'agent-run-store.js');
 importScripts('contracts/engine-result.js', 'engine-agent.js');
-importScripts('history.js', 'history-storage.js');
+importScripts('history.js', 'history-storage.js', 'decision-discussions.js');
 importScripts('user-memory.js', 'user-memory-agent.js', 'user-memory-worker.js');
 const pending = new Map();
+const discussions = MJDecisionDiscussions.create({ storage: chrome.storage.local });
+const discussionReady = discussions.recover().catch(() => {});
 const memoryWorker = MJUserMemoryWorker.create({ storage: chrome.storage.local, permissions: chrome.permissions,
   fetchModel: (...args) => fetch(...args), busy: () => pending.size > 0, runtime: MJPiRuntime, readJson });
 // Worker startup is a recovery opportunity, not a promise of background execution.
@@ -27,7 +29,7 @@ async function clearAgentData(clearRuns = true) {
   for (const controller of pending.values()) controller.abort();
   memoryWorker.cancel();
   const revision = newRevision(); revisionPromise = Promise.resolve(revision);
-  await Promise.all([roundContexts.reset(), clearRuns ? runStore.clear() : Promise.resolve(), chrome.storage.local.set?.({ agentConfigRevision: revision })]);
+  await Promise.all([roundContexts.reset(), clearRuns ? Promise.all([runStore.clear(), discussions.clear()]) : Promise.resolve(), chrome.storage.local.set?.({ agentConfigRevision: revision })]);
 }
 chrome.storage.local.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' });
 chrome.storage.onChanged.addListener((changes, area) => {
@@ -72,6 +74,18 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
   if (message?.type === 'agent:clear-data' && !sender.tab?.url?.startsWith('https://game.maj-soul.com/') && sender.url === chrome.runtime.getURL?.('options.html')) {
     clearAgentData().then(() => respond({ ok: true })).catch(() => respond({ ok: false, error: '清除本地记录失败，请重试。' })); return true;
   }
+  if (message?.type?.startsWith('discussion:') && game) {
+    (async () => {
+      await discussionReady;
+      switch (message.type) {
+        case 'discussion:list': return { ok: true, records: await discussions.list() };
+        case 'discussion:save': return { ok: true, record: await discussions.save(message.record) };
+        case 'discussion:patch': return { ok: true, record: await discussions.patch(message.id, message.patch || {}) };
+        case 'discussion:ask': return { ok: true, record: await discussions.ask(message.id, message.question, message.token) };
+      }
+      throw new Error('未知讨论操作。');
+    })().then(respond).catch(e => respond({ ok: false, error: e.message })); return true;
+  }
   if (message?.type === 'model:settings' && game) { chrome.runtime.openOptionsPage(); respond({ ok: true }); return; }
   if (message?.type === 'model:preferences' && game) {
     const p = message.preferences || {}, preferences = {};
@@ -100,7 +114,10 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
   let rawModelResult = null, accounting = null;
   (async () => {
     const key = sender.tab.id;
-    if (pending.has(key)) throw new Error('已有分析正在进行。');
+    if (pending.has(key)) {
+      if (message.discussionId) pending.get(key).abort();
+      else throw new Error('已有分析正在进行。');
+    }
     // Reserve before the first await so cancellation and configuration changes
     // cover storage/permission preflight as well as the eventual fetch.
     memoryWorker.cancel();
@@ -110,6 +127,15 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
       if (controller.signal.aborted) { const error = new Error('Cancelled'); error.name = 'AbortError'; throw error; }
     };
     try {
+      if (message.discussionId) {
+        await discussionReady;
+        const saved = await discussions.get(message.discussionId);
+        const grant = message.selection;
+        if (!grant || (saved.snapshot.selfHand && grant.hand !== true) || (saved.snapshot.game && grant.game !== true)
+          || ((saved.snapshot.rivers || []).some(r => grant.rivers !== 'all' && !(grant.rivers === 'self' && r.seat === saved.snapshot.selfSeat)))) throw new Error('当前数据授权范围不含该历史快照，请恢复对应授权后再追问。');
+        if (!saved.chat.some(t => t.token === message.discussionToken && t.status === 'pending' && t.question === message.question)) throw new Error('追问状态已变化，请重新提问。');
+        message = { ...message, snapshot: saved.snapshot, context: saved.context, task: saved.type, lane: 'manual-review' };
+      }
       const { modelConfig: c } = await chrome.storage.local.get('modelConfig');
       checkCancelled();
       if (!c?.enabled) throw new Error('请先在设置中开启模型分析。');
@@ -149,7 +175,9 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
       if (typeof question !== 'string' || question.length > 4000) throw new Error('追问内容无效或过长。');
       const contextMode = 'round';
       let session = null, sessionContext = null;
-      {
+      if (message.discussionId) {
+        sessionContext = await discussions.context(message.discussionId);
+      } else {
         const info = message.context || {}, identity = info.identity || {};
         const revision = await configRevision(); checkCancelled();
         const memory = lane === 'live' && message.snapshot.source === 'live' && typeof identity.roundStartId === 'string'
@@ -228,7 +256,13 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
       }
       return outcome;
     } finally { clearTimeout(timer); if (pending.get(key) === controller) pending.delete(key); memoryWorker.pump(); }
-  })().then(respond).catch(error => respond({ ok: false, error: modelError(error), ...(error.validation ? { validation: error.validation } : {}), ...(accounting || {}), ...(rawModelResult && error.name !== 'AbortError' ? { rawModelResult } : {}) }));
+  })().catch(error => ({ ok: false, error: modelError(error), ...(error.validation ? { validation: error.validation } : {}), ...(accounting || {}), ...(rawModelResult && error.name !== 'AbortError' ? { rawModelResult } : {}) })).then(async outcome => {
+    if (message.discussionId) {
+      try { await discussions.answer(message.discussionId, message.discussionToken, outcome); }
+      catch (e) { outcome = { ok: false, error: e.message }; }
+    }
+    respond(outcome);
+  });
   return true;
 });
 

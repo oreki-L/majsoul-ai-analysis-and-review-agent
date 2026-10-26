@@ -74,3 +74,12 @@
 .analysis :is(button,input,select):focus-visible{outline:2px solid var(--mj-accent, #8bd4d1);outline-offset:2px}
 .analysis textarea{display:block;width:100%;resize:vertical;min-height:50px;max-height:160px;margin:5px 0;font:inherit;color:inherit;background:var(--mj-surface, #2b343b);border:1px solid var(--mj-border, #46515a);border-radius:6px;padding:7px}
 .analysis textarea:focus-visible{outline:2px solid var(--mj-accent, #8bd4d1);outline-offset:2px}
+.decision-discussions { display: grid; gap: 12px; margin: 12px 0; }
+.decision-discussion { border: 1px solid var(--border, #8299a5); border-radius: 8px; padding: 12px; overflow-wrap: anywhere; }
+.decision-discussion:first-child { border-top: 3px solid var(--accent, #327c92); }
+.decision-discussion header { line-height: 1.5; }
+.decision-discussion textarea { box-sizing: border-box; width: 100%; resize: vertical; }
+.discussion-turn { border-top: 1px solid var(--border, #8299a5); padding: 8px 0; }
+.discussion-chat { max-height: 420px; overflow-y: auto; overscroll-behavior: contain; }
+.decision-navigator { display: grid; gap: 6px; }
+.decision-discussion pre { max-height: 240px; overflow: auto; }

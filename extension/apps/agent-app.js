@@ -55,7 +55,7 @@
             return root.MJMjaiAdapter.fromObservation(controller.exportData(), { seat: state.selfSeat, hand: true });
           },
           seatLabels: state.players.slice(0, state.scores.length === 3 ? 3 : 4).map((_, i) => S.seatWind(state, i) + '家'),
-          phase: state.phase, round: state.round, selfSeat: state.selfSeat,
+          phase: state.phase, matchEnded: state.result?.gameEnded === true, round: state.round, selfSeat: state.selfSeat,
           selfHand: hand.tiles.concat(hand.drawn ? [hand.drawn] : []), drawnTile: hand.drawn,
           riichiLabels: view.historical ? [] : S.opponentRiichi(state).map(i => S.seatWind(state, i) + '家'),
           hintsReady: calibration.available, hintsCalibrated: calibration.calibrated,

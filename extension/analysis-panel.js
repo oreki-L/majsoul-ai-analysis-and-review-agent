@@ -4,6 +4,146 @@
   const selection = { game: true, rivers: 'all', hand: true };
   const defaults = () => ({ danger: true, efficiency: true, strategy: true, automatic: false, useModel: false, modelFromTurn: 1, interval: 8, limit: 20 });
   let previousDiscards = 0;
+  let discussionRecords = [], currentDiscussionId = null, discussionLoaded = false, discussionBusy = null, discussionError = '';
+  let historyOpen = false, historyFilter = '', historyAsked = false, selectedDecisionId = null;
+  const discussionDrafts = new Map();
+  const clone = value => JSON.parse(JSON.stringify(value));
+  function mergeDiscussion(record) {
+    if (!record?.id) return;
+    const index = discussionRecords.findIndex(r => r.id === record.id);
+    if (index < 0) discussionRecords.push(record); else if ((record.revision || 0) >= (discussionRecords[index].revision || 0)) discussionRecords[index] = record;
+  }
+  async function discussionCall(message) {
+    if (!available) throw new Error('离线演示不保存讨论；请在扩展中使用。');
+    const generation = lifecycle;
+    const response = await send(message);
+    if (!response?.ok) throw new Error(response?.error || '讨论历史保存失败。');
+    if (response.record && generation === lifecycle) mergeDiscussion(response.record);
+    return response;
+  }
+  async function loadDiscussions() {
+    if (discussionLoaded || !available) return;
+    discussionLoaded = true;
+    const generation = lifecycle;
+    try {
+      const response = await discussionCall({ type: 'discussion:list' });
+      if (generation !== lifecycle) return;
+      for (const record of response.records || []) mergeDiscussion(record);
+      // Loaded records restore retained panels; only a new result can become current.
+      // A previous game's last analysis must not masquerade as this game's latest decision.
+    } catch (e) { if (generation === lifecycle) { discussionLoaded = false; discussionError = e.message; } }
+    if (generation === lifecycle) repaint?.();
+  }
+  async function saveDecision(data, capturedContext, type, analysis, id, generation) {
+    if (!available) return;
+    try {
+      const response = await discussionCall({ type: 'discussion:save', record: { snapshot: data, context: capturedContext || {}, type, analysis } });
+      if (id === requestId && generation === lifecycle) currentDiscussionId = response.record?.id || currentDiscussionId;
+    } catch (e) { discussionError = e.message; }
+  }
+  async function askDiscussion(record) {
+    const question = (discussionDrafts.get(record.id) || '').trim();
+    if (!question || discussionBusy) return;
+    if (busy && pendingAutomatic) cancelWork();
+    if (busy) { discussionError = '请先完成或取消当前手动分析。'; repaint?.(); return; }
+    const generation = lifecycle, token = `${Date.now()}-${Math.random()}`;
+    discussionBusy = record.id; busy = true; pendingAutomatic = false; pendingFingerprint = ''; discussionError = '';
+    repaint?.();
+    try {
+      await discussionCall({ type: 'discussion:ask', id: record.id, question, token });
+      discussionDrafts.delete(record.id); repaint?.();
+      const response = await send({ type: 'model:analyze', provider: 'chat', discussionId: record.id, discussionToken: token, question, selection: { ...selection } });
+      if (generation !== lifecycle) return;
+      // The worker commits the answer even when this card was removed or the live position advanced.
+      const loaded = await discussionCall({ type: 'discussion:list' });
+      for (const saved of loaded.records || []) mergeDiscussion(saved);
+      if (!response?.ok) discussionError = response?.error || '追问失败，请重试。';
+    } catch (e) { if (generation === lifecycle) discussionError = e.message; }
+    finally { if (generation === lifecycle) { discussionBusy = null; busy = false; repaint?.(); } }
+  }
+  function discussionLabel(record, full = false) {
+    const snap = record.snapshot, round = snap.game?.round, identity = record.context?.identity;
+    return [full ? identity?.matchId || '未命名对局' : '', round ? `${['东','南','西','北'][round.wind] || '东'}${round.index + 1}局 ${snap.game?.honba || 0}本场` : '',
+      `巡目 ${turnNumber(snap) ?? '未知'}`, `事件 ${record.context?.position ?? snap.lastStep ?? '未知'}`, full ? record.type : ''].filter(Boolean).join(' · ');
+  }
+  const matchKey = record => JSON.stringify(record.context?.identity?.matchId || 'unknown');
+  const roundGroup = record => JSON.stringify([record.context?.identity?.roundStartId, record.snapshot.game?.round, record.snapshot.game?.honba]);
+  function navigatorRecords() {
+    if (context?.mode !== 'live' || current?.matchEnded === true) return discussionRecords;
+    const identity = context.contextIdentity || {};
+    return discussionRecords.filter(r => identity.roundStartId
+      ? r.context?.identity?.roundStartId === identity.roundStartId && r.context?.identity?.matchId === identity.matchId
+      : JSON.stringify(r.snapshot.game?.round) === JSON.stringify(current.round));
+  }
+  function navigationGroups(latest) {
+    const records = navigatorRecords();
+    const selected = records.includes(latest) ? latest : records.at(-1);
+    const matches = [...new Set(records.map(matchKey))];
+    const inMatch = records.filter(r => matchKey(r) === matchKey(selected));
+    const rounds = [...new Set(inMatch.map(roundGroup))];
+    const decisions = inMatch.filter(r => roundGroup(r) === roundGroup(selected));
+    return { selected, matches, inMatch, rounds, decisions };
+  }
+  function decisionNavigatorHtml(latest) {
+    if (!navigatorRecords().length) return '<p class="muted">本小局暂无已记录分析决策点。</p>';
+    const { selected, matches, inMatch, rounds, decisions } = navigationGroups(latest);
+    const options = (values, label, chosen) => values.map((value, i) => `<option value="${i}" ${value === chosen ? 'selected' : ''}>${escape(label(value, i))}</option>`).join('');
+    return `<div class="decision-navigator" aria-label="巡目复盘选择器"><strong>切换已记录分析</strong>
+      ${context?.mode === 'live' && current?.matchEnded !== true ? '' : `<label>对局<select id="decision-match">${options(matches, (_,i) => `对局 ${i + 1}`, matchKey(selected))}</select></label>
+      <label>小局<select id="decision-round">${options(rounds, key => discussionLabel(inMatch.find(r => roundGroup(r) === key)).split(' · ')[0], roundGroup(selected))}</select></label>`}
+      <label>巡目 / 决策点<select id="decision-position">${options(decisions, r => `巡目 ${turnNumber(r.snapshot) ?? '未知'} · 事件 ${r.context.position ?? r.snapshot.lastStep ?? '未知'} · ${r.type}`, selected)}</select></label>
+      <button id="decision-current">回到当前</button><p class="muted">可回看所有已生成分析的决策点，包括未提问的分析；未分析巡目不在此列。</p></div>`;
+  }
+  function wireDecisionNavigator($, render, latest) {
+    if (!navigatorRecords().length) return;
+    const { matches, inMatch, rounds, decisions } = navigationGroups(latest);
+    const select = record => { selectedDecisionId = record?.id || null; render(); };
+    if (context?.mode !== 'live' || current?.matchEnded === true) {
+    $('decision-match').onchange = e => select(discussionRecords.filter(r => matchKey(r) === matches[Number(e.target.value)]).at(-1));
+    $('decision-round').onchange = e => select(inMatch.filter(r => roundGroup(r) === rounds[Number(e.target.value)]).at(-1));
+    }
+    $('decision-position').onchange = e => select(decisions[Number(e.target.value)]);
+    $('decision-current').onclick = () => { selectedDecisionId = null; render(); };
+  }
+  function discussionHtml() {
+    const latest = discussionRecords.find(r => r.id === (selectedDecisionId || currentDiscussionId));
+    const cards = [...(latest ? [latest] : []), ...discussionRecords.filter(r => r.panel && r.id !== latest?.id).reverse()];
+    const cardHtml = (record, index) => {
+      const a = record.analysis;
+      return `<article class="decision-discussion" aria-label="${index === 0 && record === latest ? '最新决策讨论' : '保留的决策讨论'}"><header><strong>${record === latest ? selectedDecisionId ? '历史决策 · ' : '最新分析 · ' : '保留讨论 · '}${escape(discussionLabel(record))}</strong></header>
+        <div class="analysis-actions"><button id="discussion-collapse-${index}">${record.collapsed ? '展开讨论' : '折叠讨论'}</button>${record.panel ? `<button id="discussion-remove-${index}">移出面板（保留历史）</button>` : ''}</div>
+        ${record.collapsed ? '' : `<p class="analysis-meta muted">${escape(a.model)} · ${escape(a.time || '')} · 固定在该决策时点</p>
+        ${selectedDecisionId === record.id ? `<p class="warn">正在复盘该历史决策；实时采集继续，牌面提示暂停。</p><div class="analysis-global-hand" aria-label="所选决策手牌">${(record.snapshot.selfHand || []).map(face).join('')}</div>` : ''}<div class="analysis-decision"><span>${decisionHeading(a)}</span>${a.result.decision.tile ? face(a.result.decision.tile) : ''}<p>${reasons(a.result.decision.reasons)}</p></div>
+        <details><summary>原分析与当时局面</summary><p class="muted">${escape(discussionLabel(record, true))}</p>${resultHtml(a)}<pre>${escape(JSON.stringify(record.snapshot, null, 2))}</pre></details>
+        <div class="discussion-chat">${record.chat.map(t => `<div class="discussion-turn"><p><strong>你：</strong>${escape(t.question)}</p>${t.status === 'completed' ? resultHtml(t.response) : `<p class="muted">${escape(t.status === 'pending' ? '正在回答…' : t.error)}</p>`}</div>`).join('')}</div>
+        <label for="discussion-question-${index}">追问该决策</label><textarea id="discussion-question-${index}" maxlength="4000" rows="2" placeholder="仅讨论该决策当时的局面">${escape(discussionDrafts.get(record.id) || '')}</textarea>
+        <button id="discussion-send-${index}" ${discussionBusy || !enabled || provider !== 'chat' ? 'disabled' : ''}>${discussionBusy === record.id ? '正在追问…' : '发送追问并保留讨论'}</button>${!enabled || provider !== 'chat' ? '<p class="muted">追问需在模型设置中开启 LLM 接口。</p>' : ''}`}</article>`;
+    };
+    const matches = discussionRecords.filter(r => (!historyAsked || r.chat.length) && discussionLabel(r, true).toLowerCase().includes(historyFilter.toLowerCase())).slice().reverse();
+    return `<section class="decision-discussions" aria-label="决策讨论">${decisionNavigatorHtml(latest)}${cards.map(cardHtml).join('')}${discussionError ? `<p class="warn">${escape(discussionError)}</p>` : ''}
+      <button id="discussion-history">${historyOpen ? '收起决策历史' : '查询决策历史'}</button>
+      ${historyOpen ? `<label>筛选对局 / 小局 / 巡目 / 事件<input id="discussion-filter" value="${escape(historyFilter)}" placeholder="例如：东1局 或 巡目 7"></label><label><input id="discussion-asked" type="checkbox" ${historyAsked ? 'checked' : ''}>仅有追问</label><p class="muted">共 ${matches.length} 条。折叠和移出面板均保留历史；空间不足时优先淘汰未提问的旧分析。</p>${matches.map((r,i) => `<p>${escape(discussionLabel(r, true))} · ${r.chat.length} 次追问 <button id="discussion-open-${i}">重新打开讨论</button></p>`).join('')}` : ''}</section>`;
+  }
+  function wireDiscussions($, render) {
+    const latest = discussionRecords.find(r => r.id === (selectedDecisionId || currentDiscussionId));
+    const cards = [...(latest ? [latest] : []), ...discussionRecords.filter(r => r.panel && r.id !== latest?.id).reverse()];
+    const patch = async (r, value) => { try { await discussionCall({ type: 'discussion:patch', id: r.id, patch: value }); } catch (e) { discussionError = e.message; } render(); };
+    cards.forEach((record, i) => {
+      $('discussion-collapse-' + i).onclick = () => patch(record, { collapsed: !record.collapsed });
+      if (record.panel) $('discussion-remove-' + i).onclick = () => { if (record.id === currentDiscussionId) currentDiscussionId = null; if (record.id === selectedDecisionId) selectedDecisionId = null; return patch(record, { panel: false }); };
+      if (!record.collapsed) {
+        $('discussion-question-' + i).oninput = e => discussionDrafts.set(record.id, String(e.target.value || '').slice(0,4000));
+        $('discussion-send-' + i).onclick = e => { if (e.isTrusted) return askDiscussion(record); };
+      }
+    });
+    wireDecisionNavigator($, render, latest);
+    $('discussion-history').onclick = () => { historyOpen = !historyOpen; render(); };
+    if (historyOpen) {
+      $('discussion-filter').onchange = e => { historyFilter = e.target.value; render(); };
+      $('discussion-asked').onchange = e => { historyAsked = e.target.checked; render(); };
+      discussionRecords.filter(r => (!historyAsked || r.chat.length) && discussionLabel(r, true).toLowerCase().includes(historyFilter.toLowerCase())).slice().reverse().forEach((r,i) => { $('discussion-open-' + i).onclick = () => patch(r, { panel: true, collapsed: false }); });
+    }
+  }
   let preferences = defaults(), preferencesLoaded = false, autoTimer = null, lastPosition = '', pendingFingerprint = '', lastAutoKey = '', roundKey = '', autoCalls = 0, lastModelAt = 0;
   function selectedTask() { return preferences.strategy || (preferences.danger && preferences.efficiency) ? 'combined' : preferences.danger ? 'danger' : 'efficiency'; }
   function hasFeatures() { return preferences.danger || preferences.efficiency || preferences.strategy; }
@@ -35,7 +175,7 @@
       limitations: local.danger?.limitations || [] } };
   }
   async function runAnalysis(automatic = false) {
-    if (busy || (automatic && !hasFeatures())) return;
+    if (busy || discussionBusy || (automatic && !hasFeatures())) return;
     const id = ++requestId;
     try {
       const data = snapshot(), external = automatic ? usesModel(data) : preferences.useModel;
@@ -44,6 +184,7 @@
       const extra = external && provider === 'mjai' ? { engineRequest: engineRequest(requestedTask) }
         : external ? { lane: automatic ? 'live' : 'manual-review', question: automatic ? '' : questionDraft,
           context: typeof current.analysisContext === 'function' ? current.analysisContext() : undefined } : {};
+      const capturedContext = external && extra.context ? clone(extra.context) : (typeof current.analysisContext === 'function' ? clone(current.analysisContext()) : { identity: context?.contextIdentity, position: context?.cursor ?? data.lastStep });
       const captured = fingerprint(), seatLabels = current.seatLabels.slice();
       const capturedPosition = { round: data.game?.round, source: context?.mode, cursor: context?.cursor, selfSeat: data.selfSeat, hand: data.selfHand?.slice() || [] };
       pendingFingerprint = automatic ? captured : ''; pendingAutomatic = automatic; busy = true;
@@ -70,6 +211,7 @@
       }
       const completed = { ...response, actualProvider, seatLabels, positionPhase: data.phase, fingerprint: captured, time: new Date().toLocaleTimeString('zh-CN'), position: capturedPosition };
       if (automatic) result = completed; else globalResult = completed;
+      await saveDecision(data, capturedContext, requestedTask, completed, id, lifecycle);
     } catch (e) { if (id === requestId) { if (automatic) failure = e.message; else globalFailure = e.message; } }
     finally { if (id === requestId) { busy = false; pendingFingerprint = ''; repaint?.(); } }
   }
@@ -179,7 +321,7 @@
     connected = true;
     chrome.runtime.onMessage.addListener(configChanged);
     window.addEventListener('focus', refresh);
-    refresh();
+    refresh(); loadDiscussions();
   }
   function destroy() {
     cancelWork(); preferences = defaults(); preferencesLoaded = false; lastPosition = ''; lastAutoKey = ''; roundKey = ''; previousDiscards = 0; autoCalls = 0; lastModelAt = 0;
@@ -193,6 +335,7 @@
     }
     connected = false; enabled = false; busy = false; result = null; failure = ''; preview = false; provider = 'chat';
     globalResult = null; globalFailure = ''; pendingAutomatic = false; questionDraft = '';
+    discussionRecords = []; currentDiscussionId = null; discussionLoaded = false; discussionBusy = null; discussionError = ''; discussionDrafts.clear(); historyOpen = false; selectedDecisionId = null;
     modelFailures = {}; modelFailureExpanded = {};
     current = null; context = null; repaint = null;
     preparationKey = ''; preparation = null; preparationError = ''; preparationBusy = false;
@@ -205,6 +348,8 @@
       content = container.querySelector('[data-analysis-content]');
     }
     container = content;
+    const activeInput = container.getRootNode?.().activeElement || document.activeElement;
+    const inputState = activeInput?.id?.startsWith('discussion-question-') ? { id: activeInput.id, start: activeInput.selectionStart, end: activeInput.selectionEnd } : null;
     const oldScroll = container.querySelector?.('.analysis')?.scrollTop || 0;
     for (const detail of container.querySelectorAll?.('details[data-section]') || []) detailsState[detail.dataset.section] = detail.open;
     if (hooks.onHints && hooks.onHints !== nextHooks.onHints) hooks.onHints(null);
@@ -226,7 +371,7 @@
     let selectedSnapshot = null;
     try { selectedSnapshot = snapshot(); } catch (_) {}
     const hintHand = current.selfHand || selectedSnapshot?.selfHand;
-    hooks.onHints?.(live && !stale && result?.result && Array.isArray(hintHand) && hintHand.length ? {
+    hooks.onHints?.(live && !selectedDecisionId && !stale && result?.result && Array.isArray(hintHand) && hintHand.length ? {
       hand: hintHand.slice(), drawnTile: current.drawnTile ?? selectedSnapshot?.selfDrawnTile ?? null, decision: result.result.decision,
       danger: result.result.danger, seatLabels: result.seatLabels.slice()
     } : null);
@@ -234,7 +379,9 @@
     try { const raw = snapshot(); if (preview) requestPreparation(raw); payload = preparation ? JSON.stringify(preparation, null, 2) : '正在整理当前局面数据…'; } catch (e) { error = e.message; }
     if (preview && preparationError) error = preparationError;
     const disclosure = (key, label, content) => `<details data-section="${key}" ${detailsState[key] ? 'open' : ''}><summary>${label}</summary>${content}</details>`;
-    const r = result?.result;
+    const savedAutomatic = !!result && discussionRecords.some(record => record.analysis.fingerprint === result.fingerprint);
+    const savedGlobal = !!globalResult && discussionRecords.some(record => record.analysis.fingerprint === globalResult.fingerprint);
+    const r = savedAutomatic ? null : result?.result;
     const candidateTiles = [...new Set([...(r?.efficiency || []).map(e => e.tile), ...(r?.danger || []).map(d => d.tile)])].filter(t => t && t !== r?.decision?.tile).slice(0, 3);
     const hand = Array.isArray(current.selfHand) ? current.selfHand : [];
     const activeResult = (live || context?.mode === 'replay') && !stale ? r : null;
@@ -274,7 +421,7 @@
       <label title="仅限制自动调用，手动分析不受限。">每局调用上限 <input id="model-limit" type="number" min="1" max="100" value="${preferences.limit}"> <span class="muted">已用 ${autoCalls} 次</span></label>
       ${!preferences.useModel ? '<p class="muted">本地计算，不发送数据。</p>' : ''}
       <div class="analysis-calibration"><button title="${current.hintsReady ? '首次使用需校准手牌位置，可随时重校。' : '进入游戏牌桌后可校准手牌提示。'}" id="analysis-calibrate" ${current.hintsReady ? '' : 'disabled'}>${current.hintsCalibrated ? '重新校准手牌提示' : '校准手牌提示'}</button></div><button id="model-preview">${preview ? '收起' : '查看'}分析数据</button>${preview ? `<pre>${escape(payload || error)}</pre>` : ''}${error ? `<p class="warn">${escape(error)}</p>` : ''}`;
-    const globalBusy = busy && !pendingAutomatic;
+    const globalBusy = busy && !pendingAutomatic && !discussionBusy;
     const savedRound = globalResult?.position.round;
     const savedPosition = globalResult ? [globalResult.position.source === 'replay' ? '牌谱' : globalResult.position.source === 'live' ? '实时' : '历史',
       savedRound ? `${['东', '南', '西', '北'][savedRound.wind] || '东'}${savedRound.index + 1}局` : '',
@@ -284,28 +431,28 @@
       <h3>全局分析</h3>
       ${provider === 'chat' && preferences.useModel ? `<label for="model-question">追问（可选）</label><textarea id="model-question" maxlength="4000" rows="2" placeholder="例如：为什么刚才建议打这张牌？">${escape(questionDraft)}</textarea>` : ''}
       <div class="analysis-actions"><button id="model-run" ${busy || !!error || !preferencesLoaded ? 'disabled' : ''}>${replay ? '分析所选局面' : '分析当前局面'}</button>${globalBusy ? '<button id="model-cancel">取消</button>' : ''}</div>
-      ${globalResult ? `<p class="analysis-meta muted">${escape(savedPosition)} · ${escape(globalResult.model)}</p><div class="analysis-global-result">
+      ${globalResult && !savedGlobal ? `<p class="analysis-meta muted">${escape(savedPosition)} · ${escape(globalResult.model)}</p><div class="analysis-global-result">
         <div class="analysis-decision"><span>${decisionHeading(globalResult)}</span>${globalResult.result.decision.tile ? face(globalResult.result.decision.tile) : ''}<p>${escape(globalResult.result.decision.reasons?.[0] || '请展开分析依据。')}</p></div>
-        ${disclosure('global-details', '分析依据', `${resultHtml(globalResult)}${globalResult.position.hand.length ? `<div class="analysis-global-hand" aria-label="分析时手牌">${globalResult.position.hand.map(face).join('')}</div>` : ''}${localHtml(globalResult.localAnalysis, globalResult.positionPhase)}`)}</div>` : '<p class="muted">尚未分析</p>'}
+        ${disclosure('global-details', '分析依据', `${resultHtml(globalResult)}${globalResult.position.hand.length ? `<div class="analysis-global-hand" aria-label="分析时手牌">${globalResult.position.hand.map(face).join('')}</div>` : ''}${localHtml(globalResult.localAnalysis, globalResult.positionPhase)}`)}</div>` : savedGlobal ? '' : '<p class="muted">尚未分析</p>'}
       ${failureHtml(globalFailure, 'global')}
       </section>`;
     const markup = `<section class="analysis" aria-label="模型分析">
-      ${modeControls}${replayControls}
+      ${modeControls}${replayControls}${discussionHtml()}
       <div class="analysis-switches" role="group" aria-label="辅助功能">
       <label><input id="model-auto" type="checkbox" ${preferences.automatic ? 'checked' : ''}> 自动分析</label>
       <label><input id="model-use" type="checkbox" ${preferences.useModel ? 'checked' : ''}> 调用模型</label>
       ${[['danger', '危险牌提示'], ['efficiency', '手牌建议'], ['strategy', '攻守建议']].map(([key, label]) => `<label><input id="feature-${key}" type="checkbox" ${preferences[key] ? 'checked' : ''}> ${label}</label>`).join('')}
       <button id="model-preset">综合辅助</button></div>
       <header class="analysis-heading"><strong>${escape(roundLabel)}${selfLabel ? ` · ${escape(selfLabel)}${replay ? '视角' : ''}` : ''}</strong><span class="analysis-state">${!preferences.useModel ? '仅本地分析' : preferences.automatic ? '自动分析' : '手动分析'}</span></header>
-      ${busy ? `<p class="${live ? 'warn' : 'muted'}" role="status" aria-live="polite">${live ? '正在分析，请先不要出牌。' : '正在分析中…'}</p>` : ''}
+      ${busy ? `<p class="${live ? 'warn' : 'muted'}" role="status" aria-live="polite">${discussionBusy ? '正在回答该决策的追问，可继续对局。' : live ? '正在分析，请先不要出牌。' : '正在分析中…'}</p>` : ''}
       ${(current.riichiLabels || []).length ? `<p class="analysis-riichi">${replay ? '已立直' : '立直警戒'} · ${(current.riichiLabels || []).map(escape).join(' · ')}</p>` : ''}
       <div class="analysis-main" role="status" aria-live="polite">
       ${stale && !busy ? '<p class="warn analysis-stale">局面或分析功能已变化，以下为旧结果，请重新分析。</p>' : ''}
-      ${r ? `<div class="analysis-decision"><span>${decisionHeading(result)}</span>${r.decision.tile ? face(r.decision.tile) : ''}<p>${escape(r.decision.reasons?.[0] || '请结合当前局面判断。')}</p></div>${candidateHtml}` : busy ? '' : `<div class="analysis-empty"><strong>${!current.round ? '等待开局数据' : preferences.automatic ? '等待轮到你出牌' : '自动提示未开启'}</strong>${!hasFeatures() ? '<p class="muted">请至少开启一项辅助功能。</p>' : preferences.useModel && !enabled ? '<p class="muted">请在模型设置中接入并开启模型。</p>' : ''}</div>`}
+      ${r ? `<div class="analysis-decision"><span>${decisionHeading(result)}</span>${r.decision.tile ? face(r.decision.tile) : ''}<p>${escape(r.decision.reasons?.[0] || '请结合当前局面判断。')}</p></div>${candidateHtml}` : busy || savedAutomatic ? '' : `<div class="analysis-empty"><strong>${!current.round ? '等待开局数据' : preferences.automatic ? '等待轮到你出牌' : '自动提示未开启'}</strong>${!hasFeatures() ? '<p class="muted">请至少开启一项辅助功能。</p>' : preferences.useModel && !enabled ? '<p class="muted">请在模型设置中接入并开启模型。</p>' : ''}</div>`}
       ${!replay && (current.phase === 'ended' || context?.mode === 'history') ? '<p class="muted">历史或结算局面 · 仅作复盘</p>' : ''}
       ${failureHtml(failure, 'automatic')}
       </div>
-      ${disclosure('reasons', '详细分析', `${handSection}${r ? `${resultHtml(result)}${localHtml(result.localAnalysis, result.positionPhase)}<p class="analysis-meta muted">${escape(result.model)} · ${escape(result.time)}${stale ? ' · 旧结果' : ' · 对应分析时快照'}</p>` : '<p class="muted">尚未生成分析结果。</p>'}`)}
+      ${disclosure('reasons', '详细分析', `${handSection}${r ? `${resultHtml(result)}${localHtml(result.localAnalysis, result.positionPhase)}<p class="analysis-meta muted">${escape(result.model)} · ${escape(result.time)}${stale ? ' · 旧结果' : ' · 对应分析时快照'}</p>` : savedAutomatic ? '' : '<p class="muted">尚未生成分析结果。</p>'}`)}
       ${globalHtml}
       ${disclosure('controls', '分析设置', settings)}
       <footer class="analysis-footer"><button id="analysis-collector">牌局获取器</button><button id="analysis-history">整场记录</button></footer>
@@ -315,6 +462,8 @@
     const renderKey = markup.replace(/(<details data-section="[^"]+")\s*(?:open)?\s*>/g, '$1>');
     if (rendered.get(container) !== renderKey) { container.innerHTML = markup; rendered.set(container, renderKey); }
     const $ = id => container.querySelector('#' + id);
+    wireDiscussions($, render);
+    if (inputState) { const input = $(inputState.id); input?.focus?.({ preventScroll: true }); input?.setSelectionRange?.(inputState.start, inputState.end); }
     for (const [scope, message] of [['automatic', failure], ['global', globalFailure]]) {
       if (message && modelFailures[scope]?.error === message) $('model-failure-' + scope).onclick = () => {
         modelFailureExpanded[scope] = !modelFailureExpanded[scope]; render();

@@ -1,34 +1,40 @@
-# Majsoul AI Analysis & Review Agent · Mahjong analysis and review
+# Majsoul AI Analysis & Review Agent
 
-**Current context in 0.8.1:** Every analysis proactively sends the full frozen authorized snapshot, including the current hand, drawn tile, public table and discards. Captured authorized events and successful exchanges stay interleaved in time within the same round, branch and lane. Mid-round baselines and coverage gaps are explicit; current facts override old answers. Tools remain enabled and detailed calculations are queried on demand. Local safety limits fail explicitly without silently cropping history.
+**Live advice · Follow-up questions · Bring your own model API**
 
 [简体中文](README.md) | **English** | [日本語](README.ja.md)
 
-A browser extension for the Mahjong Soul web client. Inspect the table in an in-game panel, keep local match results, and analyze locally or call your own LLM service manually or automatically when enabled. Built with Manifest V3, with a bundled MV3-adapted Pi Agent and no telemetry. LLM analysis is disabled by default.
+A live analysis assistant for the Mahjong Soul web client, centered on a pure LLM runtime using your own model API. Get advice at the current decision point, then ask “Why not discard another tile?” or “Should I push or defend now?” Replay review and match records are supporting features.
 
-**Bring your own model and API.** Set your endpoint URL, model ID, and API key to connect cloud models, third-party gateways, or local model services that provide an **OpenAI Chat Completions-compatible API with tools support**. Choose your provider freely. Requests go directly to your configured service without a relay operated by this project. [See setup instructions](#llm-setup).
+**Choose your own model and API.** Set the endpoint, model ID, and API key for an **OpenAI Chat Completions-compatible API with tools support**: a cloud model, third-party gateway, or local service. Requests go directly to your configured service. [LLM setup](#llm-setup)
 
-These language links switch the documentation only. The extension UI is currently in Simplified Chinese. English and Japanese documentation does not imply support for other regional game servers.
+The pure LLM path needs no specialist decision engine such as Mortal. Local shanten, tile-efficiency calculations, and danger evidence support validation and explanation. Specialist engines are optional backends, disabled by default. No claim is made that pure LLM playing strength matches MAKA, Mortal, or other specialist engines.
 
-The stable **0.8.1** release includes live/replay switching, local and model analysis, independent global reviews, configurable thinking and output limits, light/dark themes, and an on-demand collector window. Earlier profiles passed synthetic-game checks in isolated Edge and Chrome environments. For 0.6.0, Edge passed an actual extension flow with simulated responses, and Chrome passed offline UI checks; loading the Chrome MV3 extension was not completed in this round. Full live protocol coverage for the current Unity client, reconnection recovery, and the quality of real model advice remain unverified. No live recognition accuracy or playing strength is claimed.
+- **Full Agent:** live analysis, follow-up questions, hand hints, model settings, and traces, including collection and review features.
+- **Standalone collector:** collection, display, history, and export only; no model code or model host permissions.
+- **Opt in:** model calls and automatic analysis start disabled. Local calculations work without an API. Built with Manifest V3, a bundled MV3-adapted Pi Agent, and no telemetry.
 
-**How analysis works in 0.8.1:** choose your model and service; the extension supplies authorized game data to its bundled Pi Agent. The harness freezes inputs and manages read-only tools, request budgets, cancellation, result validation, and traces. Use a cloud model, compatible gateway, or local server that supports **OpenAI Chat Completions and tools**. Model analysis starts disabled; local analysis needs no API.
+| Status | Scope |
+| --- | --- |
+| Verified | Synthetic positions, simulated model responses, offline UI behavior, and local regressions; see [VALIDATION.md](VALIDATION.md) |
+| Experimental / unverified | Full live protocol coverage for the current Unity client, reconnection recovery, real model compatibility and advice quality; no real-weight validation of the local mjai backend |
+| Planned | Broader real-game and model-quality evaluation; this is not a delivered capability |
 
-The six default read-only tools in v0.8.1 let the model query your authorized hand, public table, selected players' discards, round events, local discard comparisons, and danger evidence as needed. They read frozen authorized inputs, excluding opponents' concealed tiles and future replay information. Each live analysis allows at most **2 model requests**, each manual analysis **3**, with **4 tool calls** at most in either case, including the final model answer in the request budget. These are limits, not mandatory call counts.
+The descriptions below cover current source. Packaged contents of [stable release 0.8.1](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.8.1) are specific to that release. Earlier profiles passed synthetic-game checks in isolated Edge and Chrome environments. In 0.6.0, Edge passed an actual extension flow with simulated responses and Chrome passed offline UI checks; these do not establish complete current Chrome MV3 loading or live protocol validation.
 
-**New in 0.8.0: match memory learning.** It starts disabled. When enabled, individual rounds retain evidence from your actual live play. Only an explicit end of an East-only or South match with at least **3 reliably covered complete rounds and 20 actual self actions with complete context** can trigger one asynchronous summary through your configured model API. Each match produces observations awaiting confirmation, not automatic stable preferences. Review, correct, or delete candidates, or save an explicit preference manually.
-
-In 0.8.0, live-source automatic analysis with saved entries can additionally query a fixed round version through read-only `get_user_memory`; this memory tool was absent from v0.7.0. Memory can guide explanation emphasis but cannot override table facts, mahjong reasoning, or safety checks. Disabling learning stops collection and automatic summaries; saved memory remains available for later explanations until deleted or cleared. Summaries may incur extra costs, background completion after closing the browser is not guaranteed, and real-service memory quality is unverified. See [match memory learning](docs/USER_MEMORY.md) (Chinese).
-
-The project is maintained at [oreki-L/majsoul-ai-analysis-and-review-agent](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent), with the complete original private development history retained after sanitization. See the [history migration notes](docs/HISTORY.md) (Chinese).
+Language links switch documentation only. The extension UI is currently Simplified Chinese; English and Japanese pages do not imply support for other regional game domains.
 
 ![Floating analysis card with synthetic game data and model output](docs/images/agent-floating-preview.png)
 
 ## Features
 
-**Sessions and usage in v0.8.0**: model analysis uses `round` and six read-only tools, retaining authorized context for the current round. Manual global reviews support follow-up questions; automatic hints do not reuse manual explanation history. Legacy `snapshot` and disabled-tool settings no longer alter the new request flow. Configure per-million-token prices, export the latest 100 numeric usage records, or clear local sessions and usage. Missing information stays unknown.
+**New in current source: decision discussions.** The current result stays at the top as `最新分析`. `发送追问并保留讨论` sends a question and automatically retains that decision when new advice arrives. Each decision uses its own frozen position, original advice, and chat context, separate from the live round's main session. Collapse it, remove it from the panel while keeping history, or use `查询决策历史` to filter by match, round, turn, or event, show only discussions with questions, and reopen one. Questions require a configured and enabled `chat` LLM. This describes current source, not the published 0.8.1 packages.
 
-- **Bring your own model API:** customize the endpoint, model ID, and API key to use different compatible services. Select table information, all or selected discard pools, and optionally your own hand; preview the payload and manually request danger or discard advice.
+Discussions and panel state are stored locally in the extension and restored after reload. An interrupted question is marked failed on restart and can be retried. There is no preset question-count limit, but request budgets, API costs, and local limits of **6 MB / 400 decisions** apply. Only old analyses without questions or retention are evicted; writes fail when space cannot safely be freed. Clearing local sessions and usage also clears discussions. There is no cloud sync or permanent-storage guarantee. Configure per-million-token prices and export the latest 100 numeric usage records; missing usage stays unknown.
+
+**Review and question earlier turns:** `切换已记录分析` provides a `巡目 / 决策点` selector. Before the whole live match ends, it lists analyzed decisions from the current round only and hides match/round selectors, including during round settlement. Those selectors appear only after an explicit whole-match end signal or in history/replay modes. Selecting a decision displays its captured hand and original advice at the top as `历史决策`; ask further questions and retain the discussion. Collection continues while hand annotations pause; `回到当前` returns to the current position. Only retained analysis records are available, including those without questions. Unanalyzed, uncollected, or evicted turns cannot be recovered automatically. Unreliable turn numbers show as unknown, distinguished by event identifiers. Reloading restores retained discussions without treating an old decision as the latest current analysis; old analyses without questions remain accessible through the selector or history.
+
+- **Bring your own model API:** customize the endpoint, model ID, and API key. Data is prepared for danger, hand, and push/fold analysis; enable model calls to request advice manually or automatically by turn. With model calls disabled, analysis stays local.
 - **Floating analysis card:** a separate, persistent result card with a draggable title and saved position. Click candidate tiles to compare explanations; hand details, local efficiency tables, and traces stay folded. The collector starts collapsed and opens independently for discards, dora, and history.
 - **Hand annotations:** after manual calibration, recommendations and high-risk tiles appear over the current live hand, including matching copies. Normal annotations let game clicks pass through. A changed state clears old markers immediately; delayed results cannot annotate a newer state.
 - **Dora display:** indicators and corresponding dora shown side by side, including honor-tile cycles, red fives, and three-player manzu rules. Hidden ura-dora is not inferred.
@@ -77,7 +83,9 @@ npm run eval
 
 ## LLM setup
 
-`round` sends the current round baseline once, then appends new events, authorized snapshot JSON Patch changes and successful exchanges in order. Mid-round starts are labeled; coverage gaps create a new checkpoint. Rules and a static schema precede dynamic data, but Chat Completions still retransmits history. Fewer network bytes, server cache hits, and lower billed cost are separate outcomes; savings are not promised. Missing usage or partial failures leave unconfirmed totals and costs unknown. See [authorization and caching](docs/AGENT_SESSIONS.md) (Chinese).
+The per-analysis model-request budget includes the final answer and is a limit, not a required call count. The conditional memory tool `get_user_memory` does not increase the total tool-call budget.
+
+Every analysis proactively sends the full frozen authorized snapshot: your current hand, drawn tile, public table, and discards. Current facts override old answers. `round` retains captured authorized events and successful exchanges interleaved in time within the current round, branch, and discussion group; mid-round starts and coverage gaps are explicit. Six default read-only tools expose your hand, public table, selected players' discards, round events, local discard comparisons, and danger evidence, reading only frozen authorized input. Local safety limits fail explicitly and preserve history without silent cropping. Chat Completions still retransmits history; cache hits and cost savings are not promised. Missing usage remains unknown. See [authorization and caching](docs/AGENT_SESSIONS.md) (Chinese).
 
 The full edition accepts your own model API; no project-specific service or account is required. LLM analysis and explanation remain the main use. The default provider is `chat`, with analysis disabled. One `chat` and one optional `mjai` configuration are retained separately; only the selected provider runs per request.
 
@@ -89,7 +97,7 @@ The full edition accepts your own model API; no project-specific service or acco
 
 Local analysis is available without an API. The card offers danger, hand-efficiency and offense/defense switches, with a combined preset. Model calls and automatic analysis are both off by default.
 
-The manual button displays a combined analysis of the captured position in a separate global-analysis area. It ignores automatic feature and turn thresholds while respecting the model-call switch. Results remain on the page across position, replay and settings changes until a successful replacement; failures and cancellation retain the previous result. The saved position and time identify its context. Only automatic results annotate live tiles. Reloading clears the saved result.
+The manual analysis button ignores automatic feature and turn thresholds while respecting the model-call switch. Successful results appear as `最新分析`; decisions with questions are retained separately. Failures and cancellation keep the previous result. Each discussion identifies its captured position and supports further questions about that decision. Only automatic results annotate live tiles.
 
 1. To use a model, open `分析设置`, configure your service in `模型设置`, and grant its host permission.
 2. The configuration page explains data sharing and possible fees. Enable `调用模型` to send public table information and your own hand. Your seat must be known; opponents' hidden tiles and account credentials are excluded.
@@ -128,6 +136,12 @@ The full edition's `牌谱复盘 · NAGA` panel is disabled by default. Open a c
 The first version supports standard four-player calls, kans, riichi, single-winner hands, and ordinary exhaustive draws. Multiple winners, responsibility payments, nagashi mangan, abortive draws, three-player games, unknown yaku, and missing data are rejected per hand. See [NAGA integration](docs/NAGA-INTEGRATION.md) for exact limits. The extension does not automatically upload, charge, read reports, or collect account credentials. Official prices and acceptance are determined on the official site. The collector-only edition contains no NAGA modules.
 
 ## History and replays
+
+### Optional match memory learning
+
+Disabled by default. When enabled, it saves evidence from your actual play. Only an explicit end of an East-only or South match with at least **3 reliably covered complete rounds and 20 actual self actions with complete context** triggers one match summary through your configured model API. Observations await confirmation and can be reviewed, corrected, or deleted; explicit preferences can also be saved manually. Live-source automatic analysis can query a fixed round version through read-only `get_user_memory`. Memory adjusts explanation emphasis without overriding facts, mahjong reasoning, or safety checks. Disabling learning stops collection and automatic summaries; saved memory remains until deleted or cleared. Summaries may cost extra, completion after closing the browser is not guaranteed, and real-model memory quality is unverified. See [match memory learning](docs/USER_MEMORY.md) (Chinese).
+
+### Results and replays
 
 Hand results show tsumo, ron, exhaustive draws, or abortive draws, along with scores and net changes from the start of the hand, including riichi payments. Missing final scores remain unknown and may be completed when the next hand begins.
 
@@ -170,6 +184,7 @@ Open `http://127.0.0.1:8126/tests/preview.html`. Tests and demos use synthetic p
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Local development, reproduction data, and PR requirements |
 | [SECURITY.md](SECURITY.md) | Permissions, credentials, data handling, and vulnerability reports |
 | [CHANGELOG.md](CHANGELOG.md) | Version history |
+| [docs/HISTORY.md](docs/HISTORY.md) | Sanitization and migration of the original private development history |
 | [docs/PUBLISHING.md](docs/PUBLISHING.md) | Clean snapshot packaging and publication steps |
 
 The supporting documents above are currently in Simplified Chinese. When updating a README, keep the feature descriptions and limitations consistent across all three languages.
