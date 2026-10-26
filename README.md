@@ -212,6 +212,7 @@ python -m http.server 8126 --bind 127.0.0.1
 
 | 资料 | 内容 |
 | --- | --- |
+| [docs/REFERENCES.md](docs/REFERENCES.md) | 参考项目索引、选型共识、接入状态与未确认边界 |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | 模块职责、事件与模型数据流 |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | 本地开发、复现数据和 PR 要求 |
 | [SECURITY.md](SECURITY.md) | 权限、凭据、数据处理与漏洞报告 |
