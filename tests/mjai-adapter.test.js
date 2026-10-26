@@ -76,6 +76,7 @@ test('a real nondealer live opening reaches engine validation and returns a lega
   const EngineAgent = require('../extension/engine-agent.js');
   const o = live([{ kind: 'DiscardTile', seat: 0, tile: '1m', riichi: false, tsumogiri: false }, { kind: 'DealTile', seat: 1, tile: '9p' }]);
   o.events[0].remaining = 69;
+  o.events[2].remaining = 68;
   let state = State.initial('live', 1);
   for (const e of o.events) state = State.apply(state, e);
   const result = await EngineAgent.run({ snapshot: Snapshot.snapshot(state, { game: true, rivers: 'all', hand: true }), request: convert(o),

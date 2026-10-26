@@ -53,6 +53,8 @@ def clean_action(value):
         raise ValueError("Unsupported action")
     action = {"type": kind}
     for key in schemas[kind]:
+        if kind == "hora" and key == "pai" and key not in value:
+            continue  # Agent binds an omitted winning tile to its unique trigger.
         field = value[key]
         if key in ("actor", "target"):
             if type(field) is not int or not 0 <= field <= 3:
@@ -70,6 +72,22 @@ def clean_action(value):
                 check_tile(tile)
         action[key] = field
     return action
+
+
+def clean_result(value):
+    """Preserve only explicitly returned compound decisions."""
+    if isinstance(value, str):
+        value = loads(value)
+    if isinstance(value, dict) and "action" in value:
+        action = clean_action(value["action"])
+        result = {"action": action}
+        if value.get("followUp") is not None:
+            follow_up = clean_action(value["followUp"])
+            if action["type"] != "reach" or follow_up["type"] != "dahai" or follow_up["actor"] != action["actor"]:
+                raise ValueError("Invalid follow-up")
+            result["followUp"] = follow_up
+        return result
+    return clean_action(value)
 
 
 def check_tile(tile):
@@ -153,7 +171,7 @@ def main():
             stage = "REACT_FAILED"
             raw = bot.react(json.dumps(events, ensure_ascii=True, allow_nan=False))
         stage = "INVALID_ACTION"
-        result = json.dumps(clean_action(raw), ensure_ascii=True, allow_nan=False, separators=(",", ":"))
+        result = json.dumps(clean_result(raw), ensure_ascii=True, allow_nan=False, separators=(",", ":"))
         sys.stdout.write(result + "\n")
         sys.stdout.flush()
         return 0

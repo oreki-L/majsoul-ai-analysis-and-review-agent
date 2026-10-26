@@ -116,7 +116,7 @@
       return `<article class="decision-discussion" aria-label="${index === 0 && record === latest ? '最新决策讨论' : '保留的决策讨论'}"><header><strong>${record === latest ? selectedDecisionId ? '历史决策 · ' : '最新分析 · ' : '保留讨论 · '}${escape(discussionLabel(record))}</strong></header>
         <div class="analysis-actions"><button id="discussion-collapse-${index}">${record.collapsed ? '展开讨论' : '折叠讨论'}</button>${record.panel ? `<button id="discussion-remove-${index}">移出面板（保留历史）</button>` : ''}</div>
         ${record.collapsed ? '' : `<p class="analysis-meta muted">${escape(a.model)} · ${escape(a.time || '')} · 固定在该决策时点</p>
-        ${selectedDecisionId === record.id ? `<p class="warn">正在复盘该历史决策；实时采集继续，牌面提示暂停。</p><div class="analysis-global-hand" aria-label="所选决策手牌">${(record.snapshot.selfHand || []).map(face).join('')}</div>` : ''}<div class="analysis-decision"><span>${decisionHeading(a)}</span>${a.result.decision.tile ? face(a.result.decision.tile) : ''}<p>${reasons(a.result.decision.reasons)}</p></div>
+        ${selectedDecisionId === record.id ? `<p class="warn">正在复盘该历史决策；实时采集继续，牌面提示暂停。</p><div class="analysis-global-hand" aria-label="所选决策手牌">${(record.snapshot.selfHand || []).map(face).join('')}</div>` : ''}<div class="analysis-decision"><span>${decisionHeading(a)}</span>${a.result.decision.tile ? face(a.result.decision.tile) : ''}${engineActionHtml(a)}<p>${reasons(a.result.decision.reasons)}</p></div>
         <details><summary>原分析与当时局面</summary><p class="muted">${escape(discussionLabel(record, true))}</p>${resultHtml(a)}<pre>${escape(JSON.stringify(record.snapshot, null, 2))}</pre></details>
         <div class="discussion-chat">${record.chat.map(t => `<div class="discussion-turn"><p><strong>你：</strong>${escape(t.question)}</p>${t.status === 'completed' ? resultHtml(t.response) : `<p class="muted">${escape(t.status === 'pending' ? '正在回答…' : t.error)}</p>`}</div>`).join('')}</div>
         <label for="discussion-question-${index}">追问该决策</label><textarea id="discussion-question-${index}" maxlength="4000" rows="2" placeholder="仅讨论该决策当时的局面">${escape(discussionDrafts.get(record.id) || '')}</textarea>
@@ -318,14 +318,30 @@
   const reasons = values => escape(joinReasons(values));
   const actionNames = { attack: '进攻', defend: '防守', fold: '弃和', unknown: '暂无法判断' };
   const riskNames = { safe: '对该家现物', low: '较低', medium: '中等', high: '较高', unknown: '未知' };
-  const decisionLabel = response => response?.actualProvider === 'local' ? '本地分析' : ({ reach: '立直意向', none: '跳过响应' })[response?.engine?.action?.type] || actionNames[response?.result?.decision?.action] || '暂无法判断';
+  const decisionLabel = response => response?.actualProvider === 'local' ? '本地分析' : response?.engine?.action?.type === 'hora' ? (response.engine.action.actor === response.engine.action.target ? '自摸' : '荣和') : ({ dahai: '弃牌', reach: '立直意向', none: '跳过响应', chi: '吃', pon: '碰', daiminkan: '大明杠', ankan: '暗杠', kakan: '加杠' })[response?.engine?.action?.type] || actionNames[response?.result?.decision?.action] || '暂无法判断';
   const decisionHeading = response => escape(decisionLabel(response)) + (response?.result?.decision?.tile ? ' · 建议打' : '');
+  function engineActionHtml(response) {
+    const e = response?.engine, a = e?.action;
+    if (!a) return '';
+    const tile = value => face((/^5[mps]r$/.test(value) ? '0' + value[1] : ({ E: '1z', S: '2z', W: '3z', N: '4z', P: '5z', F: '6z', C: '7z' })[value]) || value);
+    const seat = value => escape(response.seatLabels?.[value] || ('座位 ' + value));
+    const phase = { draw: '摸牌后决策', response: '他家弃牌响应', 'post-call-discard': '鸣牌后弃牌', 'reach-discard': '立直宣言弃牌', 'kan-response': '抢杠响应' }[e.phase];
+    const details = [];
+    if (phase) details.push(escape(phase));
+    if (['chi', 'pon', 'daiminkan'].includes(a.type)) details.push(`鸣牌来源：${seat(a.target)}；鸣牌：${tile(a.pai)}`);
+    if (a.type === 'kakan') details.push(`加杠牌：${tile(a.pai)}`);
+    if (a.consumed?.length) details.push(`手牌用牌：${a.consumed.map(tile).join(' ')}`);
+    if (a.type === 'hora') details.push(`${a.actor === a.target ? '自摸和牌' : '荣和来源：' + seat(a.target)}；和牌张：${tile(a.pai)}`);
+    if (['daiminkan', 'ankan', 'kakan'].includes(a.type)) details.push('杠后等待补牌；此动作不是弃牌建议。');
+    if (a.type === 'reach') details.push(e.followUp?.type === 'dahai' ? `已验证立直配套弃牌：${tile(e.followUp.pai)}` : '尚无已验证的立直配套弃牌，请勿据此选择弃牌。');
+    return details.length ? `<div class="analysis-engine-action" aria-label="专业引擎动作详情">${details.map(detail => `<p class="muted">${detail}</p>`).join('')}</div>` : '';
+  }
   function resultHtml(response) {
     const r = response.result;
     if (!r) return '';
     return `${r.danger.length ? '<h4>逐对手危险牌</h4>' + r.danger.map(d => `<div class="analysis-card">${face(d.tile)}${d.opponents.map(o => `<p>${escape(response.seatLabels?.[o.seat] || ('座位 ' + o.seat))} · ${escape(riskNames[o.level])}：${reasons(o.reasons)}</p>`).join('')}</div>`).join('') : ''}
       ${r.efficiency.length ? '<h4>牌效率解释</h4>' + r.efficiency.map(e => `<div class="analysis-card">${face(e.tile)} ${reasons(e.reasons)}</div>`).join('') : ''}
-      <h4>建议</h4><p>${decisionHeading(response)} ${r.decision.tile ? face(r.decision.tile) : ''} ${reasons(r.decision.reasons)}</p>
+      <h4>建议</h4><p>${decisionHeading(response)} ${r.decision.tile ? face(r.decision.tile) : ''} ${reasons(r.decision.reasons)}</p>${engineActionHtml(response)}
       ${r.limitations.length ? `<p class="warn">${reasons(r.limitations)}</p>` : ''}
       ${response.trace ? `<details data-section="trace"><summary>Agent 运行记录</summary><ol>${response.trace.events.map(event => `<li>${escape(event.tool)} · ${escape(event.status)} · ${escape(event.elapsedMs)} ms</li>`).join('')}</ol>${response.runtime ? `<p>${escape(response.runtime.name)} · ${escape(response.runtime.turns)} 次模型请求 · ${escape(response.runtime.toolCalls)} 次工具调用</p>` : ''}</details>` : ''}
       ${response.usage ? usageHtml(response) : ''}`;
@@ -492,7 +508,7 @@
       </div>` : '';
 
     const settings = `<div class="controls"><button id="model-settings" ${!available ? 'disabled' : ''}>模型设置</button><button id="model-refresh" ${!available ? 'disabled' : ''}>刷新状态</button></div>
-      ${preferences.useModel && provider === 'mjai' ? '<p class="muted">本地 mjai：使用公开牌局、自家手牌和动作记录；仅支持无副露四麻。</p>' : ''}
+      ${preferences.useModel && provider === 'mjai' ? '<p class="muted">本地 mjai：使用公开牌局、自家手牌和动作记录；仅接受四麻中可验证的局面与动作；不会自动打牌。</p>' : ''}
       <label title="按自家出牌次数计巡，补牌不加巡；复盘仅手动分析。">调用时机 <select id="model-from-turn"><option value="1">每巡</option><option value="7">第 N 巡起</option></select></label>
       ${preferences.modelFromTurn > 1 ? `<label>开始巡数 <input id="model-turn-number" type="number" min="2" max="18" value="${preferences.modelFromTurn}"></label>` : ''}
       ${preferences.modelFromTurn > 1 ? '<p class="muted">未达指定巡数或巡目未知时，仅本地分析。</p>' : ''}
@@ -511,7 +527,7 @@
       ${provider === 'chat' && preferences.useModel ? `<label for="model-question">追问（可选）</label><textarea id="model-question" maxlength="4000" rows="2" placeholder="例如：为什么刚才建议打这张牌？">${escape(questionDraft)}</textarea>` : ''}
       <div class="analysis-actions"><button id="model-run" ${busy || !!error || !preferencesLoaded ? 'disabled' : ''}>${replay ? '分析所选局面' : '分析当前局面'}</button>${globalBusy ? '<button id="model-cancel">取消</button>' : ''}</div>
       ${globalResult && !savedGlobal ? `<p class="analysis-meta muted">${escape(savedPosition)} · ${escape(globalResult.model)}</p><div class="analysis-global-result">
-        <div class="analysis-decision"><span>${decisionHeading(globalResult)}</span>${globalResult.result.decision.tile ? face(globalResult.result.decision.tile) : ''}<p>${escape(globalResult.result.decision.reasons?.[0] || '请展开分析依据。')}</p></div>
+        <div class="analysis-decision"><span>${decisionHeading(globalResult)}</span>${globalResult.result.decision.tile ? face(globalResult.result.decision.tile) : ''}${engineActionHtml(globalResult)}<p>${escape(globalResult.result.decision.reasons?.[0] || '请展开分析依据。')}</p></div>
         ${disclosure('global-details', '分析依据', `${resultHtml(globalResult)}${globalResult.position.hand.length ? `<div class="analysis-global-hand" aria-label="分析时手牌">${globalResult.position.hand.map(face).join('')}</div>` : ''}${localHtml(globalResult.localAnalysis, globalResult.positionPhase)}`)}</div>` : savedGlobal ? '' : '<p class="muted">尚未分析</p>'}
       ${failureHtml(globalFailure, 'global')}
       </section>`;
@@ -527,7 +543,7 @@
       ${(current.riichiLabels || []).length ? `<p class="analysis-riichi">${replay ? '已立直' : '立直警戒'} · ${(current.riichiLabels || []).map(escape).join(' · ')}</p>` : ''}
       <div class="analysis-main" role="status" aria-live="polite">
       ${stale && !busy ? '<p class="warn analysis-stale">局面或分析功能已变化，以下为旧结果，请重新分析。</p>' : ''}
-      ${r ? `<div class="analysis-decision"><span>${decisionHeading(result)}</span>${r.decision.tile ? face(r.decision.tile) : ''}<p>${escape(r.decision.reasons?.[0] || '请结合当前局面判断。')}</p></div>${candidateHtml}` : busy || savedAutomatic ? '' : `<div class="analysis-empty"><strong>${!current.round ? '等待开局数据' : preferences.automatic ? '等待轮到你出牌' : '自动提示未开启'}</strong>${!hasFeatures() ? '<p class="muted">请至少开启一项辅助功能。</p>' : preferences.useModel && !enabled ? '<p class="muted">请在模型设置中接入并开启模型。</p>' : ''}</div>`}
+      ${r ? `<div class="analysis-decision"><span>${decisionHeading(result)}</span>${r.decision.tile ? face(r.decision.tile) : ''}${engineActionHtml(result)}<p>${escape(r.decision.reasons?.[0] || '请结合当前局面判断。')}</p></div>${candidateHtml}` : busy || savedAutomatic ? '' : `<div class="analysis-empty"><strong>${!current.round ? '等待开局数据' : preferences.automatic ? '等待轮到你出牌' : '自动提示未开启'}</strong>${!hasFeatures() ? '<p class="muted">请至少开启一项辅助功能。</p>' : preferences.useModel && !enabled ? '<p class="muted">请在模型设置中接入并开启模型。</p>' : ''}</div>`}
       ${!replay && (current.phase === 'ended' || context?.mode === 'history') ? '<p class="muted">历史或结算局面 · 仅作复盘</p>' : ''}
       ${failureHtml(failure, 'automatic')}
       </div>

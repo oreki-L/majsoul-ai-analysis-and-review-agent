@@ -28,6 +28,14 @@
             melds: p.melds.map(m => ({ type: number(m.type), tiles: tiles(m.tiles), froms: Array.isArray(m.froms) ? m.froms.map(x => Number.isInteger(x) && x >= 0 && x < count ? x : null).slice(0, 4) : [] })) };
         }) };
     }
+    if (raw.availableActions !== undefined && raw.availableActions !== null) {
+      const a = raw.availableActions;
+      if (!data.game || data.source !== 'live' || data.phase !== 'playing' || !data.complete || data.selfSeat === null ||
+          !Number.isInteger(data.lastStep) || a.seat !== data.selfSeat || a.lastStep !== data.lastStep ||
+          !Array.isArray(a.types) || !a.types.length || a.types.length > 9 ||
+          a.types.some(type => !Number.isInteger(type) || type < 1 || type > 9)) throw new Error('当前可用动作事实无效。');
+      data.availableActions = { seat: a.seat, lastStep: a.lastStep, types: [...new Set(a.types)] };
+    }
     if (raw.rivers !== undefined) {
       if (!Array.isArray(raw.rivers) || raw.rivers.length > count) throw new Error('牌河数据无效。');
       const seen = new Set();

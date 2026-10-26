@@ -638,3 +638,33 @@ test('manual followups send bounded questions and context while accounting stays
   assert.doesNotMatch(p.html(), /<details data-section="usage" open/);
   p.destroy();
 });
+
+
+test('engine melds, wins, phases and verified reach discard render with distinct tile meanings', async () => {
+  const cases = [
+    [{ type: 'chi', actor: 1, target: 0, pai: '3m', consumed: ['1m','2m'] }, 'response', /吃/, /鸣牌来源：东家.*鸣牌：/],
+    [{ type: 'pon', actor: 1, target: 2, pai: 'P', consumed: ['P','P'] }, 'response', /碰/, /手牌用牌/],
+    [{ type: 'daiminkan', actor: 1, target: 2, pai: '5mr', consumed: ['5m','5m','5m'] }, 'response', /大明杠/, /杠后等待补牌/],
+    [{ type: 'ankan', actor: 1, consumed: ['1m','1m','1m','1m'] }, 'draw', /暗杠/, /杠后等待补牌/],
+    [{ type: 'kakan', actor: 1, pai: 'P', consumed: ['P','P','P'] }, 'draw', /加杠/, /加杠牌/],
+    [{ type: 'hora', actor: 1, target: 1, pai: 'P' }, 'draw', /自摸/, /和牌张/],
+    [{ type: 'hora', actor: 1, target: 2, pai: 'C' }, 'response', /荣和/, /荣和来源/],
+    [{ type: 'none', actor: 1 }, 'response', /跳过响应/, /他家弃牌响应/]
+  ];
+  for (const [action, phase, label, detail] of cases) {
+    const p = panel({ provider: 'mjai', engineRequest: () => ({ events: [] }) }); await flush();
+    assert.equal(p.element('model-run').disabled, undefined);
+    const pending = p.element('model-run').onclick({ isTrusted: true }); await flush();
+    const response = modelResult(); response.engine = { format: 'majsoul-engine-result-v1', action, phase, followUp: null };
+    response.result.decision = { action: 'unknown', tile: null, reasons: [] };
+    response.result.danger = []; response.result.efficiency = [];
+    p.resolve(response); await pending;
+    assert.match(globalSection(p), label); assert.match(globalSection(p), detail);
+    assert.doesNotMatch(globalSection(p), /建议打|首选建议/); p.destroy();
+  }
+  const p = panel({ provider: 'mjai', engineRequest: () => ({ events: [] }) }); await flush();
+  const pending = p.element('model-run').onclick({ isTrusted: true }); await flush();
+  const response = modelResult(); response.engine = { action: { type: 'reach', actor: 1 }, phase: 'draw', followUp: { type: 'dahai', actor: 1, pai: '1m', tsumogiri: false } };
+  p.resolve(response); await pending;
+  assert.match(globalSection(p), /已验证立直配套弃牌/); assert.match(globalSection(p), /建议打/); p.destroy();
+});

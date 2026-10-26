@@ -47,6 +47,48 @@ test('Python wrapper supports dictionary responses and retains only standard act
   assert.deepEqual(await createRunner(config).infer(request()), { action: { type: 'pon', actor: 0, target: 1, pai: '5mr', consumed: ['5m', '5m'] } });
 });
 
+test('explicit reach follow-up survives Python, process and HTTP whitelists', { skip: !python }, async t => {
+  const config = setup(t, `class Bot:
+    def react(self, payload):
+        return {'action': {'type': 'reach', 'actor': 0, 'secret': 'PRIVATE'}, 'followUp': {'type': 'dahai', 'actor': 0, 'pai': '5mr', 'tsumogiri': True, 'secret': 'PRIVATE'}, 'secret': 'PRIVATE'}
+`);
+  const expected = { action: { type: 'reach', actor: 0 }, followUp: { type: 'dahai', actor: 0, pai: '5mr', tsumogiri: true } };
+  assert.deepEqual(await createRunner(config).infer(request()), expected);
+  const { createEngineServer } = require('../agent/engine-server.cjs');
+  const { server } = createEngineServer({ runner: createRunner(config), token: 'synthetic-test-token' });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  t.after(() => new Promise(resolve => { server.closeAllConnections(); server.close(resolve); }));
+  const response = await fetch(`http://127.0.0.1:${server.address().port}/analyze`, { method: 'POST', headers: { Authorization: 'Bearer synthetic-test-token', 'Content-Type': 'application/json' }, body: JSON.stringify(request()) });
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), expected);
+});
+
+test('Akagi explicitly feeds reach to the same bot to obtain its actual discard', { skip: !python }, t => {
+  const profile = path.resolve(__dirname, '../agent/akagi-local.py');
+  const source = `import importlib.util, json
+spec = importlib.util.spec_from_file_location('profile', ${JSON.stringify(profile)})
+profile = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(profile)
+class Bot:
+    def __init__(self): self.calls = []
+    def react(self, payload):
+        event = json.loads(payload)
+        self.calls.append(event)
+        assert event == {'type': 'reach', 'actor': 2}
+        return json.dumps({'type': 'dahai', 'actor': 2, 'pai': '5pr', 'tsumogiri': False, 'meta': {'secret': 'PRIVATE'}})
+bot = Bot()
+result = profile.finish_decision(bot, {'type': 'reach', 'actor': 2})
+assert len(bot.calls) == 1
+assert result == {'action': {'type': 'reach', 'actor': 2}, 'followUp': {'type': 'dahai', 'actor': 2, 'pai': '5pr', 'tsumogiri': False}}
+assert profile.finish_decision(bot, {'type': 'none'}) == {'type': 'none'}
+assert len(bot.calls) == 1
+print('verified')
+`;
+  const result = spawnSync(python, ['-c', source], { encoding: 'utf8', windowsHide: true, timeout: 5000 });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim(), 'verified');
+});
+
 test('Python wrapper failures expose only a fixed diagnostic and no stdout', { skip: !python }, async t => {
   for (const source of [
     "raise RuntimeError('PRIVATE_INIT_TOKEN')\n",

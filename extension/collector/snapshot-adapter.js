@@ -8,6 +8,8 @@
     const data = { format: 'mj-analysis-v1', playerCount: count, source: s.source, complete: s.complete, phase: s.phase,
       selfSeat: s.selfSeat, lastStep: s.lastStep, warnings: s.warnings.slice(0, 8) };
     if (selection.game) {
+      if (s.source === 'live' && s.phase === 'playing' && s.complete && s.availableActions?.seat === s.selfSeat &&
+          s.availableActions.lastStep === s.lastStep) data.availableActions = s.availableActions;
       data.game = { turnProgress: s.turnProgress, round: { wind: s.round.wind, index: s.round.index }, honba: s.honba, sticks: s.sticks,
         remaining: s.remaining, doras: s.doras.map(tile), scores: s.scores.slice(0, count), recentActor: s.turn,
         players: s.players.slice(0, count).map((p, seat) => ({ seat, riichi: !!p.riichi, norths: p.norths,

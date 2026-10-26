@@ -44,7 +44,7 @@ function createEngineServer({ runner, token = crypto.randomBytes(32).toString('h
       busy = true;
       try {
         const result = await runner.infer(request, { signal: controller.signal });
-        reply(200, { action: result.action });
+        reply(200, { action: result.action, ...(result.followUp ? { followUp: result.followUp } : {}) });
       } finally { busy = false; }
     } catch { reply(502, { error: 'Engine request failed' }); }
   });

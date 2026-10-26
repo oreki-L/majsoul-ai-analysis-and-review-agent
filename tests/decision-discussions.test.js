@@ -100,3 +100,15 @@ test('explicit clear removes history including asked cards on subsequent startup
   await f.store.clear();
   assert.deepEqual(await D.create({ storage: f.storage }).list(), []);
 });
+
+
+test('engine actions survive storage reload and remain structured in follow-up context without upstream metadata', async () => {
+  const { store, storage } = fixture(); const raw = input();
+  raw.analysis.engine = { format: 'majsoul-engine-result-v1', phase: 'response', action: { type: 'chi', actor: 1, target: 0, pai: '3m', consumed: ['1m','2m'], meta: { secret: 'PRIVATE' } }, followUp: null, meta: 'PRIVATE', limitations: ['已校验'] };
+  raw.analysis.result.decision.tile = null;
+  const saved = await store.save(raw); const restored = D.create({ storage });
+  const records = await restored.list(); assert.equal(records[0].analysis.engine.action.type, 'chi');
+  const context = await restored.context(saved.id); const answer = JSON.parse(context.timeline[0].answer);
+  assert.deepEqual(answer.engine.action, { type: 'chi', actor: 1, target: 0, pai: '3m', consumed: ['1m','2m'] });
+  assert.equal(answer.engine.phase, 'response'); assert.doesNotMatch(context.timeline[0].answer, /PRIVATE|meta/);
+});

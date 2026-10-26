@@ -69,6 +69,17 @@ def load_bot(directory, seat):
     return libriichi.mjai.Bot(engine, seat)
 
 
+def finish_decision(bot, raw):
+    """libriichi selects the declaration discard after receiving its own reach."""
+    action = wrapper.clean_action(raw)
+    if action["type"] != "reach":
+        return action
+    follow_up = wrapper.clean_action(bot.react(json.dumps(action, separators=(",", ":"))))
+    if follow_up["type"] != "dahai" or follow_up["actor"] != action["actor"]:
+        raise ValueError("Missing declaration discard")
+    return {"action": action, "followUp": follow_up}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dir", required=True)
@@ -83,8 +94,9 @@ def main():
             action = None
             for event in events:
                 action = bot.react(json.dumps(event, separators=(",", ":")))
+            action = finish_decision(bot, action)
         stage = "INVALID_ACTION"
-        sys.stdout.write(json.dumps(wrapper.clean_action(action), separators=(",", ":")) + "\n")
+        sys.stdout.write(json.dumps(wrapper.clean_result(action), separators=(",", ":")) + "\n")
         sys.stdout.flush()
         return 0
     except Exception:

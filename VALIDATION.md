@@ -270,3 +270,18 @@
 本机证据保存在 ignored 目录 `research/evidence/bot-onboarding-20261026/`：`real-http-acceptance.log`、`real-http-engineagent-result.json`、`independent-check.log`、`independent-neural-audit.log`、`independent-diagnostics.log`、`missing-dependencies.log`。它们是本地验收证据，不随源码发布。普通用户复现步骤见 [docs/MJAI.md](docs/MJAI.md)。
 
 该结果仅证明指定文件与环境可将真实示例模型动作送过本地 HTTP 和 Agent 校验；输入为人工无副露四麻局面。未连接真实雀魂账号、未调用付费 API，不证明线上整场协议、其他 Mortal/Akagi 版本、mjai-reviewer 权重、强模型兼容或实战牌力。模型选择不支持动作时仍明确失败，不自动替换动作或操作游戏。
+
+## 可选 mjai 动作展示与资格边界（2026-10-26，未发布源码）
+
+本节更新此前“仅无副露四麻／仅弃牌立直跳过”的当前源码范围，不改写当时验证记录。增加副露、杠补牌、鸣牌后弃牌与响应阶段。荣和／自摸依赖同一步实时资格和本地和牌形，荣和另查自家牌河振听；完整役与临时／立直振听依赖游戏提示，不宣称独立完整判定。抢杠、自家立直后杠、多人四杠后继续、对手五暗杠赤牌组成未知等保守拒绝；对手已发生的合法立直后暗杠可重放。牌山仅校验已知上界。
+
+- 操作编号核对来源：Akagi 固定提交 [`91cc2993e4e3682248d33d73d93afe055040e700`](https://github.com/shinkuan/Akagi/blob/91cc2993e4e3682248d33d73d93afe055040e700/mitm/bridge/majsoul/bridge.py) 的 `class Operation`：Discard=1、Chi=2、Peng=3、AnGang=4、MingGang=5、JiaGang=6、Liqi=7、Zimo=8、Hu=9。只读获取代码核对，未执行上游自动操作；LiuJu=10 不纳入本轮动作白名单。
+- `node --test tests/state.test.js tests/snapshot-contract.test.js`：36/36，覆盖当前步事实、重复／乱序保留、后续事件／断线／换座位清除、授权白名单、普通 LLM 当前请求和初始基线排除资格字段。
+- `node --test tests/analysis-panel.test.js tests/decision-discussions.test.js`：50/50，覆盖吃碰杠用牌及来源、荣和／自摸、跳过、阶段、立直配套弃牌和动作历史／追问保留，追问白名单移除上游 meta。手动分析不限自家弃牌阶段，自动时机未扩大。
+- 独立验收对冻结源码唯一串行运行 `npm test`：433/433 通过，失败、跳过、取消均为 0，总时 65170.8164 ms；`npm run check`、`npm run build` 均成功。日志分别为下述证据目录中的 `final-npm-test.log`、`final-npm-check.log`、`final-npm-build.log`。
+- 使用固定 Akagi 示例权重，四个人工局面通过真实 profile → runner → Agent：吃后返回 `E` 手切、赤五碰后返回 `E` 手切、明杠补牌后返回 `9s` 摸切、立直返回已验证 `followUp` 的 `S` 手切。此轮真实模型验收没有经过 HTTP；HTTP 配套结构另由模拟进程链路覆盖，不将两者合称真实模型 HTTP 全链路。
+- 最终打包边界检查通过：Agent 包实际 87 文件、获取器包 54 文件；源码 allowlist ZIP 为 183 文件，关键源码逐字节一致。包中排除 `research/`、权重、`pyd`、`pyc`、虚拟环境与运行时依赖，获取器不含 engine／Pi。详细结论记录于同目录 `package-boundary.log` 和 `ACCEPTANCE.md`，这是本地构建验收，不表示发布新版。
+
+本轮本机证据保存在 ignored 目录 `research/evidence/engine-actions-20261026/`：`real-artificial-results.json`、`real-artificial.log`、`final-npm-test.log`、`final-npm-check.log`、`final-npm-build.log`、`package-boundary.log`、`ACCEPTANCE.md`。这些是本地验收记录，不随源码发布。
+
+本轮 UI 与资格数据路径使用人工局面和模拟响应，真实示例权重同样只使用人工局面；不接管真实牌谱，不读取 API 密钥、不调用付费接口，未做真实完整牌谱验证。上述测试不证明线上整场兼容性或实战牌力，不声称已发布新版。

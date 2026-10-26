@@ -262,3 +262,20 @@ test('turn tracking is independent of own-seat discovery, supports sanma and det
   r = S.apply(r, { kind: 'DiscardTile', source: 'replay', seat: 2, tile: '1p', recordIndex: 12 });
   assert.equal(r.turnProgress.status, 'unknown'); assert.equal(r.turnProgress.reason, 'event_gap');
 });
+
+
+test('live action facts bind to one accepted step and expire safely', () => {
+  let s = S.apply(S.initial(), round());
+  const draw = evt('DealTile', { seat: 1, tile: '1m', step: 1, operation: { seat: 1, types: [1,8,8], secret: 'ignored' } });
+  s = S.apply(s, draw);
+  assert.deepEqual(s.availableActions, { seat: 1, lastStep: 1, types: [1,8] });
+  assert.deepEqual(S.apply(s, { ...draw, operation: undefined }).availableActions, s.availableActions);
+  assert.deepEqual(S.apply(s, { ...draw, step: 0 }).availableActions, s.availableActions);
+  assert.equal(S.selectSelfSeat(s, 2).availableActions, null);
+  assert.equal(S.invalidateTurns(s, 'disconnected').availableActions, null);
+  assert.equal(S.apply(s, evt('DiscardTile', { seat: 1, tile: '1m', step: 2 })).availableActions, null);
+  assert.equal(S.apply(s, { ...round(), operation: undefined }).availableActions, null);
+  assert.equal(S.apply(s, { ...draw, step: 3 }).availableActions, null);
+  assert.equal(S.apply(s, { ...draw, step: 2, operation: { seat: 2, types: [8] } }).availableActions, null);
+  assert.equal(S.apply(s, { ...draw, step: 2, operation: { seat: 1, types: [99] } }).availableActions, null);
+});

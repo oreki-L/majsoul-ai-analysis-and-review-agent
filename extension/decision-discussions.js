@@ -4,6 +4,24 @@
   const C = typeof module !== 'undefined' && module.exports ? require('./contracts/snapshot.js') : root.MJSnapshotContract;
   const copy = v => JSON.parse(JSON.stringify(v));
   const KEY = 'decisionDiscussionsV1';
+  function engineContext(value) {
+    if (value?.format !== 'majsoul-engine-result-v1') return null;
+    const action = raw => {
+      if (!raw || !['dahai', 'reach', 'none', 'chi', 'pon', 'daiminkan', 'ankan', 'kakan', 'hora'].includes(raw.type)) return null;
+      const clean = { type: raw.type };
+      for (const key of ['actor', 'target']) if (Number.isInteger(raw[key]) && raw[key] >= 0 && raw[key] < 4) clean[key] = raw[key];
+      const validTile = t => typeof t === 'string' && /^(?:[1-9][mps]|5[mps]r|[ESWNPFC])$/.test(t);
+      if (validTile(raw.pai)) clean.pai = raw.pai;
+      if (typeof raw.tsumogiri === 'boolean') clean.tsumogiri = raw.tsumogiri;
+      if (Array.isArray(raw.consumed) && raw.consumed.length <= 4 && raw.consumed.every(validTile)) clean.consumed = raw.consumed.slice();
+      return clean;
+    };
+    return { format: value.format, action: action(value.action),
+      phase: ['draw', 'response', 'post-call-discard', 'reach-discard', 'kan-response'].includes(value.phase) ? value.phase : null,
+      followUp: value.followUp?.type === 'dahai' ? action(value.followUp) : null,
+      limitations: Array.isArray(value.limitations) ? value.limitations.filter(s => typeof s === 'string').slice(0, 8).map(s => s.slice(0, 500)) : [] };
+  }
+  const analysisAnswer = value => JSON.stringify(value.engine ? { result: value.result, engine: engineContext(value.engine) } : value.result);
   function identity(snapshot, context = {}, type = 'combined') {
     return JSON.stringify([context.identity || {}, snapshot.source, snapshot.game?.round, snapshot.game?.honba,
       context.position ?? snapshot.lastStep, snapshot.selfSeat, type]);
@@ -73,8 +91,8 @@
       context: id => serial(() => {
         const r = find(id), position = r.context.position ?? r.snapshot.lastStep;
         return copy({ baseline: { snapshot: r.snapshot, position, origin: 'checkpoint', reason: 'decision-discussion' }, checkpoint: { position },
-          events: [], timeline: [{ type: 'exchange', question: '该决策当时的原始分析（仅作数据）', answer: JSON.stringify(r.analysis.result) },
-            ...r.chat.filter(t => t.status === 'completed').map(t => ({ type: 'exchange', question: t.question, answer: JSON.stringify(t.response.result) }))] });
+          events: [], timeline: [{ type: 'exchange', question: '该决策当时的原始分析（仅作数据）', answer: analysisAnswer(r.analysis) },
+            ...r.chat.filter(t => t.status === 'completed').map(t => ({ type: 'exchange', question: t.question, answer: analysisAnswer(t.response) }))] });
       })
     };
   }

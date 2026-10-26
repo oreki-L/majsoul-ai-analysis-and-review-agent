@@ -9,11 +9,12 @@
   function invalidateTurns(state, reason) {
     const s = structuredClone(state);
     s.turnProgress = unknownTurns(reason, s.scores.length === 3 ? 3 : 4);
+    s.availableActions = null;
     return s;
   }
   function initial(source = 'live', selfSeat = null) {
     return { source, selfSeat, phase: 'waiting', round: null, honba: 0, sticks: 0, remaining: null,
-      doras: [], turn: null, turnProgress: unknownTurns(), lastRecordIndex: null, selfHand: [], drawnTiles: [null, null, null, null], scores: [], startScores: [], result: null, complete: false, lastStep: null, seatTrackingIncomplete: false,
+      doras: [], turn: null, turnProgress: unknownTurns(), availableActions: null, lastRecordIndex: null, selfHand: [], drawnTiles: [null, null, null, null], scores: [], startScores: [], result: null, complete: false, lastStep: null, seatTrackingIncomplete: false,
       players: Array.from({ length: 4 }, () => ({ hand: [], discards: [], melds: [], riichi: false, norths: 0 })), warnings: [] };
   }
   function warn(s, text) { if (!s.warnings.includes(text)) s.warnings.push(text); if (s.warnings.length > 8) s.warnings.shift(); }
@@ -25,6 +26,7 @@
     const count = state.scores.length === 3 ? 3 : 4;
     if (seat !== null && (!Number.isInteger(seat) || seat < 0 || seat >= count)) throw new Error('无效座位');
     const s = structuredClone(state);
+    if (s.selfSeat !== seat) s.availableActions = null;
     if (s.selfSeat !== null && s.selfSeat !== seat) {
       s.complete = false; warn(s, '座位已手动变更，请重新从开局核对手牌');
     }
@@ -60,6 +62,7 @@
       else s.selfHand = e.hand.slice();
     } else {
       if (e.step !== undefined && s.lastStep !== null && e.step <= s.lastStep) return s;
+      s.availableActions = null;
       if (e.step !== undefined && s.lastStep !== null && e.step > s.lastStep + 1) {
         s.turnProgress = unknownTurns('event_gap', s.scores.length === 3 ? 3 : 4);
         s.complete = false; warn(s, '动作序号有缺口，当前局面可能不完整');
@@ -136,6 +139,13 @@
         deltas: scoresKnown && s.startScores.length === s.scores.length ? s.scores.map((v, i) => v - s.startScores[i]) : [] };
     }
     if (e.step !== undefined) s.lastStep = e.step;
+    // Only the current live event can establish client operation facts. They
+    // expire on the next accepted event, collection failure, or seat change.
+    if (s.source === 'live' && s.phase === 'playing' && s.complete && Number.isInteger(e.step) &&
+        e.operation?.seat === s.selfSeat && Array.isArray(e.operation.types) && e.operation.types.length > 0 &&
+        e.operation.types.length <= 9 && e.operation.types.every(type => Number.isInteger(type) && type >= 1 && type <= 9)) {
+      s.availableActions = { seat: s.selfSeat, lastStep: e.step, types: [...new Set(e.operation.types)] };
+    }
     if (Number.isInteger(e.recordIndex)) s.lastRecordIndex = e.recordIndex;
     refreshSeatWarning(s);
     return s;

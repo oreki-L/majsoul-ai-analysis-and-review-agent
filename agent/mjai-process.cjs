@@ -44,7 +44,7 @@ function createRunner(config) {
           settled = true;
           clearTimeout(timer);
           signal?.removeEventListener('abort', abort);
-          const complete = () => error ? reject(error) : resolve({ action });
+          const complete = () => error ? reject(error) : resolve(action?.action ? action : { action });
           if (!child?.pid) { complete(); return; }
           if (process.platform === 'win32') {
             // taskkill also terminates Python workers spawned by the configured bot.
@@ -81,9 +81,18 @@ function createRunner(config) {
           const newline = stdout.indexOf('\n');
           if (newline < 0) return;
           try {
-            const action = JSON.parse(stdout.slice(0, newline));
+            const raw = JSON.parse(stdout.slice(0, newline));
+            const action = raw?.action ?? raw;
             if (!action || Array.isArray(action) || typeof action !== 'object' || typeof action.type !== 'string' || !action.type || stdout.slice(newline + 1).trim()) throw new Error();
-            finish(null, action);
+            if (raw.action) {
+              const response = { action };
+              if (raw.followUp != null) {
+                if (action.type !== 'reach' || raw.followUp.type !== 'dahai' || raw.followUp.actor !== action.actor) throw new Error();
+                const { type, actor, pai, tsumogiri } = raw.followUp;
+                response.followUp = { type, actor, pai, tsumogiri };
+              }
+              finish(null, response);
+            } else finish(null, action);
           } catch { finish(failure('INVALID_OUTPUT')); }
         });
         child.stdin.end(input);

@@ -67,3 +67,33 @@ test('tile normalization and whitelist copies cannot smuggle objects or mutable 
   assert.equal(C.label('0p'), '赤5筒');
   assert.equal(C.label('?'), '未知');
 });
+
+
+function operationSnapshot() {
+  const S = require('../extension/state.js'), Adapter = require('../extension/collector/snapshot-adapter.js');
+  const state = Object.assign(S.initial('live', 0), { complete: true, phase: 'playing', round: { wind: 0, index: 0 }, scores: [25000,25000,25000,25000], lastStep: 2, availableActions: { seat: 0, lastStep: 2, types: [1,8], secret: 'PRIVATE' } });
+  return { state, Adapter };
+}
+test('available operation facts require authorized current live game, matching step and seat, with strict fields', () => {
+  const { state, Adapter } = operationSnapshot();
+  const snapshot = Adapter.snapshot(state, { game: true, rivers: 'none' });
+  assert.deepEqual(snapshot.availableActions, { seat: 0, lastStep: 2, types: [1,8] });
+  assert.equal('availableActions' in Adapter.snapshot(state, { hand: true, rivers: 'none' }), false);
+  for (const patch of [{ source: 'replay' }, { lastStep: 3 }, { selfSeat: 1 }, { complete: false }, { phase: 'ended' }]) {
+    assert.equal('availableActions' in Adapter.snapshot({ ...state, ...patch }, { game: true, rivers: 'none' }), false);
+    assert.throws(() => C.cleanSnapshot({ ...snapshot, ...patch }), /动作事实/);
+  }
+  for (const types of [[0], [10], ['8'], [], Array(10).fill(8)]) assert.throws(() => C.cleanSnapshot({ ...snapshot, availableActions: { seat: 0, lastStep: 2, types } }), /动作事实/);
+  snapshot.availableActions.types.push(9); assert.deepEqual(state.availableActions.types, [1,8]);
+});
+test('LLM request and baseline omit engine-only operation facts', async () => {
+  const { state, Adapter } = operationSnapshot();
+  const snapshot = Adapter.snapshot(state, { game: true, rivers: 'all' });
+  let captured;
+  await Agent.run({ snapshot, task: 'danger', sessionContext: { baseline: { snapshot, position: 2 }, checkpoint: { position: 2 }, timeline: [] }, transport: async () => {}, runtime: { run: async request => {
+    captured = request.messages;
+    return { text: JSON.stringify({ task: 'danger', danger: [], efficiency: [], decision: { action: 'unknown', tile: null, reasons: ['授权牌河为空'] }, limitations: [] }), turns: 1, toolCalls: 0 };
+  } } });
+  assert.ok(captured); assert.doesNotMatch(JSON.stringify(captured), /availableActions|PRIVATE/);
+  assert.deepEqual(snapshot.availableActions.types, [1,8]);
+});

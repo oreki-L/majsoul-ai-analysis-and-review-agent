@@ -60,7 +60,9 @@ python scripts/package-public.py
 
 LLM 分析和解释仍是主要用途，默认 `chat` 且分析关闭。设置分别保存一份 `chat` 和 `mjai` 配置，一次只运行选中后端。扩展不内置模型。当前源码提供 Akagi v2 固定小型 Mortal 示例的官方下载、校验与启动路径，已在限定 Windows CPU 环境完成真实权重验收；其他模型、版本及实战牌力不据此视为已验证。模型、依赖与许可须单独准备，步骤与范围见 [MJAI.md](MJAI.md)。
 
-`adapters/mjai.js` 从用户授权的 `mj-observer-v1` 本局连续事件生成 `majsoul-mjai-v1`，匿名化玩家名并遮蔽对手暗牌和摸牌。`engine-agent.js` 只消费净化快照和请求，执行 `request.validate → engine.infer → engine.validate`，独立重放自家手牌并核对公开局面。只支持完整无副露四麻，拒绝自家14张开局、轮转缺口、错配局面和不受支持动作。合法 `dahai` 由手牌与本地候选双重约束；`reach` 不确定具体弃牌时保留 `tile:null`；`none` 仅允许在适当响应时机出现。Q 值无可靠映射时不展示候选，不当作放铳概率或危险证据。
+`adapters/mjai.js` 从用户授权的 `mj-observer-v1` 本局连续事件生成 `majsoul-mjai-v1`，匿名化玩家名并遮蔽对手暗牌和摸牌。`engine-agent.js` 只消费净化快照和请求，执行 `request.validate → engine.infer → engine.validate`，独立重放自家手牌、副露及补牌并核对公开局面与决策阶段。支持可连续重放的四麻，拒绝自家14张开局、轮转缺口、错配局面和不能证明的动作。`dahai` 受手牌、本地候选与鸣牌后食替约束；`reach` 仅在 `followUp` 弃牌经验证时显示宣言牌，否则保留 `tile:null`；`none` 仅在响应阶段出现。吃碰杠核对来源、用牌及阶段；抢杠、自家立直后杠、多人四杠后继续对局、对手五暗杠赤牌组成未知等保守拒绝。对手已发生的合法立直后暗杠可重放；牌山只检查已知上界。
+
+荣和／自摸依赖同一步实时操作资格与本地和牌形，荣和另查自家牌河振听；完整役与临时／立直振听资格依赖游戏提示，不宣称独立完整计算。`availableActions` 只在实时当前步、同座位且授权对局时保留，过期、断线和换座位清除；普通 LLM 请求及初始基线排除此引擎资格字段。动作、阶段与已验证配套弃牌保留于冻结历史和追问，动作牌不标为弃牌。响应建议需手动触发，自动仍限原有自家弃牌点。Q 值无可靠映射时不展示候选，不当作放铳概率或危险证据。本轮未做真实完整牌谱验证，变更未发布。
 
 `agent/mjai-process.cjs` 启动可信用户命令，以一行完整事件数组输入、单行动作输出的 JSONL 协议完成一次推理，再清理进程。`agent/mjai-python-wrapper.py` 仅包装用户零参数 Bot 类及 `react(events_json)` 接口，用户模块负责加载权重。进程不是沙箱；获取器不包含这些能力或依赖。`engine-server.cjs` 提供带 Bearer Token 的本机 `/analyze`，全局单次推理，忙时429且不排队；`engine-review.cjs` 从导出事件前缀重建快照，调用相同的引擎 Agent 和完整快照/动作校验，输出结构化结果与脱敏轨迹。配置、命令及限制见 [MJAI.md](MJAI.md)。
 

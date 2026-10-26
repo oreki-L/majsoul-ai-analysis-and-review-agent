@@ -15,6 +15,7 @@
     if (context?.baseline) {
       const { position: baselinePosition, origin, reason } = context.baseline;
       const initialSnapshot = C.cleanSnapshot(context.baseline.snapshot);
+      delete initialSnapshot.availableActions;
       if (!input.selfHand) { delete initialSnapshot.selfHand; initialSnapshot.selfDrawnTile = null; }
       if (!input.game) delete initialSnapshot.game;
       if (initialSnapshot.rivers) initialSnapshot.rivers = initialSnapshot.rivers.filter(r => input.rivers?.some(current => current.seat === r.seat));
@@ -88,7 +89,9 @@
     if (!localOnly && !useRuntime && typeof explain !== 'function') throw new Error('A model transport is required');
     if (typeof question !== 'string' || question.length > 4000) throw new Error('追问内容无效或过长。');
     // Freeze the input in time before any asynchronous tool can run.
-    const input = freeze(C.cleanSnapshot(snapshot));
+    const cleanInput = C.cleanSnapshot(snapshot);
+    delete cleanInput.availableActions;
+    const input = freeze(cleanInput);
     sessionContext = sessionContext?.baseline ? freeze(copy(sessionContext)) : freeze({
       baseline: { position: input.lastStep, snapshot: input, origin: 'mid-round', reason: 'temporary-context' },
       checkpoint: { position: input.lastStep }, timeline: []

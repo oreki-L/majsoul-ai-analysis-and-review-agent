@@ -61,11 +61,10 @@ test('same hand cannot authorize a different public situation or ambiguous handc
   await assert.rejects(Agent.run({ ...context(), infer: async () => discard({ tsumogiri: false }) }));
 });
 
-test('trailing dora metadata preserves the current draw trigger', async () => {
+test('dora metadata without a preceding kan cannot invent an indicator', async () => {
   const c = context();
   c.request.events.push({ type: 'dora', dora_marker: '7p' }); c.snapshot.game.doras.push('7p');
-  const output = await Agent.run({ ...c, infer: async () => discard() });
-  assert.equal(output.result.decision.tile, '9m');
+  await assert.rejects(Agent.run({ ...c, infer: async () => discard() }), /宝牌/);
 });
 
 test('trailing reach acceptance preserves opponent discard trigger and requires score and stick updates', async () => {
@@ -124,4 +123,29 @@ test('none only passes an opponent discard response opportunity', async () => {
   const output = await Agent.run({ ...c, infer: async () => ({ action: { type: 'none' } }) });
   assert.equal(output.engine.action.type, 'none');
   assert.equal(output.result.decision.tile, null);
+});
+
+test('reach uses only an explicit upstream declaration discard and verifies tenpai', async () => {
+  const c = context();
+  const output = await Agent.run({ ...c, infer: async () => ({ action: { type: 'reach', actor: 0 }, followUp: discard().action }) });
+  assert.deepEqual(output.engine.followUp, discard().action);
+  assert.equal(output.result.decision.tile, '9m');
+  await assert.rejects(Agent.run({ ...c, infer: async () => ({ action: { type: 'reach', actor: 0 }, followUp: discard({ pai: '1m', tsumogiri: false }).action }) }));
+});
+
+test('historical unique drawn tile cannot be labeled a handcut', async () => {
+  const c = context();
+  c.request.events.push({ type: 'dahai', actor: 0, pai: '9m', tsumogiri: false });
+  c.snapshot.selfHand.pop(); c.snapshot.selfDrawnTile = null;
+  c.snapshot.rivers[0].discards.push({ tile: '9m', tsumogiri: false, riichi: false, called: false });
+  let calls = 0;
+  await assert.rejects(Agent.run({ ...c, infer: async () => { calls++; return { action: { type: 'none' } }; } }), /手切标记/);
+  assert.equal(calls, 0);
+});
+
+test('known wall bounds reject impossible remaining counts before inference', async () => {
+  for (const remaining of [-1, 70, 1.5, null]) {
+    const c = context(); c.snapshot.game.remaining = remaining;
+    await assert.rejects(Agent.run({ ...c, infer: async () => discard() }), /剩余牌山/);
+  }
 });
