@@ -1,4 +1,5 @@
 node_modules/
+.venv-akagi/
 .playwright-cli/
 .playwright-mcp/
 .env

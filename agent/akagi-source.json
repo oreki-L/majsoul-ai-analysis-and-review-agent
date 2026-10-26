@@ -1,0 +1,13 @@
+{
+  "profile": "akagi-v2-weak-mortal-windows-py311",
+  "repository": "https://github.com/shinkuan/Akagi",
+  "commit": "91cc2993e4e3682248d33d73d93afe055040e700",
+  "license": "AGPL-3.0 with Commons Clause (see downloaded LICENSE.txt)",
+  "files": [
+    {"name":"model.py","path":"mjai_bot/mortal/model.py","sha256":"3677bf4a40a79d71e5d713c8dd31fd783af070e472fa2f03a4bade820ef21b73"},
+    {"name":"mortal.pth","path":"mjai_bot/mortal/mortal.pth","sha256":"e94dc90bc3aaf412b0270d670660d7fe55c9d33b14419f97caf42fe77c01456f"},
+    {"name":"libriichi.pyd","path":"mjai_bot/mortal/libriichi/libriichi-3.11-x86_64-pc-windows-msvc.pyd","sha256":"fed91677f6d0d03380b6ef62bb2b19e23be83a556fcef4e05ba206c9e11b65cb"},
+    {"name":"LICENSE.txt","path":"LICENSE.txt","sha256":"7921262d0dfb3178b94f4084d78608131ae54aba7c8f374e67f55862b0827c6b"},
+    {"name":"README.md","path":"README.md","sha256":"90b4d16904f728940695841a60c3eefeeeb7507d08edb9ea87f5299e41acfda7"}
+  ]
+}

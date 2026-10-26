@@ -31,6 +31,8 @@ function updateThinking() {
 function show(provider) {
   const c = drafts[provider] || defaults(provider), engine = provider === 'mjai';
   currentProvider = provider;
+  $('engineSetup').hidden = !engine;
+  $('engineGuide').href = 'https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/blob/main/docs/MJAI.md';
   $('provider').value = provider; $('enabled').checked = !!c.enabled;
   $('endpoint').value = c.endpoint || ''; $('endpoint').placeholder = engine ? 'http://127.0.0.1:17341/analyze' : 'https://api.openai.com/v1';
   $('endpointHint').textContent = engine ? '仅支持 localhost / 127.0.0.1 的 HTTP /analyze 接口。' : '自动补全 /chat/completions，也可填写完整接口地址。';

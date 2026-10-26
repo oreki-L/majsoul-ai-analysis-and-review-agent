@@ -8,7 +8,7 @@ const ChatEndpoint = require('../extension/adapters/model-endpoint.js');
 
 async function settings(initial = {}, { permission = true, beforeSet, clearResult = { ok: true }, usageResult } = {}) {
   const data = structuredClone(initial), calls = [], elements = new Map(), downloads = [];
-  for (const id of ['status', 'provider', 'providerHint', 'enabled', 'endpoint', 'endpointHint', 'model', 'key', 'keyLabel', 'chatOptions', 'thinking', 'thinkingHint', 'maxTokens', 'priceCurrency', 'priceInput', 'priceOutput', 'priceCacheRead', 'priceCacheWrite', 'config', 'disable', 'clear', 'clearAgentData', 'exportUsage']) elements.set(id, { value: '', checked: false, textContent: '' });
+  for (const id of ['status', 'provider', 'providerHint', 'engineSetup', 'engineGuide', 'enabled', 'endpoint', 'endpointHint', 'model', 'key', 'keyLabel', 'chatOptions', 'thinking', 'thinkingHint', 'maxTokens', 'priceCurrency', 'priceInput', 'priceOutput', 'priceCacheRead', 'priceCacheWrite', 'config', 'disable', 'clear', 'clearAgentData', 'exportUsage']) elements.set(id, { value: '', checked: false, textContent: '' });
   const local = {
     get: async keys => { calls.push(['get']); return Object.fromEntries((Array.isArray(keys) ? keys : [keys]).filter(key => key in data).map(key => [key, structuredClone(data[key])])); },
     set: async value => { const copied = structuredClone(value); calls.push(['set']); if (beforeSet) await beforeSet(copied); Object.assign(data, copied); },
@@ -42,15 +42,19 @@ test('mjai endpoint is strictly local HTTP analyze and exposes host-only permiss
 test('settings default to disabled chat and old configurations remain chat only', async () => {
   const empty = await settings();
   assert.equal(empty.el('provider').value, 'chat'); assert.equal(empty.el('enabled').checked, false);
+  assert.equal(empty.el('engineSetup').hidden, true);
   assert.equal(empty.el('key').value, ''); assert.equal(empty.calls.some(c => c[0] === 'set'), false);
   const legacy = await settings({ modelConfig: { enabled: true, endpoint: 'https://example.com/v1/chat/completions', model: 'old-model', apiKey: 'CHAT_SECRET' } });
   assert.equal(legacy.el('provider').value, 'chat'); assert.equal(legacy.el('key').value, 'CHAT_SECRET');
   legacy.select('mjai');
+  assert.equal(legacy.el('engineSetup').hidden, false);
+  assert.equal(legacy.el('engineGuide').href, 'https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/blob/main/docs/MJAI.md');
   assert.equal(legacy.el('enabled').checked, false); assert.equal(legacy.el('key').value, '');
   assert.equal(legacy.el('endpoint').value, 'http://127.0.0.1:17341/analyze');
   assert.equal(legacy.el('model').value, 'mjai'); assert.equal(legacy.el('model').readOnly, true);
   assert.match(legacy.el('providerHint').textContent, /手动启动/); assert.match(legacy.el('providerHint').textContent, /不捆绑权重/);
   legacy.el('key').value = 'ENGINE_SECRET'; legacy.select('chat');
+  assert.equal(legacy.el('engineSetup').hidden, true);
   assert.equal(legacy.el('key').value, 'CHAT_SECRET');
   legacy.select('mjai'); assert.equal(legacy.el('key').value, 'ENGINE_SECRET');
 });

@@ -6,6 +6,12 @@
 <label class="toggle"><input id="enabled" type="checkbox"> 开启模型分析</label>
 <label for="provider">服务类型</label><select id="provider"><option value="chat">OpenAI 兼容</option><option value="mjai">本地 mjai</option></select>
 <p id="providerHint" class="hint"></p>
+<aside id="engineSetup" class="engine-setup" hidden aria-labelledby="engineSetupTitle">
+<h2 id="engineSetupTitle">第一次使用本地引擎</h2>
+<ol><li>按接入指南准备指定版本的第三方 Bot，完成本机检查并启动桥接服务。</li><li>将终端显示的 <code>/analyze</code> 地址和 Bearer Token 填入下方；保持桥接终端运行。</li><li>手动开启分析、保存并授予本机接口权限；在牌局面板授权信息与自家手牌，确认座位后选择“综合攻守”并手动分析。</li></ol>
+<a id="engineGuide" target="_blank" rel="noopener noreferrer">打开下载、检查与启动指南</a>
+<p class="hint">LLM 分析仍是主要用途；本地引擎默认关闭。指南链接只打开文档，不自动下载或上传牌局。</p>
+</aside>
 <label for="endpoint">API 请求地址</label><input id="endpoint" type="url" placeholder="https://api.openai.com/v1" required>
 <p id="endpointHint" class="hint">自动补全 /chat/completions，也可填写完整接口地址。</p>
 <label for="model">模型名称</label><input id="model" placeholder="例如 deepseek-chat" maxlength="200" required>

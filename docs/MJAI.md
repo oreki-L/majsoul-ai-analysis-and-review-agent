@@ -2,9 +2,63 @@
 
 项目仍以用户自选 LLM 的局面分析与解释为主要用途。`mjai` 是可选后端，默认选择 `chat`，分析默认关闭；Mortal 只是可能接入的上游之一，不是内置或默认引擎。设置页分别保留一份 `chat` 与 `mjai` 配置，保存时选择其中一种生效，一次请求不会同时调用两者，也不会把引擎输出再发送给 LLM。
 
-Agent 浏览器扩展已捆绑 Pi agent runtime 和 TypeBox 的浏览器构建，安装扩展无需另装 npm 包；独立获取器不含这些运行库。源码构建需 Node.js 22.19+ 并先运行 `npm ci`。以下本地引擎工具与 Pi 运行库分别准备；使用 Python 包装器时还需 Python 3，以及用户自行安装的上游模块、推理依赖和模型权重。本项目不捆绑、下载或训练权重，没有完成真实 Mortal/Akagi 权重推理验证。上游代码、模型及数据各自的许可证和使用条件另行适用。
+Agent 浏览器扩展已捆绑 Pi agent runtime 和 TypeBox 的浏览器构建，安装扩展无需另装 npm 包；独立获取器不含这些运行库。源码构建需 Node.js 22.19+ 并先运行 `npm ci`。以下本地引擎工具与 Pi 运行库分别准备。本项目不捆绑或训练模型；新增 `engine:akagi setup` 可由用户显式运行，从固定官方来源下载并校验指定资产。上游代码、模型及数据各自的许可证和使用条件另行适用。
 
-## 先准备能加载模型的 Bot
+## 普通用户起步：Akagi v2 的小型 Mortal 示例
+
+以下是**当前源码新增的 Windows x64 接入路径**，不表示已发布的 0.9.0 安装包包含这些命令。它使用 Akagi 维护者公开提供的小型、较弱的 Mortal 示例权重，仅适合检查本地接入与尝试建议；不是 Equim 的线上 Mortal 4.1，也不是由 mjai-reviewer 提供的权重，不代表专业牌力。LLM 分析仍是主要用途，本地引擎默认关闭。
+
+固定来源为 [Akagi v2 提交 `91cc2993e4e3682248d33d73d93afe055040e700`](https://github.com/shinkuan/Akagi/tree/91cc2993e4e3682248d33d73d93afe055040e700)。上游为 AGPLv3 加 Commons Clause，请先阅读该提交中的许可；本项目不将上游程序或权重打入扩展安装包。`setup` 只从固定官方来源下载并检查文件，不安装依赖、不运行下载代码、不上传牌局；后续 `check` / `serve` 才使用本机 Python 加载模型。
+
+**已测组合**：Windows x64、Python 3.11、PyTorch 2.7.0 CPU、NumPy 1.26.2，以及上述固定五文件。2026-10-26 已完成真实权重加载、四个座位的人工局面经 HTTP → EngineAgent 返回验证通过的不同动作，并验证取消清理；实测约 6.7–10 秒。这证明该限定组合可给出真实本地模型建议，不证明雀魂线上整场兼容性、其他版本兼容或实战牌力。证据与完整边界见 [VALIDATION.md](../VALIDATION.md)。
+
+### 1. 准备本项目与 Python 环境
+
+获取包含 `agent/akagi-local.cjs` 的当前项目源码，在项目根目录打开 PowerShell。扩展安装 ZIP 只有浏览器文件，不能直接代替该源码目录。先安装 [Node.js 22.19+](https://nodejs.org/) 和 [Python 3.11 x64](https://www.python.org/downloads/)，然后执行：
+
+```powershell
+npm ci
+py -3.11 -m venv .venv-akagi
+.\.venv-akagi\Scripts\python.exe -m pip install torch==2.7.0 --index-url https://download.pytorch.org/whl/cpu
+.\.venv-akagi\Scripts\python.exe -m pip install numpy==1.26.2
+```
+
+无需启用虚拟环境，也无需复制本机现有的聊天 API Key。这里使用 CPU 推理；其他 Python、系统或 PyTorch 版本不视为已验证组合。
+
+### 2. 下载固定资产并实际检查模型
+
+```powershell
+npm run engine:akagi -- setup --dir research/evidence/akagi-v2
+npm run engine:akagi -- check --dir research/evidence/akagi-v2 --python .venv-akagi/Scripts/python.exe
+```
+
+`setup` 下载固定的五个上游文件并核对 SHA-256：`model.py`、`mortal.pth`（约 5.12 MB）、Windows `libriichi.pyd`、`LICENSE.txt` 和 `README.md`。精确路径与哈希见[固定资产清单](../agent/akagi-source.json)。模型保存在已忽略的 `research/evidence/` 下，不应提交到本项目仓库或放入扩展文件夹。
+
+下载成功只证明文件完整；`check` 使用人工四麻局面真实加载权重并调用推理，与通用 Python 包装器只检查签名的 `--check` 不同。成功输出含 `inferenceVerified:true` 及经过检查的 `dahai` 动作；确认成功后再继续。首次安装依赖需要联网，推理在本机执行。
+
+### 3. 启动桥接并填写扩展设置
+
+```powershell
+npm run engine:akagi -- serve --dir research/evidence/akagi-v2 --python .venv-akagi/Scripts/python.exe --port 17341
+```
+
+`serve` 会先再次执行真实模型检查，成功后才监听端口。保持终端运行，将终端显示的 `/analyze` 地址和随机 Bearer Token 填入完整版“模型设置”中的“本地 mjai”。默认地址为 `http://127.0.0.1:17341/analyze`；Token 只填在 Token 框，不拼入 URL，不公开终端输出。手动勾选“开启模型分析”、保存并授予本机接口权限。
+
+回到完整、进行中的无副露四麻局面，授权对局信息、四家牌河与自家手牌，确认座位，选择“综合攻守”，查看将发送的数据后手动分析。成功时显示经合法动作校验的建议；不会自动打牌。切回 `chat` 可恢复之前保存的 LLM 配置。关闭桥接可在终端按 `Ctrl+C`，同时在扩展关闭分析。
+
+此起步适配每次请求都会重新加载模型，进程预算为 30 秒；浏览器整体请求预算仍为 25 秒。本机检查成功不保证较慢设备上的浏览器请求及时完成。
+
+### 常见问题
+
+- 找不到 `engine:akagi` 或脚本：确认在当前源码根目录运行；0.9.0 扩展 ZIP 不含新命令。
+- Python 或依赖找不到：重新执行第 1 步，所有检查和启动均指定同一 `.venv-akagi/Scripts/python.exe`；不要用另一个环境的 `pip`。
+- `FILES_MISSING`：在相同 `--dir` 再运行 `setup`。`SOURCE_HASH_MISMATCH` / `EXISTING_FILE_MISMATCH`：现有文件不符合固定资产，请选择新的空目录重新 `setup`，不要覆盖未知文件或跳过校验。
+- `PYTHON_NOT_FOUND`：为 `--python` 填写 Python 可执行文件的正确路径。`PYTHON_VERSION_UNSUPPORTED`：须使用 Windows x64 的 Python 3.11。`PYTHON_DEPENDENCIES_FAILED`：将固定版本依赖装在 `--python` 指定的环境。`REAL_INFERENCE_FAILED`：文件校验通过仍无法加载或推理，核查上述依赖与 Windows 运行库；不要把它当作检查成功。
+- `PORT_IN_USE`：关闭旧桥接，或改用 `--port 17342`，并把扩展地址同步改为终端实际显示值。
+- HTTP 401：填写当前这次启动的 Token；每次启动默认生成新 Token。HTTP 429：等待现有推理结束后再手动重试。
+- 检查成功但牌局分析拒绝：先核查下面的支持范围。副露、三麻、事件不连续、未知自家手牌或不支持的动作都会明确拒绝；检查不保证真实游戏整场兼容性或建议质量。
+
+## 进阶：接入自备 Python Bot
 
 `agent/mjai-python-wrapper.py` 适配一个用户提供的 Python 模块：默认模块导出可零参数构造的 `Bot` 类（可用 `--class` 修改类名），由该类自行初始化运行环境并加载权重。包装器调用一次同步 `bot.react(events_json)`；参数是整个事件数组的 JSON 字符串，返回值应为 mjai 动作字典或该字典的 JSON 字符串。
 
@@ -108,4 +162,4 @@ npm run engine:review -- observation.json --config runtime.json --seat 0 --hand 
 - Q 值是策略分数，不是放铳概率。没有可验证的固定动作索引映射时 `candidates` 为空；不会对 Q 值做 softmax 后冒充概率，也不会据此生成危险牌。非有限值、非法动作和超大响应拒绝。
 - harness 只记录工具名、状态和耗时，不记录牌局载荷、原始输出或密钥。Token 保存在扩展本地存储，与聊天 API Key 一样不是加密保险箱。
 
-当前验证基于人工事件、模拟进程与 HTTP 服务，不证明真实游戏整场兼容性、真实模型加载能力或牌力。模型可能在 Agent 尚不支持的动作中选出最优动作，此时明确失败，不擅自替换成另一个动作。运行与数据风险另见 [SECURITY.md](../SECURITY.md)，验证记录见 [VALIDATION.md](../VALIDATION.md)。
+除人工事件、模拟进程与 HTTP 回归外，上述 Akagi v2 固定组合已完成真实示例权重推理与 HTTP → EngineAgent 验收；其他 Bot、权重与环境不据此视为已测，真实游戏整场兼容性与实战牌力仍待验证。模型可能在 Agent 尚不支持的动作中选出最优动作，此时明确失败，不擅自替换成另一个动作。运行与数据风险另见 [SECURITY.md](../SECURITY.md)，验证记录见 [VALIDATION.md](../VALIDATION.md)。

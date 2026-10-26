@@ -19,7 +19,7 @@
 | 状态 | 范围 |
 | --- | --- |
 | 已验证 | 人工局面、模拟模型与离线 UI 的行为及本地回归；另有上述 DeepSeek 小样本真实 API 实验。详见 [VALIDATION.md](VALIDATION.md) 和[实测说明](docs/MODEL_BENCHMARK.md) |
-| 实验／待验证 | 当前 Unity 客户端完整实时协议、断线恢复、更多真实模型的兼容性和实战建议质量；本地 mjai 后端尚无真实权重验证 |
+| 实验／待验证 | 当前 Unity 客户端完整实时协议、断线恢复、更多真实模型的兼容性和实战建议质量；本地 mjai 仅已测下述 Akagi v2 小型 Mortal 示例的 Windows CPU 组合 |
 | 计划 | 更完整的真实对局与模型质量评测；不视为已交付能力 |
 
 以下描述当前源码；[稳定发行版 **0.9.0**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.9.0) 的打包内容以该版本为准。此前两种安装组合经过独立 Edge／Chrome 人工牌局模拟；0.6.0 完成 Edge 真实扩展模拟链路与 Chrome 离线 UI 验收，不能据此认定当前 Chrome MV3 加载或线上协议已全面验证。
@@ -128,14 +128,26 @@ npm run eval
 
 ## 可选 mjai 本地引擎
 
-Mortal/mjai 仅是默认不启用的可选适配，需要自备模型、权重及推理依赖，不替代主要的 LLM 分析功能。完整版可连接手动启动的本机桥接服务；获取器保持独立且无第三方运行依赖，不包含引擎模块或权限。
+本地 mjai 是默认关闭的可选后端，不替代主要的 LLM 分析功能。**当前源码新增普通用户起步路径**：下载 Akagi v2 固定提交中的小型 Mortal 示例权重与 Windows x64 运行文件，安装 Python 3.11 的 CPU 推理依赖，再按下列命令完成校验、模型检查和启动，无需自行编写 Bot 或 `runtime.json`。这不是 Equim 线上 Mortal 4.1，也不是 mjai-reviewer 提供的模型；示例权重较弱，不代表专业牌力。发布的 0.9.0 安装包不包含新增命令。
+
+```powershell
+npm run engine:akagi -- setup --dir research/evidence/akagi-v2
+npm run engine:akagi -- check --dir research/evidence/akagi-v2 --python .venv-akagi/Scripts/python.exe
+npm run engine:akagi -- serve --dir research/evidence/akagi-v2 --python .venv-akagi/Scripts/python.exe --port 17341
+```
+
+先按[完整安装步骤](docs/MJAI.md)准备虚拟环境；模型检查成功后，保持桥接终端运行，在扩展选择“本地 mjai”，填写终端显示的地址与 Token，手动启用并授权分析。下载仅来自固定上游官方仓库，核验 SHA-256，不自动上传牌局。权重和上游程序不打入扩展包，许可另行适用。获取器保持独立，不包含这些工具或引擎权限。
+
+已在 Windows x64 / Python 3.11 / PyTorch 2.7.0 CPU / NumPy 1.26.2 完成真实示例权重与四座位人工局面的 HTTP → EngineAgent 验收，返回不同的合法动作，耗时约 6.7–10 秒；已验证取消清理。该结果不证明实战牌力或线上整场兼容性。[验证范围](VALIDATION.md)
+
+自备其他可信 Bot 仍可使用通用适配：
 
 ```sh
 npm run engine:serve -- --config runtime.json --port 17341
 npm run engine:review -- observation.json --config runtime.json --seat 0 --hand --cursor 12
 ```
 
-`runtime.json` 指定可信本机程序；程序以 JSONL 接收一行完整事件数组，返回一行动作。提供 Python `Bot.react` 包装器，但上游模块必须自行初始化并加载用户权重，不能假设任意 `bot.py` 可直接使用。运行命令不是沙箱，上游许可另行适用。设置页选择 `mjai`，填写本地 `/analyze` 地址及 Bearer Token；页面仅支持完整无副露四麻的合法弃牌、立直意向和跳过，自家14张开局记录明确拒绝。Q 值不作为放铳概率，不自动打牌，尚无真实权重验证。[接入步骤、配置与限制](docs/MJAI.md)
+`runtime.json` 指定可信本机程序；程序以 JSONL 接收一行完整事件数组，返回一行动作。通用 Python `Bot.react` 包装器要求用户模块自行初始化并加载权重，任意 `bot.py` 不保证可直接使用。运行命令不是沙箱。页面仅支持完整无副露四麻的合法弃牌、立直意向和跳过，自家14张开局记录明确拒绝；Q 值不作为放铳概率，不自动打牌。[接入步骤、验证范围与限制](docs/MJAI.md)
 
 0.9.0 的 Python 包装器可显式选择 `Bot(player_id)` 构造，并用 `--check` 检查接口签名；检查不构造 Bot、不调用 `react`，模块导入仍可能有副作用，签名兼容不代表真实权重推理已验证。参数与检查步骤见 [MJAI 接入说明](docs/MJAI.md)。
 

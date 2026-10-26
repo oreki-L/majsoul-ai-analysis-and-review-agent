@@ -19,7 +19,7 @@ The pure LLM path needs no specialist decision engine such as Mortal. Local shan
 | Status | Scope |
 | --- | --- |
 | Verified | Synthetic positions, simulated model responses, offline UI behavior, and local regressions, plus the small DeepSeek real-API experiment above; see [VALIDATION.md](VALIDATION.md) and [benchmark notes](docs/MODEL_BENCHMARK.md) |
-| Experimental / unverified | Full live protocol coverage for the current Unity client, reconnection recovery, broader model compatibility and live advice quality; no real-weight validation of the local mjai backend |
+| Experimental / unverified | Full live protocol coverage for the current Unity client, reconnection recovery, broader model compatibility and live advice quality; local mjai has only been tested with the Akagi v2 small Mortal example on the Windows CPU combination below |
 | Planned | Broader real-game and model-quality evaluation; this is not a delivered capability |
 
 The descriptions below cover current source. Packaged contents of [stable release **0.9.0**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.9.0) are specific to that release. Earlier profiles passed synthetic-game checks in isolated Edge and Chrome environments. In 0.6.0, Edge passed an actual extension flow with simulated responses and Chrome passed offline UI checks; these do not establish complete current Chrome MV3 loading or live protocol validation.
@@ -124,14 +124,26 @@ Advice may be wrong or late, calls may incur charges, and the configured provide
 
 ## Optional local mjai engine
 
-Mortal/mjai is an optional adapter, disabled by default. Bring your own model, weights, and inference dependencies. It does not replace the main LLM analysis workflow. The full edition can connect to a manually started local bridge; the independent collector retains no third-party runtime dependencies, engine modules, or engine permissions.
+Local mjai is an optional backend, disabled by default; LLM analysis remains the main workflow. **Current source adds a beginner setup** using a pinned Akagi v2 small Mortal example model and Windows x64 runtime files. Install the Python 3.11 CPU dependencies, then download, check, and serve without writing a Bot or `runtime.json`. This is a weak example model, not Equim's online Mortal 4.1 or a model supplied by mjai-reviewer; no specialist playing-strength claim is made. The released 0.9.0 package does not include these new commands.
+
+```powershell
+npm run engine:akagi -- setup --dir research/evidence/akagi-v2
+npm run engine:akagi -- check --dir research/evidence/akagi-v2 --python .venv-akagi/Scripts/python.exe
+npm run engine:akagi -- serve --dir research/evidence/akagi-v2 --python .venv-akagi/Scripts/python.exe --port 17341
+```
+
+Prepare the virtual environment using the [full installation steps](docs/MJAI.md) (Chinese). After the model check succeeds, keep the bridge terminal open, select local mjai in extension settings, enter its URL and Token, and manually enable and authorize analysis. Downloads use the pinned official upstream repository and SHA-256 checks; game data is not automatically uploaded. Upstream programs and weights are not included in extension packages, and their licenses apply separately. The collector remains independent without these tools or engine permissions.
+
+Real example weights passed HTTP → EngineAgent acceptance on Windows x64 / Python 3.11 / PyTorch 2.7.0 CPU / NumPy 1.26.2, returning different valid actions across artificial positions at all four seats in about 6.7–10 seconds. Cancellation and cleanup passed. This does not establish playing strength or full live-game compatibility. See [validation scope](VALIDATION.md).
+
+Other trusted Bots can still use the generic adapter:
 
 ```sh
 npm run engine:serve -- --config runtime.json --port 17341
 npm run engine:review -- observation.json --config runtime.json --seat 0 --hand --cursor 12
 ```
 
-`runtime.json` names a trusted local program. Its JSONL protocol receives one complete event array and returns one action line. A Python `Bot.react` wrapper is provided, but your module must initialize the bot and load your weights; an arbitrary upstream `bot.py` is not automatically compatible. Configured commands are not sandboxed, and upstream licenses apply separately. Select `mjai` in settings and enter the local `/analyze` URL and Bearer token. The browser Agent currently accepts only complete four-player rounds without melds, with validated discards, riichi intent, or pass actions; an own-hand 14-tile opening record is rejected. Q values are not deal-in probabilities. There is no automatic play or validation with real model weights. See the [setup, configuration, and limits](docs/MJAI.md) (Chinese).
+`runtime.json` names a trusted local program. JSONL receives one complete event array and returns one action line. The generic Python `Bot.react` wrapper requires your module to initialize the bot and load its weights; arbitrary upstream `bot.py` files are not guaranteed compatible. Configured commands are not sandboxed. The browser Agent accepts only complete four-player rounds without melds, with validated discards, riichi intent, or pass actions; an own-hand 14-tile opening record is rejected. Q values are not deal-in probabilities, and play is never automatic. See the [setup, validation scope, and limits](docs/MJAI.md) (Chinese).
 
 The 0.9.0 Python wrapper can explicitly select a `Bot(player_id)` constructor and inspect interface signatures with `--check`. The check does not construct the Bot or call `react`, though importing a module can have side effects; signature compatibility does not verify inference with real weights. See [MJAI setup](docs/MJAI.md) (Chinese) for arguments and checks.
 

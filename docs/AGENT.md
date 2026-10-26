@@ -58,7 +58,7 @@ python scripts/package-public.py
 
 ## 可选 mjai 工作流
 
-LLM 分析和解释仍是主要用途，默认 `chat` 且分析关闭。设置分别保存一份 `chat` 和 `mjai` 配置，一次只运行选中后端。Mortal 是可能的上游之一，需要用户自行准备模型、权重、许可和依赖；没有内置模型或真实权重验收。
+LLM 分析和解释仍是主要用途，默认 `chat` 且分析关闭。设置分别保存一份 `chat` 和 `mjai` 配置，一次只运行选中后端。扩展不内置模型。当前源码提供 Akagi v2 固定小型 Mortal 示例的官方下载、校验与启动路径，已在限定 Windows CPU 环境完成真实权重验收；其他模型、版本及实战牌力不据此视为已验证。模型、依赖与许可须单独准备，步骤与范围见 [MJAI.md](MJAI.md)。
 
 `adapters/mjai.js` 从用户授权的 `mj-observer-v1` 本局连续事件生成 `majsoul-mjai-v1`，匿名化玩家名并遮蔽对手暗牌和摸牌。`engine-agent.js` 只消费净化快照和请求，执行 `request.validate → engine.infer → engine.validate`，独立重放自家手牌并核对公开局面。只支持完整无副露四麻，拒绝自家14张开局、轮转缺口、错配局面和不受支持动作。合法 `dahai` 由手牌与本地候选双重约束；`reach` 不确定具体弃牌时保留 `tile:null`；`none` 仅允许在适当响应时机出现。Q 值无可靠映射时不展示候选，不当作放铳概率或危险证据。
 

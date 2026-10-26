@@ -254,3 +254,19 @@
 - 默认不调用模型；本地计算向听、进张及现物／筋／壁依据。危险牌、手牌、攻守开关替代字段勾选，保留数据查看和统一模型授权。
 - 自动分析仅自己的合法出牌决策触发，支持每巡或第 N 巡起调用模型，之前使用本地计算；多功能合并请求、最小间隔、每局上限、旧局面取消和迟到结果丢弃均有模拟测试。
 - 最终当前工作区 `npm test` 240/240 通过，`npm run check` 与 `npm run build` 通过。Playwright 离线人工局面验证本地计算、开关布局与 390px 窄屏。未调用真实模型或连接真实对局；每局计数在页面刷新时重置。
+
+## Akagi v2 小型 Mortal 示例的真实本地推理（2026-10-26，当前源码）
+
+本轮补充此前通用 mjai 协议与模拟进程验证：旧版本记录中的“无真实权重验证”描述仅指各自当轮验证，不代表本节新增结果。此功能属于当前源码，未纳入已发布的 0.9.0 安装包。LLM 仍为主要路径，本地引擎默认关闭。
+
+- 固定来源为 Akagi 官方仓库提交 [`91cc2993e4e3682248d33d73d93afe055040e700`](https://github.com/shinkuan/Akagi/tree/91cc2993e4e3682248d33d73d93afe055040e700)。使用维护者公开的小型、较弱 Mortal 示例权重；不是 Equim 线上 Mortal 4.1，也不是 mjai-reviewer 提供的权重。许可为上游 AGPLv3 加 Commons Clause；不将程序或权重打入本项目扩展包。
+- `setup` 在全新目录从固定官方路径下载 `model.py`、`mortal.pth`、Windows `libriichi.pyd`、`LICENSE.txt`、`README.md` 并逐文件检查 SHA-256；成功完成下载与复核。完整路径与五文件哈希见 [agent/akagi-source.json](agent/akagi-source.json)。其中权重 SHA-256 为 `e94dc90bc3aaf412b0270d670660d7fe55c9d33b14419f97caf42fe77c01456f`，Windows 原生模块为 `fed91677f6d0d03380b6ef62bb2b19e23be83a556fcef4e05ba206c9e11b65cb`。
+- 限定环境为 Windows x64、Python `3.11.5`（MSC v.1936 64 bit AMD64）、PyTorch `2.7.0+cpu`、NumPy `1.26.2`、Node.js `23.11.1`、npm `10.9.2`。独立 `check` 真实加载权重并推理人工四麻局面，返回合法 `dahai C`，耗时 6491 ms；这不是仅检查 Python 接口签名。独立神经网络审计核对模型参数加载与实际前向推理。
+- 四个人工局面分别使用座位 0–3，经真实本机 HTTP 服务与 `EngineAgent` 的 `request.validate → engine.infer → engine.validate`，返回 `reach`、弃 `1s`、弃 `C`、摸切 `9m` 等不同合法动作。各次轨迹总时为 6940、7746、10061、6682 ms。HTTP 使用测试 Token，不读取用户 API Key、登录凭据或真实游戏数据。
+- 真实进程取消在推理开始约 100 ms 后触发，验证子进程 PID 已清理。独立诊断逐项验证：模型目录不存在返回 `FILES_MISSING`，错误 Python 路径返回 `PYTHON_NOT_FOUND`，不支持的 Python 版本返回 `PYTHON_VERSION_UNSUPPORTED`，错误权重返回 `SOURCE_HASH_MISMATCH`，下载遇到不符的现有文件返回 `EXISTING_FILE_MISMATCH` 且保留原文件，占用端口返回 `PORT_IN_USE`；另建未装依赖的隔离 Python 3.11 环境，确认返回 `PYTHON_DEPENDENCIES_FAILED`。`serve` 自身先执行真实模型检查，成功后才监听本机端口。
+- 设置页仅选择 mjai 时显示起步引导与文档链接，默认仍为关闭的 chat。定向 `node --test tests/engine-options.test.js` 16/16 通过；本轮八个 Markdown 文档的 104 个本地链接检查通过。
+- 最终串行运行 `npm test`：411/411 通过，失败、跳过、取消均为 0，总时 73929.7992 ms；`npm run check` 通过 37 种 SVG 牌面、manifest、脚本语法与版本检查；`npm run build` 成功生成完整版与独立获取器两个 0.9.0 目录。此为当前源码的本地构建验收，不表示重新发布了 0.9.0。日志为同一证据目录中的 `final-npm-test.log`、`final-npm-check.log`、`final-npm-build.log`。
+
+本机证据保存在 ignored 目录 `research/evidence/bot-onboarding-20261026/`：`real-http-acceptance.log`、`real-http-engineagent-result.json`、`independent-check.log`、`independent-neural-audit.log`、`independent-diagnostics.log`、`missing-dependencies.log`。它们是本地验收证据，不随源码发布。普通用户复现步骤见 [docs/MJAI.md](docs/MJAI.md)。
+
+该结果仅证明指定文件与环境可将真实示例模型动作送过本地 HTTP 和 Agent 校验；输入为人工无副露四麻局面。未连接真实雀魂账号、未调用付费 API，不证明线上整场协议、其他 Mortal/Akagi 版本、mjai-reviewer 权重、强模型兼容或实战牌力。模型选择不支持动作时仍明确失败，不自动替换动作或操作游戏。

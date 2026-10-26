@@ -11,6 +11,12 @@ input[readonly]{background:#f5f7f9;color:#63717c}
 .toggle input{width:16px;height:16px;margin:0;accent-color:#214764}
 .hint{font-size:12px;color:#63717c;margin:7px 0 0}
 .hint:empty,#status:empty{display:none}
+.engine-setup{margin:16px 0;padding:14px 16px;border:1px solid #d8e2e9;border-radius:6px;background:#f5f8fa}
+.engine-setup[hidden]{display:none}
+.engine-setup h2{font-size:14px;margin:0 0 8px}
+.engine-setup ol{margin:0 0 10px;padding-left:20px;font-size:13px}
+.engine-setup li+li{margin-top:6px}
+.engine-setup a{color:#214764;text-underline-offset:3px}
 .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:24px}
 button{font:inherit;min-height:38px;padding:8px 14px;border:1px solid #cbd3da;border-radius:6px;background:#fff;color:inherit;cursor:pointer}
 button:hover{background:#f5f7f9}

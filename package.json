@@ -16,6 +16,7 @@
     "review": "node agent/review.cjs",
     "eval": "node agent/eval.cjs",
     "engine:serve": "node agent/engine-server.cjs",
+    "engine:akagi": "node agent/akagi-local.cjs",
     "engine:review": "node agent/engine-review.cjs"
   },
   "dependencies": {
