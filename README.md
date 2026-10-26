@@ -22,13 +22,15 @@
 | 实验／待验证 | 当前 Unity 客户端完整实时协议、断线恢复、更多真实模型的兼容性和实战建议质量；本地 mjai 仅已测下述 Akagi v2 小型 Mortal 示例的 Windows CPU 组合 |
 | 计划 | 更完整的真实对局与模型质量评测；不视为已交付能力 |
 
-以下描述当前源码；[稳定发行版 **0.9.0**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.9.0) 的打包内容以该版本为准。此前两种安装组合经过独立 Edge／Chrome 人工牌局模拟；0.6.0 完成 Edge 真实扩展模拟链路与 Chrome 离线 UI 验收，不能据此认定当前 Chrome MV3 加载或线上协议已全面验证。
+以下描述当前版本；[稳定发行版 **0.10.0**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.10.0) 的打包内容以该版本为准。此前两种安装组合经过独立 Edge／Chrome 人工牌局模拟；0.6.0 完成 Edge 真实扩展模拟链路与 Chrome 离线 UI 验收，不能据此认定当前 Chrome MV3 加载或线上协议已全面验证。
 
 语言切换仅适用于介绍页，扩展界面目前为简体中文；英文、日文介绍不代表支持其他地区游戏域名。
 
 ![自由悬浮分析卡，使用人工局面与模型响应](docs/images/agent-floating-preview.png)
 
 ## 功能
+
+**0.10.0 新增：可选本地模型起步与动作阶段。** 源码包提供 Akagi v2 小型弱 Mortal 示例的下载、SHA-256 校验、真实模型检查与本机桥接启动命令。完整版增加经校验的吃碰杠、鸣牌后弃牌、跳过、立直配套弃牌和有实时资格的荣和／自摸；动作与弃牌提示区分，历史追问保留动作。仍以 LLM 为主要用途，本地引擎默认关闭；不自动打牌，未做真实完整牌谱验证。[接入和限制](docs/MJAI.md)
 
 **0.9.0 新增：决策讨论。** 当前分析置顶显示为“最新分析”；点击“发送追问并保留讨论”后，该决策自动保留下来，新建议到来时仍可继续讨论。每个决策使用自己的冻结局面、原始建议和聊天上下文，不混入实时小局主会话。可折叠、移出面板保留历史，或通过“查询决策历史”按对局／小局／巡目／事件筛选、选择“仅有追问”并重新打开。追问需要配置并启用 `chat` LLM。此功能已纳入 0.9.0 安装包。
 
@@ -47,14 +49,16 @@
 
 ## 安装
 
-[下载 v0.9.0、源码与 SHA256 校验文件](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.9.0)
+[下载 v0.10.0、源码与 SHA256 校验文件](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.10.0)
 
 ### 选择安装内容
 
 | 安装包 | 提供的能力 |
 | --- | --- |
-| [majsoul-ai-analysis-and-review-agent-0.9.0.zip](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.9.0/majsoul-ai-analysis-and-review-agent-0.9.0.zip) | 获取器、局面面板、结算历史、Agent、模型设置与harness运行记录 |
-| [majsoul-collector-0.9.0.zip](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.9.0/majsoul-collector-0.9.0.zip) | 仅采集、展示、历史与导出；不含模型代码、设置页或模型主机权限 |
+| [majsoul-ai-analysis-and-review-agent-0.10.0.zip](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.10.0/majsoul-ai-analysis-and-review-agent-0.10.0.zip) | 获取器、局面面板、结算历史、Agent、模型设置与harness运行记录 |
+| [majsoul-collector-0.10.0.zip](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.10.0/majsoul-collector-0.10.0.zip) | 仅采集、展示、历史与导出；不含模型代码、设置页或模型主机权限 |
+
+本地引擎工具需另下载 [0.10.0 源码包](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.10.0/majsoul-ai-analysis-and-review-agent-source-0.10.0.zip)；两个扩展安装包均不含模型权重、Python 环境或上游原生模块。
 
 同一游戏页面只启用其中一个版本。获取器可以独立使用，导出记录再交给离线复盘工具；两种扩展的本地存储独立，不自动迁移。源码中的 `extension/` 为完整版；运行 `npm run build` 会生成两种可加载目录。
 
@@ -128,7 +132,7 @@ npm run eval
 
 ## 可选 mjai 本地引擎
 
-本地 mjai 是默认关闭的可选后端，不替代主要的 LLM 分析功能。**当前源码新增普通用户起步路径**：下载 Akagi v2 固定提交中的小型 Mortal 示例权重与 Windows x64 运行文件，安装 Python 3.11 的 CPU 推理依赖，再按下列命令完成校验、模型检查和启动，无需自行编写 Bot 或 `runtime.json`。这不是 Equim 线上 Mortal 4.1，也不是 mjai-reviewer 提供的模型；示例权重较弱，不代表专业牌力。发布的 0.9.0 安装包不包含新增命令。
+本地 mjai 是默认关闭的可选后端，不替代主要的 LLM 分析功能。**0.10.0 提供普通用户起步路径**：下载 Akagi v2 固定提交中的小型 Mortal 示例权重与 Windows x64 运行文件，安装 Python 3.11 的 CPU 推理依赖，再按下列命令完成校验、模型检查和启动，无需自行编写 Bot 或 `runtime.json`。这不是 Equim 线上 Mortal 4.1，也不是 mjai-reviewer 提供的模型；示例权重较弱，不代表专业牌力。本机命令包含在 0.10.0 源码包中，浏览器扩展安装包不包含这些命令。
 
 ```powershell
 npm run engine:akagi -- setup --dir research/evidence/akagi-v2
@@ -147,7 +151,7 @@ npm run engine:serve -- --config runtime.json --port 17341
 npm run engine:review -- observation.json --config runtime.json --seat 0 --hand --cursor 12
 ```
 
-`runtime.json` 指定可信本机程序；程序以 JSONL 接收一行完整事件数组，返回一行动作。通用 Python `Bot.react` 包装器要求用户模块自行初始化并加载权重，任意 `bot.py` 不保证可直接使用。运行命令不是沙箱。当前未发布源码支持可连续重放的四麻弃牌、吃碰杠、鸣牌后弃牌、跳过及立直和有证据的配套弃牌。荣和／自摸还要求同一步实时操作资格与本地和牌形；资格缺失、抢杠、自家立直后杠等保守拒绝。响应建议需手动分析，自动触发仍限原有自家弃牌点；动作牌与弃牌提示区分，历史追问保留动作。自家14张开局记录仍拒绝，Q 值不作为放铳概率，不自动打牌；本轮未做真实完整牌谱验证。[接入步骤、验证范围与限制](docs/MJAI.md)
+`runtime.json` 指定可信本机程序；程序以 JSONL 接收一行完整事件数组，返回一行动作。通用 Python `Bot.react` 包装器要求用户模块自行初始化并加载权重，任意 `bot.py` 不保证可直接使用。运行命令不是沙箱。0.10.0 支持可连续重放的四麻弃牌、吃碰杠、鸣牌后弃牌、跳过及立直和有证据的配套弃牌。荣和／自摸还要求同一步实时操作资格与本地和牌形；资格缺失、抢杠、自家立直后杠等保守拒绝。响应建议需手动分析，自动触发仍限原有自家弃牌点；动作牌与弃牌提示区分，历史追问保留动作。自家14张开局记录仍拒绝，Q 值不作为放铳概率，不自动打牌；本轮未做真实完整牌谱验证。[接入步骤、验证范围与限制](docs/MJAI.md)
 
 0.9.0 的 Python 包装器可显式选择 `Bot(player_id)` 构造，并用 `--check` 检查接口签名；检查不构造 Bot、不调用 `react`，模块导入仍可能有副作用，签名兼容不代表真实权重推理已验证。参数与检查步骤见 [MJAI 接入说明](docs/MJAI.md)。
 

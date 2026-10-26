@@ -285,3 +285,13 @@
 本轮本机证据保存在 ignored 目录 `research/evidence/engine-actions-20261026/`：`real-artificial-results.json`、`real-artificial.log`、`final-npm-test.log`、`final-npm-check.log`、`final-npm-build.log`、`package-boundary.log`、`ACCEPTANCE.md`。这些是本地验收记录，不随源码发布。
 
 本轮 UI 与资格数据路径使用人工局面和模拟响应，真实示例权重同样只使用人工局面；不接管真实牌谱，不读取 API 密钥、不调用付费接口，未做真实完整牌谱验证。上述测试不证明线上整场兼容性或实战牌力，不声称已发布新版。
+
+## 0.10.0 发布验收范围（2026-10-26）
+
+- 本版将上述 Akagi v2 接入路径及 mjai 动作扩展纳入同一发行版；保留上文各轮当时“当前源码／未发布”及 0.9.0 构建记录的历史含义，不将历史模拟验收改写为真实模型测试。
+- 发布源码来自最终版本提交的 `git archive` 干净导出；不复制当前工作区的 `ARCHITECTURE.md` 草稿、研究证据、用户配置或模型依赖。源码包中的 `ARCHITECTURE.md` 必须逐字节等于发布提交。
+- 在独立导出目录串行执行 `scripts/package-public.py` 自带的检查、完整测试与构建；根包、lock 根版本、默认 manifest 及两个 profile 均为 0.10.0。产出完整版、独立获取器、allowlist 源码三个 ZIP 与 `SHA256SUMS-0.10.0.txt`，并独立核对文件清单、哈希及 collector 依赖隔离。
+- 真实模型验证仍限定 Windows x64 / Python 3.11 / PyTorch 2.7.0 CPU / NumPy 1.26.2 与固定 Akagi 弱示例。此前四座人工局面验证了真实 HTTP → EngineAgent；新增吃碰杠与立直配套弃牌另经真实 profile → runner → Agent，HTTP 配套结构由模拟链路覆盖，不扩大为真实动作 HTTP 全链路声明。
+- 本次发布不新增付费 API 请求、真实账号连接、真实完整牌谱验证或训练。不证明线上整场兼容性、其他模型／系统版本或实战牌力；抢杠、自家立直后杠等限制保持不变。LLM 仍为主要用途，本地引擎默认关闭，不自动操作游戏。
+
+本轮发布日志、最终提交和逐文件清单记录在 ignored 的 `research/evidence/release-0.10.0/` 中，供本机复核，不随源码包发布。

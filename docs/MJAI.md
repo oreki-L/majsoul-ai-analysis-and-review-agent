@@ -6,7 +6,7 @@ Agent 浏览器扩展已捆绑 Pi agent runtime 和 TypeBox 的浏览器构建�
 
 ## 普通用户起步：Akagi v2 的小型 Mortal 示例
 
-以下是**当前源码新增的 Windows x64 接入路径**，不表示已发布的 0.9.0 安装包包含这些命令。它使用 Akagi 维护者公开提供的小型、较弱的 Mortal 示例权重，仅适合检查本地接入与尝试建议；不是 Equim 的线上 Mortal 4.1，也不是由 mjai-reviewer 提供的权重，不代表专业牌力。LLM 分析仍是主要用途，本地引擎默认关闭。
+以下是 **0.10.0 提供的 Windows x64 接入路径**，命令包含在该版源码包中，浏览器扩展安装包仅含浏览器文件。它使用 Akagi 维护者公开提供的小型、较弱的 Mortal 示例权重，仅适合检查本地接入与尝试建议；不是 Equim 的线上 Mortal 4.1，也不是由 mjai-reviewer 提供的权重，不代表专业牌力。LLM 分析仍是主要用途，本地引擎默认关闭。
 
 固定来源为 [Akagi v2 提交 `91cc2993e4e3682248d33d73d93afe055040e700`](https://github.com/shinkuan/Akagi/tree/91cc2993e4e3682248d33d73d93afe055040e700)。上游为 AGPLv3 加 Commons Clause，请先阅读该提交中的许可；本项目不将上游程序或权重打入扩展安装包。`setup` 只从固定官方来源下载并检查文件，不安装依赖、不运行下载代码、不上传牌局；后续 `check` / `serve` 才使用本机 Python 加载模型。
 
@@ -14,7 +14,7 @@ Agent 浏览器扩展已捆绑 Pi agent runtime 和 TypeBox 的浏览器构建�
 
 ### 1. 准备本项目与 Python 环境
 
-获取包含 `agent/akagi-local.cjs` 的当前项目源码，在项目根目录打开 PowerShell。扩展安装 ZIP 只有浏览器文件，不能直接代替该源码目录。先安装 [Node.js 22.19+](https://nodejs.org/) 和 [Python 3.11 x64](https://www.python.org/downloads/)，然后执行：
+获取 [0.10.0 源码包](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.10.0/majsoul-ai-analysis-and-review-agent-source-0.10.0.zip)，在包含 `agent/akagi-local.cjs` 的项目根目录打开 PowerShell。扩展安装 ZIP 只有浏览器文件，不能直接代替该源码目录。先安装 [Node.js 22.19+](https://nodejs.org/) 和 [Python 3.11 x64](https://www.python.org/downloads/)，然后执行：
 
 ```powershell
 npm ci
@@ -50,7 +50,7 @@ npm run engine:akagi -- serve --dir research/evidence/akagi-v2 --python .venv-ak
 
 ### 常见问题
 
-- 找不到 `engine:akagi` 或脚本：确认在当前源码根目录运行；0.9.0 扩展 ZIP 不含新命令。
+- 找不到 `engine:akagi` 或脚本：确认使用 0.10.0 源码包并在源码根目录运行；扩展安装 ZIP 不含这些本机命令。
 - Python 或依赖找不到：重新执行第 1 步，所有检查和启动均指定同一 `.venv-akagi/Scripts/python.exe`；不要用另一个环境的 `pip`。
 - `FILES_MISSING`：在相同 `--dir` 再运行 `setup`。`SOURCE_HASH_MISMATCH` / `EXISTING_FILE_MISMATCH`：现有文件不符合固定资产，请选择新的空目录重新 `setup`，不要覆盖未知文件或跳过校验。
 - `PYTHON_NOT_FOUND`：为 `--python` 填写 Python 可执行文件的正确路径。`PYTHON_VERSION_UNSUPPORTED`：须使用 Windows x64 的 Python 3.11。`PYTHON_DEPENDENCIES_FAILED`：将固定版本依赖装在 `--python` 指定的环境。`REAL_INFERENCE_FAILED`：文件校验通过仍无法加载或推理，核查上述依赖与 Windows 运行库；不要把它当作检查成功。
@@ -174,4 +174,4 @@ npm run engine:review -- observation.json --config runtime.json --seat 0 --hand 
 - Q 值是策略分数，不是放铳概率。没有可验证的固定动作索引映射时 `candidates` 为空；不会对 Q 值做 softmax 后冒充概率，也不会据此生成危险牌。非有限值、非法动作和超大响应拒绝。
 - harness 只记录工具名、状态和耗时，不记录牌局载荷、原始输出或密钥。Token 保存在扩展本地存储，与聊天 API Key 一样不是加密保险箱。
 
-除人工事件、模拟进程与 HTTP 回归外，上述 Akagi v2 固定组合已完成真实示例权重推理与 HTTP → EngineAgent 验收；其他 Bot、权重与环境不据此视为已测，真实游戏整场兼容性与实战牌力仍待验证。本轮动作扩展未做真实完整牌谱验证，属于未发布源码。模型可能在 Agent 尚不支持的动作中选出最优动作，此时明确失败，不擅自替换成另一个动作。运行与数据风险另见 [SECURITY.md](../SECURITY.md)，验证记录见 [VALIDATION.md](../VALIDATION.md)。
+除人工事件、模拟进程与 HTTP 回归外，上述 Akagi v2 固定组合已完成真实示例权重推理与 HTTP → EngineAgent 验收；新增动作另以真实模型人工局面验证 profile → runner → Agent，不将其合称真实模型 HTTP 全链路。其他 Bot、权重与环境不据此视为已测，真实游戏整场兼容性与实战牌力仍待验证。上述能力纳入 0.10.0；本轮未做真实完整牌谱验证。模型可能在 Agent 尚不支持的动作中选出最优动作，此时明确失败，不擅自替换成另一个动作。运行与数据风险另见 [SECURITY.md](../SECURITY.md)，验证记录见 [VALIDATION.md](../VALIDATION.md)。

@@ -22,13 +22,15 @@
 | 実験的／未検証 | 現行 Unity クライアントの完全な通信対応、再接続の復元、より広いモデル互換性と実戦の助言品質。ローカル mjai は以下の Akagi v2 小型 Mortal サンプルと Windows CPU 環境のみ検証済み |
 | 計画 | 実対局とモデル品質の評価拡充。提供済みの機能ではありません |
 
-以下は現在のソースの説明です。[安定版 **0.9.0**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.9.0) の配布内容はその版に従います。以前の両構成は独立した Edge／Chrome で人工対局を確認しました。0.6.0 では Edge の実拡張に模擬応答を使った経路と Chrome のオフライン UI を確認しましたが、現行 Chrome MV3 の読み込みやオンライン通信全体の検証を意味しません。
+以下は現行バージョンの説明です。[安定版 **0.10.0**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.10.0) の配布内容はその版に従います。以前の両構成は独立した Edge／Chrome で人工対局を確認しました。0.6.0 では Edge の実拡張に模擬応答を使った経路と Chrome のオフライン UI を確認しましたが、現行 Chrome MV3 の読み込みやオンライン通信全体の検証を意味しません。
 
 言語切り替えは紹介文のみです。拡張の画面は簡体字中国語で、日本語・英語の説明があっても他地域のゲーム URL に対応するわけではありません。
 
 ![人工の局面とモデル応答を使ったフローティング分析カード](docs/images/agent-floating-preview.png)
 
 ## 主な機能
+
+**0.10.0 の新機能：任意のローカルモデル導入と判断段階。** ソース版には固定した Akagi v2 の弱い Mortal サンプルの取得・SHA-256 照合・実推論確認・ローカル中継起動のコマンドを含みます。完全版ではチー・ポン・カン、副露後の打牌、見送り、立直の宣言牌、現在の操作資格があるロン・ツモを検証します。動作牌と打牌の印を区別し、対話履歴にも動作を残します。主な用途は引き続き LLM 分析で、ローカルエンジンは既定で無効です。自動打牌や実際の完全な牌譜の検証は行いません。[導入と制限](docs/MJAI.md)（中国語）。
 
 **0.9.0 の新機能：判断ごとの議論。** 現在の結果を上部の `最新分析` に表示します。`发送追问并保留讨论` で質問すると、その判断を自動保存し、新しい助言が来ても続けて議論できます。各判断は固定した局面・元の助言・独自の会話文脈を使い、リアルタイム小局の主セッションには混ぜません。折りたたみ、履歴を残してパネルから外す操作や、`查询决策历史` で対局・小局・巡目・イベントの絞り込み、質問ありのみの表示、再表示ができます。質問には設定・有効化した `chat` LLM が必要です。0.9.0 パッケージに含まれる機能です。
 
@@ -47,12 +49,14 @@
 
 ## インストール
 
-[v0.9.0・ソース・SHA256チェックサム](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.9.0)
+[v0.10.0・ソース・SHA256チェックサム](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.10.0)
 
 | パッケージ | 機能 |
 | --- | --- |
-| [majsoul-ai-analysis-and-review-agent-0.9.0.zip](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.9.0/majsoul-ai-analysis-and-review-agent-0.9.0.zip) | 取得・表示・履歴・Agent・モデル設定・harnessの実行記録 |
-| [majsoul-collector-0.9.0.zip](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.9.0/majsoul-collector-0.9.0.zip) | 取得・表示・履歴・エクスポートのみ。モデル用コード、設定画面、モデル接続先への権限は含みません |
+| [majsoul-ai-analysis-and-review-agent-0.10.0.zip](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.10.0/majsoul-ai-analysis-and-review-agent-0.10.0.zip) | 取得・表示・履歴・Agent・モデル設定・harnessの実行記録 |
+| [majsoul-collector-0.10.0.zip](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.10.0/majsoul-collector-0.10.0.zip) | 取得・表示・履歴・エクスポートのみ。モデル用コード、設定画面、モデル接続先への権限は含みません |
+
+ローカルエンジンのツールには別途 [0.10.0 ソース版](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.10.0/majsoul-ai-analysis-and-review-agent-source-0.10.0.zip)が必要です。両拡張 ZIP にモデル重み・Python 環境・上流のネイティブモジュールは含みません。
 
 同じゲームページでは一方のみを有効にしてください。取得専用版は単独で使用でき、記録を出力してオフラインで振り返れます。両版のローカル保存領域は独立しており、自動移行はしません。ソースの `extension/` は完全版です。`npm run build` で両方の読み込み可能なフォルダーを生成できます。
 
@@ -124,7 +128,7 @@ API なしでもローカル分析を利用できます。危険牌・手牌・�
 
 ## 任意のローカル mjai エンジン
 
-ローカル mjai は既定で無効の任意バックエンドで、主な用途は引き続き LLM 分析です。**現在のソースには初心者向け手順を追加**しています。固定した Akagi v2 の小型 Mortal サンプル重みと Windows x64 ランタイムを取得し、Python 3.11 の CPU 推論依存を準備すれば、Bot や `runtime.json` を自作せずに確認・起動できます。弱いサンプルモデルであり、Equim のオンライン Mortal 4.1 や mjai-reviewer が提供するモデルではなく、専門エンジン相当の雀力を主張しません。公開済みの 0.9.0 パッケージに新しいコマンドは含まれません。
+ローカル mjai は既定で無効の任意バックエンドで、主な用途は引き続き LLM 分析です。**0.10.0 では初心者向け手順を提供**します。固定した Akagi v2 の小型 Mortal サンプル重みと Windows x64 ランタイムを取得し、Python 3.11 の CPU 推論依存を準備すれば、Bot や `runtime.json` を自作せずに確認・起動できます。弱いサンプルモデルであり、Equim のオンライン Mortal 4.1 や mjai-reviewer が提供するモデルではなく、専門エンジン相当の雀力を主張しません。ローカルコマンドは 0.10.0 のソース ZIP に含み、ブラウザ拡張の ZIP には含みません。
 
 ```powershell
 npm run engine:akagi -- setup --dir research/evidence/akagi-v2
@@ -143,7 +147,7 @@ npm run engine:serve -- --config runtime.json --port 17341
 npm run engine:review -- observation.json --config runtime.json --seat 0 --hand --cursor 12
 ```
 
-`runtime.json` で信頼できるローカルプログラムを指定します。JSONL は全イベント配列を1行で受け取り、動作を1行で返します。汎用 Python `Bot.react` ラッパーでは利用者のモジュールで初期化と重みの読込が必要で、任意の上流 `bot.py` の互換性は保証しません。実行コマンドはサンドボックス化されません。未公開の現行ソースは連続して再生できる四麻の局面で、打牌、チー・ポン・カンと副露後の打牌、見送り、立直と根拠のある宣言牌を検証します。ロン・ツモには同じステップのリアルタイム操作資格とローカルの和了形も必要です。資格不足、槍槓、自家の立直後のカンなど証明できないケースは拒否します。応答の助言は手動分析で取得し、自動分析の開始条件は従来の自家打牌時点のままです。動作に使う牌と打牌の印は区別し、保存した対話にも動作情報を残します。自家14枚の配牌記録は引き続き拒否します。Q 値は放銃確率ではなく、自動打牌は行いません。今回、実際の完全な牌譜の検証は行っていません。[設定・検証範囲・制限の詳細](docs/MJAI.md)（中国語）を参照してください。
+`runtime.json` で信頼できるローカルプログラムを指定します。JSONL は全イベント配列を1行で受け取り、動作を1行で返します。汎用 Python `Bot.react` ラッパーでは利用者のモジュールで初期化と重みの読込が必要で、任意の上流 `bot.py` の互換性は保証しません。実行コマンドはサンドボックス化されません。0.10.0 は連続して再生できる四麻の局面で、打牌、チー・ポン・カンと副露後の打牌、見送り、立直と根拠のある宣言牌を検証します。ロン・ツモには同じステップのリアルタイム操作資格とローカルの和了形も必要です。資格不足、槍槓、自家の立直後のカンなど証明できないケースは拒否します。応答の助言は手動分析で取得し、自動分析の開始条件は従来の自家打牌時点のままです。動作に使う牌と打牌の印は区別し、保存した対話にも動作情報を残します。自家14枚の配牌記録は引き続き拒否します。Q 値は放銃確率ではなく、自動打牌は行いません。今回、実際の完全な牌譜の検証は行っていません。[設定・検証範囲・制限の詳細](docs/MJAI.md)（中国語）を参照してください。
 
 0.9.0 の Python ラッパーでは `Bot(player_id)` の構築方法を明示的に選び、`--check` でインターフェースのシグネチャを確認できます。確認時は Bot を構築せず `react` も呼びませんが、モジュールのインポートには副作用があり得ます。シグネチャの互換性は実際の重みによる推論検証ではありません。引数と確認手順は [MJAI 接続説明](docs/MJAI.md)（中国語）を参照してください。
 

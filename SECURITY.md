@@ -19,7 +19,7 @@ Majsoul AI Analysis & Review Agent提供完整版与仅获取器。获取器不�
 
 ## 权限与局限
 
-LLM 分析与解释仍是主要用途，默认 `chat`、分析关闭；`chat` 与 `mjai` 各保存一份配置，一次仅选一种生效。Mortal/mjai 后端可选，权重与依赖单独准备，上游许可证另行适用。当前源码的 Akagi v2 固定小型 Mortal 示例已在限定 Windows CPU 环境完成真实权重推理验收，不证明其他版本兼容、真实整场协议或实战牌力；下载和验证范围见 [docs/MJAI.md](docs/MJAI.md)。
+LLM 分析与解释仍是主要用途，默认 `chat`、分析关闭；`chat` 与 `mjai` 各保存一份配置，一次仅选一种生效。Mortal/mjai 后端可选，权重与依赖单独准备，上游许可证另行适用。0.10.0 源码包提供的 Akagi v2 固定小型 Mortal 示例接入工具已在限定 Windows CPU 环境完成真实权重推理验收，不证明其他版本兼容、真实整场协议或实战牌力；下载和验证范围见 [docs/MJAI.md](docs/MJAI.md)。安装包与源码包均不捆绑上游权重、原生模块或 Python 环境；`setup` 下载到用户选择的本机目录。
 
 本机桥接只监听 `127.0.0.1`，`POST /analyze` 要求 Bearer Token，并检查浏览器 Origin。Token 与聊天 API Key 保存在扩展本地存储，不进入游戏页面桥接、导出或 harness 轨迹；服务器启动时会在本机终端显示 Token，不要公开终端输出。仅监听本机与 Token 鉴权不隔离设备上的恶意程序。
 

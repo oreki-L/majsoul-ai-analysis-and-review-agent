@@ -22,11 +22,13 @@ The pure LLM path needs no specialist decision engine such as Mortal. Local shan
 | Experimental / unverified | Full live protocol coverage for the current Unity client, reconnection recovery, broader model compatibility and live advice quality; local mjai has only been tested with the Akagi v2 small Mortal example on the Windows CPU combination below |
 | Planned | Broader real-game and model-quality evaluation; this is not a delivered capability |
 
-The descriptions below cover current source. Packaged contents of [stable release **0.9.0**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.9.0) are specific to that release. Earlier profiles passed synthetic-game checks in isolated Edge and Chrome environments. In 0.6.0, Edge passed an actual extension flow with simulated responses and Chrome passed offline UI checks; these do not establish complete current Chrome MV3 loading or live protocol validation.
+The descriptions below cover the current version. Packaged contents of [stable release **0.10.0**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.10.0) are specific to that release. Earlier profiles passed synthetic-game checks in isolated Edge and Chrome environments. In 0.6.0, Edge passed an actual extension flow with simulated responses and Chrome passed offline UI checks; these do not establish complete current Chrome MV3 loading or live protocol validation.
 
 Language links switch documentation only. The extension UI is currently Simplified Chinese; English and Japanese pages do not imply support for other regional game domains.
 
 ![Floating analysis card with synthetic game data and model output](docs/images/agent-floating-preview.png)
+
+**New in 0.10.0: optional local-model setup and decision phases.** The source package provides commands to download a pinned Akagi v2 weak Mortal example, verify SHA-256 hashes, run real inference checks, and start a local bridge. The full extension validates calls/kans, post-call discards, passes, riichi follow-up discards, and ron/tsumo with current live eligibility. Action tiles are distinct from discard hints, and discussions retain actions. LLM analysis remains the main workflow; local engines start disabled. No automatic play or real complete-replay validation. [Setup and limits](docs/MJAI.md) (Chinese).
 
 ## Features
 
@@ -47,12 +49,14 @@ Local history retains up to 20 matches and 100 hands per match, evicting the old
 
 ## Installation
 
-[Download v0.9.0, source, and SHA256 checksums](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.9.0)
+[Download v0.10.0, source, and SHA256 checksums](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.10.0)
 
 | Package | Capabilities |
 | --- | --- |
-| [majsoul-ai-analysis-and-review-agent-0.9.0.zip](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.9.0/majsoul-ai-analysis-and-review-agent-0.9.0.zip) | Collector, panel, match history, Agent, model settings, and harness traces |
-| [majsoul-collector-0.9.0.zip](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.9.0/majsoul-collector-0.9.0.zip) | Collection, display, history, and export only; no model code, settings page, or model host permissions |
+| [majsoul-ai-analysis-and-review-agent-0.10.0.zip](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.10.0/majsoul-ai-analysis-and-review-agent-0.10.0.zip) | Collector, panel, match history, Agent, model settings, and harness traces |
+| [majsoul-collector-0.10.0.zip](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.10.0/majsoul-collector-0.10.0.zip) | Collection, display, history, and export only; no model code, settings page, or model host permissions |
+
+Local engine tools require the separate [0.10.0 source package](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.10.0/majsoul-ai-analysis-and-review-agent-source-0.10.0.zip). Neither extension ZIP bundles model weights, Python environments, or upstream native modules.
 
 Enable only one profile on a game page. The collector works independently and can export records for offline review. The profiles have separate local storage and do not migrate data automatically. The source `extension/` directory is the full edition; `npm run build` generates both loadable directories.
 
@@ -124,7 +128,7 @@ Advice may be wrong or late, calls may incur charges, and the configured provide
 
 ## Optional local mjai engine
 
-Local mjai is an optional backend, disabled by default; LLM analysis remains the main workflow. **Current source adds a beginner setup** using a pinned Akagi v2 small Mortal example model and Windows x64 runtime files. Install the Python 3.11 CPU dependencies, then download, check, and serve without writing a Bot or `runtime.json`. This is a weak example model, not Equim's online Mortal 4.1 or a model supplied by mjai-reviewer; no specialist playing-strength claim is made. The released 0.9.0 package does not include these new commands.
+Local mjai is an optional backend, disabled by default; LLM analysis remains the main workflow. **0.10.0 provides a beginner setup** using a pinned Akagi v2 small Mortal example model and Windows x64 runtime files. Install the Python 3.11 CPU dependencies, then download, check, and serve without writing a Bot or `runtime.json`. This is a weak example model, not Equim's online Mortal 4.1 or a model supplied by mjai-reviewer; no specialist playing-strength claim is made. These local commands are included in the 0.10.0 source package, not the browser-extension ZIPs.
 
 ```powershell
 npm run engine:akagi -- setup --dir research/evidence/akagi-v2
@@ -143,7 +147,7 @@ npm run engine:serve -- --config runtime.json --port 17341
 npm run engine:review -- observation.json --config runtime.json --seat 0 --hand --cursor 12
 ```
 
-`runtime.json` names a trusted local program. JSONL receives one complete event array and returns one action line. The generic Python `Bot.react` wrapper requires your module to initialize the bot and load its weights; arbitrary upstream `bot.py` files are not guaranteed compatible. Configured commands are not sandboxed. Current unreleased source validates continuously replayable four-player positions: discards, calls/kans, post-call discards, passes, and riichi with an evidenced follow-up discard. Ron/tsumo also require same-step live operation eligibility and a locally completed hand shape. Missing eligibility, robbing a kan, own kans after riichi, and other unprovable cases are rejected. Response advice requires manual analysis; automatic triggers retain existing own-discard timing. Action tiles are distinct from discard hints, and saved discussions retain actions. An own-hand 14-tile opening record remains unsupported. Q values are not deal-in probabilities, and play is never automatic. No real complete-replay validation was performed this round. See the [setup, validation scope, and limits](docs/MJAI.md) (Chinese).
+`runtime.json` names a trusted local program. JSONL receives one complete event array and returns one action line. The generic Python `Bot.react` wrapper requires your module to initialize the bot and load its weights; arbitrary upstream `bot.py` files are not guaranteed compatible. Configured commands are not sandboxed. 0.10.0 validates continuously replayable four-player positions: discards, calls/kans, post-call discards, passes, and riichi with an evidenced follow-up discard. Ron/tsumo also require same-step live operation eligibility and a locally completed hand shape. Missing eligibility, robbing a kan, own kans after riichi, and other unprovable cases are rejected. Response advice requires manual analysis; automatic triggers retain existing own-discard timing. Action tiles are distinct from discard hints, and saved discussions retain actions. An own-hand 14-tile opening record remains unsupported. Q values are not deal-in probabilities, and play is never automatic. No real complete-replay validation was performed this round. See the [setup, validation scope, and limits](docs/MJAI.md) (Chinese).
 
 The 0.9.0 Python wrapper can explicitly select a `Bot(player_id)` constructor and inspect interface signatures with `--check`. The check does not construct the Bot or call `react`, though importing a module can have side effects; signature compatibility does not verify inference with real weights. See [MJAI setup](docs/MJAI.md) (Chinese) for arguments and checks.
 
