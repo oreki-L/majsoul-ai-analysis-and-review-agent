@@ -8,6 +8,8 @@ A live analysis assistant for the Mahjong Soul web client, centered on a pure LL
 
 **Choose your own model and API.** Set the endpoint, model ID, and API key for an **OpenAI Chat Completions-compatible API with tools support**: a cloud model, third-party gateway, or local service. Requests go directly to your configured service. [LLM setup](#llm-setup)
 
+**You can try DeepSeek-V4.1-Flash first:** in a small real-API experiment across 39 decision points, strategy B had a median summed HTTP time of **5.6 s per analysis**, at an estimated **CNY 0.024 per analysis** using peak cache-aware rates. MAKA first-choice agreement was **16/39 (41%)**. This non-thinking context experiment does not measure playing strength; costs are estimates, not account bills. [Setup and test conditions](docs/MODEL_BENCHMARK.md)
+
 The pure LLM path needs no specialist decision engine such as Mortal. Local shanten, tile-efficiency calculations, and danger evidence support validation and explanation. Specialist engines are optional backends, disabled by default. No claim is made that pure LLM playing strength matches MAKA, Mortal, or other specialist engines.
 
 - **Full Agent:** live analysis, follow-up questions, hand hints, model settings, and traces, including collection and review features.
@@ -16,8 +18,8 @@ The pure LLM path needs no specialist decision engine such as Mortal. Local shan
 
 | Status | Scope |
 | --- | --- |
-| Verified | Synthetic positions, simulated model responses, offline UI behavior, and local regressions; see [VALIDATION.md](VALIDATION.md) |
-| Experimental / unverified | Full live protocol coverage for the current Unity client, reconnection recovery, real model compatibility and advice quality; no real-weight validation of the local mjai backend |
+| Verified | Synthetic positions, simulated model responses, offline UI behavior, and local regressions, plus the small DeepSeek real-API experiment above; see [VALIDATION.md](VALIDATION.md) and [benchmark notes](docs/MODEL_BENCHMARK.md) |
+| Experimental / unverified | Full live protocol coverage for the current Unity client, reconnection recovery, broader model compatibility and live advice quality; no real-weight validation of the local mjai backend |
 | Planned | Broader real-game and model-quality evaluation; this is not a delivered capability |
 
 The descriptions below cover current source. Packaged contents of [stable release 0.8.1](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.8.1) are specific to that release. Earlier profiles passed synthetic-game checks in isolated Edge and Chrome environments. In 0.6.0, Edge passed an actual extension flow with simulated responses and Chrome passed offline UI checks; these do not establish complete current Chrome MV3 loading or live protocol validation.
@@ -83,6 +85,8 @@ npm run eval
 
 ## LLM setup
 
+Suggested starting configuration: model ID **`deepseek-flash`**, endpoint **`https://api.deepseek.com/chat/completions`**, and your own API key. Entering just `https://api.deepseek.com` also works; settings append the path. As checked on 2026-10-26, the official version is **DeepSeek-V4.1-Flash-1017**. Disable thinking to approach the reported test conditions; the experiment capped each HTTP output at 2048 tokens, so its timing and cost do not describe default settings. See [setup and benchmark notes](docs/MODEL_BENCHMARK.md) for peak/off-peak CNY prices and full sample results, and the [official pricing page](https://api-docs.deepseek.com/quick_start/pricing/) for current prices.
+
 The per-analysis model-request budget includes the final answer and is a limit, not a required call count. The conditional memory tool `get_user_memory` does not increase the total tool-call budget.
 
 Every analysis proactively sends the full frozen authorized snapshot: your current hand, drawn tile, public table, and discards. Current facts override old answers. `round` retains captured authorized events and successful exchanges interleaved in time within the current round, branch, and discussion group; mid-round starts and coverage gaps are explicit. Six default read-only tools expose your hand, public table, selected players' discards, round events, local discard comparisons, and danger evidence, reading only frozen authorized input. Local safety limits fail explicitly and preserve history without silent cropping. Chat Completions still retransmits history; cache hits and cost savings are not promised. Missing usage remains unknown. See [authorization and caching](docs/AGENT_SESSIONS.md) (Chinese).
@@ -116,7 +120,7 @@ Model output must follow a JSON Schema; JSON code fences are accepted. The exten
 
 The endpoint must support non-streaming `POST /chat/completions` with string content in `choices[0].message.content`; provider-side `response_format` support is not required. Native Anthropic, Gemini, and Responses API formats require a compatible gateway. Both request and response formats must be compatible, and the model must follow the JSON Schema described above. Requests time out after 25 seconds, with one concurrent request per tab.
 
-Advice may be wrong or late, calls may incur charges, and the configured provider processes the input. Real provider compatibility and advice quality still need validation. The API key stays in extension-local storage, is read only by the background component, and is excluded from game exports and the page bridge. See [SECURITY.md](SECURITY.md) for details.
+Advice may be wrong or late, calls may incur charges, and the configured provider processes the input. The small DeepSeek experiment does not establish other providers' compatibility or live advice quality. The API key stays in extension-local storage, is read only by the background component, and is excluded from game exports and the page bridge. See [SECURITY.md](SECURITY.md) for details.
 
 ## Optional local mjai engine
 
