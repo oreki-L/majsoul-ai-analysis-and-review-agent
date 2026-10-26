@@ -22,7 +22,7 @@ The pure LLM path needs no specialist decision engine such as Mortal. Local shan
 | Experimental / unverified | Full live protocol coverage for the current Unity client, reconnection recovery, broader model compatibility and live advice quality; no real-weight validation of the local mjai backend |
 | Planned | Broader real-game and model-quality evaluation; this is not a delivered capability |
 
-The descriptions below cover current source. Packaged contents of [stable release 0.8.1](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.8.1) are specific to that release. Earlier profiles passed synthetic-game checks in isolated Edge and Chrome environments. In 0.6.0, Edge passed an actual extension flow with simulated responses and Chrome passed offline UI checks; these do not establish complete current Chrome MV3 loading or live protocol validation.
+The descriptions below cover current source. Packaged contents of [stable release **0.9.0**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.9.0) are specific to that release. Earlier profiles passed synthetic-game checks in isolated Edge and Chrome environments. In 0.6.0, Edge passed an actual extension flow with simulated responses and Chrome passed offline UI checks; these do not establish complete current Chrome MV3 loading or live protocol validation.
 
 Language links switch documentation only. The extension UI is currently Simplified Chinese; English and Japanese pages do not imply support for other regional game domains.
 
@@ -30,7 +30,7 @@ Language links switch documentation only. The extension UI is currently Simplifi
 
 ## Features
 
-**New in current source: decision discussions.** The current result stays at the top as `最新分析`. `发送追问并保留讨论` sends a question and automatically retains that decision when new advice arrives. Each decision uses its own frozen position, original advice, and chat context, separate from the live round's main session. Collapse it, remove it from the panel while keeping history, or use `查询决策历史` to filter by match, round, turn, or event, show only discussions with questions, and reopen one. Questions require a configured and enabled `chat` LLM. This describes current source, not the published 0.8.1 packages.
+**New in 0.9.0: decision discussions.** The current result stays at the top as `最新分析`. `发送追问并保留讨论` sends a question and automatically retains that decision when new advice arrives. Each decision uses its own frozen position, original advice, and chat context, separate from the live round's main session. Collapse it, remove it from the panel while keeping history, or use `查询决策历史` to filter by match, round, turn, or event, show only discussions with questions, and reopen one. Questions require a configured and enabled `chat` LLM. This feature is included in the 0.9.0 packages.
 
 Discussions and panel state are stored locally in the extension and restored after reload. An interrupted question is marked failed on restart and can be retried. There is no preset question-count limit, but request budgets, API costs, and local limits of **6 MB / 400 decisions** apply. Only old analyses without questions or retention are evicted; writes fail when space cannot safely be freed. Clearing local sessions and usage also clears discussions. There is no cloud sync or permanent-storage guarantee. Configure per-million-token prices and export the latest 100 numeric usage records; missing usage stays unknown.
 
@@ -47,12 +47,12 @@ Local history retains up to 20 matches and 100 hands per match, evicting the old
 
 ## Installation
 
-[Download v0.8.1, source, and SHA256 checksums](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.8.1)
+[Download v0.9.0, source, and SHA256 checksums](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.9.0)
 
 | Package | Capabilities |
 | --- | --- |
-| [majsoul-ai-analysis-and-review-agent-0.8.1.zip](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.8.1/majsoul-ai-analysis-and-review-agent-0.8.1.zip) | Collector, panel, match history, Agent, model settings, and harness traces |
-| [majsoul-collector-0.8.1.zip](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.8.1/majsoul-collector-0.8.1.zip) | Collection, display, history, and export only; no model code, settings page, or model host permissions |
+| [majsoul-ai-analysis-and-review-agent-0.9.0.zip](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.9.0/majsoul-ai-analysis-and-review-agent-0.9.0.zip) | Collector, panel, match history, Agent, model settings, and harness traces |
+| [majsoul-collector-0.9.0.zip](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.9.0/majsoul-collector-0.9.0.zip) | Collection, display, history, and export only; no model code, settings page, or model host permissions |
 
 Enable only one profile on a game page. The collector works independently and can export records for offline review. The profiles have separate local storage and do not migrate data automatically. The source `extension/` directory is the full edition; `npm run build` generates both loadable directories.
 
@@ -133,7 +133,7 @@ npm run engine:review -- observation.json --config runtime.json --seat 0 --hand 
 
 `runtime.json` names a trusted local program. Its JSONL protocol receives one complete event array and returns one action line. A Python `Bot.react` wrapper is provided, but your module must initialize the bot and load your weights; an arbitrary upstream `bot.py` is not automatically compatible. Configured commands are not sandboxed, and upstream licenses apply separately. Select `mjai` in settings and enter the local `/analyze` URL and Bearer token. The browser Agent currently accepts only complete four-player rounds without melds, with validated discards, riichi intent, or pass actions; an own-hand 14-tile opening record is rejected. Q values are not deal-in probabilities. There is no automatic play or validation with real model weights. See the [setup, configuration, and limits](docs/MJAI.md) (Chinese).
 
-The current-source Python wrapper can explicitly select a `Bot(player_id)` constructor and inspect interface signatures with `--check`. The check does not construct the Bot or call `react`, though importing a module can have side effects; signature compatibility does not verify inference with real weights. See [MJAI setup](docs/MJAI.md) (Chinese) for arguments and checks.
+The 0.9.0 Python wrapper can explicitly select a `Bot(player_id)` constructor and inspect interface signatures with `--check`. The check does not construct the Bot or call `react`, though importing a module can have side effects; signature compatibility does not verify inference with real weights. See [MJAI setup](docs/MJAI.md) (Chinese) for arguments and checks.
 
 ## Optional NAGA replay export
 
@@ -143,11 +143,11 @@ The first version supports standard four-player calls, kans, riichi, single-winn
 
 ## History and replays
 
-### Manual match review index (current source)
+### Manual match review index
 
 `打开整盘整理` stays collapsed until you open it manually, for example after a match or during history/replay review. It builds a local overview of retained decision samples from saved snapshots, original analyses, and questions, organized into four themes: push/fold and risk, tile efficiency, calls and riichi positions, and user questions. It makes no model calls and does not automatically generate an LLM match summary. Each source links back to its original decision, captured hand, and advice, where you can continue asking questions through your configured and enabled `chat` LLM at its usual API cost. Live collection continues; hand annotations pause while viewing a historical decision.
 
-Coverage includes only retained analyses, excluding unanalyzed or evicted records. A missing match ID is marked as an unconfirmed scope; `刷新留存记录` refreshes the index. Advice does not establish what the player actually did: actual actions remain unknown, with no inferred error rate, overall performance, or user preferences. Questions distinguish answered, pending, and incomplete states. This is a current-source addition; the source version remains 0.8.1 and this does not claim inclusion in published packages.
+Coverage includes only retained analyses, excluding unanalyzed or evicted records. A missing match ID is marked as an unconfirmed scope; `刷新留存记录` refreshes the index. Advice does not establish what the player actually did: actual actions remain unknown, with no inferred error rate, overall performance, or user preferences. Questions distinguish answered, pending, and incomplete states. This feature is included in the 0.9.0 packages.
 
 ### Optional match memory learning
 

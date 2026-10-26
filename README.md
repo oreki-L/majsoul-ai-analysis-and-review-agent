@@ -22,7 +22,7 @@
 | 实验／待验证 | 当前 Unity 客户端完整实时协议、断线恢复、更多真实模型的兼容性和实战建议质量；本地 mjai 后端尚无真实权重验证 |
 | 计划 | 更完整的真实对局与模型质量评测；不视为已交付能力 |
 
-以下描述当前源码；[稳定发行版 0.8.1](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.8.1) 的打包内容以该版本为准。此前两种安装组合经过独立 Edge／Chrome 人工牌局模拟；0.6.0 完成 Edge 真实扩展模拟链路与 Chrome 离线 UI 验收，不能据此认定当前 Chrome MV3 加载或线上协议已全面验证。
+以下描述当前源码；[稳定发行版 **0.9.0**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.9.0) 的打包内容以该版本为准。此前两种安装组合经过独立 Edge／Chrome 人工牌局模拟；0.6.0 完成 Edge 真实扩展模拟链路与 Chrome 离线 UI 验收，不能据此认定当前 Chrome MV3 加载或线上协议已全面验证。
 
 语言切换仅适用于介绍页，扩展界面目前为简体中文；英文、日文介绍不代表支持其他地区游戏域名。
 
@@ -30,7 +30,7 @@
 
 ## 功能
 
-**本次源码新增：决策讨论。** 当前分析置顶显示为“最新分析”；点击“发送追问并保留讨论”后，该决策自动保留下来，新建议到来时仍可继续讨论。每个决策使用自己的冻结局面、原始建议和聊天上下文，不混入实时小局主会话。可折叠、移出面板保留历史，或通过“查询决策历史”按对局／小局／巡目／事件筛选、选择“仅有追问”并重新打开。追问需要配置并启用 `chat` LLM。这是当前源码能力，不代表已包含在 0.8.1 安装包中。
+**0.9.0 新增：决策讨论。** 当前分析置顶显示为“最新分析”；点击“发送追问并保留讨论”后，该决策自动保留下来，新建议到来时仍可继续讨论。每个决策使用自己的冻结局面、原始建议和聊天上下文，不混入实时小局主会话。可折叠、移出面板保留历史，或通过“查询决策历史”按对局／小局／巡目／事件筛选、选择“仅有追问”并重新打开。追问需要配置并启用 `chat` LLM。此功能已纳入 0.9.0 安装包。
 
 讨论和面板状态保存在扩展本地，刷新后恢复；重启时未完成的追问标为失败，可重问。没有预设追问次数上限，但受单次请求预算、API 费用和本地 **6 MB／400 个决策**上限约束：空间不足时仅淘汰未提问且未保留的旧分析，无法安全腾出空间则拒绝新写入。清除本地会话与用量也清除讨论；不提供云同步或永久保存保证。可配置每百万 token 价格并导出最近 100 条数值用量记录，未知用量保持未知。
 
@@ -47,14 +47,14 @@
 
 ## 安装
 
-[下载 v0.8.1、源码与 SHA256 校验文件](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.8.1)
+[下载 v0.9.0、源码与 SHA256 校验文件](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.9.0)
 
 ### 选择安装内容
 
 | 安装包 | 提供的能力 |
 | --- | --- |
-| [majsoul-ai-analysis-and-review-agent-0.8.1.zip](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.8.1/majsoul-ai-analysis-and-review-agent-0.8.1.zip) | 获取器、局面面板、结算历史、Agent、模型设置与harness运行记录 |
-| [majsoul-collector-0.8.1.zip](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.8.1/majsoul-collector-0.8.1.zip) | 仅采集、展示、历史与导出；不含模型代码、设置页或模型主机权限 |
+| [majsoul-ai-analysis-and-review-agent-0.9.0.zip](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.9.0/majsoul-ai-analysis-and-review-agent-0.9.0.zip) | 获取器、局面面板、结算历史、Agent、模型设置与harness运行记录 |
+| [majsoul-collector-0.9.0.zip](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.9.0/majsoul-collector-0.9.0.zip) | 仅采集、展示、历史与导出；不含模型代码、设置页或模型主机权限 |
 
 同一游戏页面只启用其中一个版本。获取器可以独立使用，导出记录再交给离线复盘工具；两种扩展的本地存储独立，不自动迁移。源码中的 `extension/` 为完整版；运行 `npm run build` 会生成两种可加载目录。
 
@@ -137,7 +137,7 @@ npm run engine:review -- observation.json --config runtime.json --seat 0 --hand 
 
 `runtime.json` 指定可信本机程序；程序以 JSONL 接收一行完整事件数组，返回一行动作。提供 Python `Bot.react` 包装器，但上游模块必须自行初始化并加载用户权重，不能假设任意 `bot.py` 可直接使用。运行命令不是沙箱，上游许可另行适用。设置页选择 `mjai`，填写本地 `/analyze` 地址及 Bearer Token；页面仅支持完整无副露四麻的合法弃牌、立直意向和跳过，自家14张开局记录明确拒绝。Q 值不作为放铳概率，不自动打牌，尚无真实权重验证。[接入步骤、配置与限制](docs/MJAI.md)
 
-当前源码的 Python 包装器可显式选择 `Bot(player_id)` 构造，并用 `--check` 检查接口签名；检查不构造 Bot、不调用 `react`，模块导入仍可能有副作用，签名兼容不代表真实权重推理已验证。参数与检查步骤见 [MJAI 接入说明](docs/MJAI.md)。
+0.9.0 的 Python 包装器可显式选择 `Bot(player_id)` 构造，并用 `--check` 检查接口签名；检查不构造 Bot、不调用 `react`，模块导入仍可能有副作用，签名兼容不代表真实权重推理已验证。参数与检查步骤见 [MJAI 接入说明](docs/MJAI.md)。
 
 ## 可选 NAGA 牌谱导出
 
@@ -147,11 +147,11 @@ npm run engine:review -- observation.json --config runtime.json --seat 0 --hand 
 
 ## 记录与复盘
 
-### 手动整盘整理（当前源码）
+### 手动整盘整理
 
 “打开整盘整理”默认收起，可在整盘结束或历史／牌谱复盘时手动打开。它在本地按仍留存的决策快照、原分析与问答生成采样概览，分为“攻守与风险”“牌效率”“鸣牌与立直局面”“用户疑问”四个主题；不调用模型，也不自动生成 LLM 整盘摘要。每条来源可点击回到原决策，查看当时手牌与建议并继续追问；追问沿用已配置并启用的 `chat` LLM，可能产生原有 API 费用。实时采集继续，查看历史决策时牌面提示暂停。
 
-范围仅限仍保存的已生成分析，未分析或已淘汰的记录不算覆盖；缺少对局 ID 会标注范围未确认。“刷新留存记录”可更新整理。原建议不等于玩家实际动作，实际动作保持未知，不据此计算失误率、判断整盘表现或推断用户偏好。用户问题分别标注已回答、待回答和未完成。此功能属于当前源码新增，版本仍为 0.8.1，不代表已包含在发布安装包中。
+范围仅限仍保存的已生成分析，未分析或已淘汰的记录不算覆盖；缺少对局 ID 会标注范围未确认。“刷新留存记录”可更新整理。原建议不等于玩家实际动作，实际动作保持未知，不据此计算失误率、判断整盘表现或推断用户偏好。用户问题分别标注已回答、待回答和未完成。此功能已纳入 0.9.0 安装包。
 
 ### 可选整场记忆学习
 
