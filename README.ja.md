@@ -208,7 +208,6 @@ python -m http.server 8126 --bind 127.0.0.1
 
 | 資料 | 内容 |
 | --- | --- |
-| [docs/REFERENCES.md](docs/REFERENCES.md) | 参考プロジェクト、選定方針、接続状況と未確認の範囲（中国語） |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | モジュールの役割、イベント、モデルへのデータフロー |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | 開発、再現データ、PR の要件 |
 | [SECURITY.md](SECURITY.md) | 権限、認証情報、データ処理、脆弱性の報告 |
