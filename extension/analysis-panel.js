@@ -106,7 +106,7 @@
     .reduce((text, value) => text ? text + (/[。！？!?.…][”’」』）)]?$/u.test(text) ? ' ' : '；') + value : value, '');
   const reasons = values => escape(joinReasons(values));
   const actionNames = { attack: '进攻', defend: '防守', fold: '弃和', unknown: '暂无法判断' };
-  const riskNames = { safe: '现物', low: '较低', medium: '中等', high: '较高', unknown: '未知' };
+  const riskNames = { safe: '对该家现物', low: '较低', medium: '中等', high: '较高', unknown: '未知' };
   const decisionLabel = response => response?.actualProvider === 'local' ? '本地分析' : ({ reach: '立直意向', none: '跳过响应' })[response?.engine?.action?.type] || actionNames[response?.result?.decision?.action] || '暂无法判断';
   const decisionHeading = response => escape(decisionLabel(response)) + (response?.result?.decision?.tile ? ' · 建议打' : '');
   function resultHtml(response) {
