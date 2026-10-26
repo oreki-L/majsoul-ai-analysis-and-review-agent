@@ -42,6 +42,7 @@
         "adapters/naga-replay.js",
         "mahjong-analysis.js",
         "analysis.js",
+        "postgame-review.js",
         "analysis-panel.js",
         "panel-theme.js",
         "overlay.js",

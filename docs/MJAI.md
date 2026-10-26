@@ -6,9 +6,9 @@ Agent 浏览器扩展已捆绑 Pi agent runtime 和 TypeBox 的浏览器构建�
 
 ## 先准备能加载模型的 Bot
 
-`agent/mjai-python-wrapper.py` 适配一个用户提供的 Python 模块：模块导出可零参数构造的 `Bot` 类（可用 `--class` 修改类名），由该类自行初始化运行环境并加载权重。包装器调用一次 `bot.react(events_json)`；参数是整个事件数组的 JSON 字符串，返回值应为 mjai 动作字典或该字典的 JSON 字符串。
+`agent/mjai-python-wrapper.py` 适配一个用户提供的 Python 模块：默认模块导出可零参数构造的 `Bot` 类（可用 `--class` 修改类名），由该类自行初始化运行环境并加载权重。包装器调用一次同步 `bot.react(events_json)`；参数是整个事件数组的 JSON 字符串，返回值应为 mjai 动作字典或该字典的 JSON 字符串。
 
-这不表示任意上游 `bot.py` 都可直接运行。如果现有 Bot 需要构造参数、异步方法、不同的 `react` 签名或另行加载权重，应先自行提供上述接口的适配类。命令和模块以当前工作目录运行，不自动切换到配置文件目录；建议使用绝对路径。
+显式传入 `--constructor seat` 可改用 `Bot(player_id)`，座位来自事件数组首条且唯一的 `start_game.id`，必须为整数0至3。默认 `--constructor zero` 保持 `Bot()`；不自动猜测构造方式，也不在失败后回退。其他构造参数、异步方法、生成器、逐事件输入或不同的 `react` 签名仍需用户提供适配类。这不表示任意 Mortal/Akagi `bot.py` 都可直接运行。命令和模块以当前工作目录运行，不自动切换到配置文件目录；建议使用绝对路径。
 
 ```sh
 python agent/mjai-python-wrapper.py --help
@@ -32,6 +32,28 @@ python agent/mjai-python-wrapper.py --help
 ```
 
 以上路径均需替换为本机实际路径；`my_mjai_bot` 是用户模块示例名，不是本项目提供的模型。依赖和权重由该模块管理。配置中的 `command` 与 `args` 是本机程序执行权限，**不是沙箱**；虽然以 `shell:false` 启动，仍会执行所配置程序及导入模块的任意代码，只应使用可信配置和模块。
+
+对于已提供 `Bot(player_id)`、同步 `react(events_json)` 的可信模块，在上例 `args` 中追加 `"--constructor", "seat"`。其最小接口如下；实际模型初始化仍由用户实现：
+
+```python
+class Bot:
+    def __init__(self, player_id):
+        self.player_id = player_id
+
+    def react(self, events_json):
+        # Replace with your own initialized model's batch-event inference.
+        return {"type": "none"}
+```
+
+先用与运行配置相同的参数执行接口检查：
+
+```sh
+python agent/mjai-python-wrapper.py --module-dir D:/my-engine --module my_mjai_bot --constructor seat --check
+```
+
+成功输出 `{"format":"mjai-python-interface-v1","constructor":"seat","react":"events-json","signatureCompatible":true,"inferenceVerified":false}`。检查只导入模块并验证类的构造及同步 `react` 参数签名，不构造 Bot、不调用 `react`；**导入模块仍可能触发其顶层代码加载模型或其他副作用**。`--check` 对无法检查的签名返回 `SIGNATURE_UNAVAILABLE`，不能据此判定接口不可运行。正常推理保留不暴露 Python 签名的可调用接口（例如部分原生扩展）的运行能力，仍拒绝能够确定的参数不匹配、异步或生成器接口；构造方式始终按用户配置，不自动回退。签名兼容不能证明返回值、模型文件、推理依赖或真实推理可用，接下来应使用自己的授权导出执行 `engine:review`；不得把检查结果作为真实 Mortal/Akagi 权重兼容证明。
+
+包装器失败时 stdout 为空，stderr 使用固定阶段码：`IMPORT_FAILED`、`INTERFACE_INCOMPATIBLE`、`SIGNATURE_UNAVAILABLE`（仅接口检查）、`INVALID_INPUT`、`CONSTRUCTOR_FAILED`、`REACT_FAILED` 或 `INVALID_ACTION`，不输出捕获到的用户异常。用户模块主动写出的调试日志仍会进入 stderr，应自行避免记录敏感信息。Node runner/HTTP 对外保持通用失败，不透传进程日志；排查包装器阶段码需在本机直接运行相同命令与授权事件输入。
 
 ## JSONL 进程协议
 

@@ -133,6 +133,8 @@ npm run engine:review -- observation.json --config runtime.json --seat 0 --hand 
 
 `runtime.json` names a trusted local program. Its JSONL protocol receives one complete event array and returns one action line. A Python `Bot.react` wrapper is provided, but your module must initialize the bot and load your weights; an arbitrary upstream `bot.py` is not automatically compatible. Configured commands are not sandboxed, and upstream licenses apply separately. Select `mjai` in settings and enter the local `/analyze` URL and Bearer token. The browser Agent currently accepts only complete four-player rounds without melds, with validated discards, riichi intent, or pass actions; an own-hand 14-tile opening record is rejected. Q values are not deal-in probabilities. There is no automatic play or validation with real model weights. See the [setup, configuration, and limits](docs/MJAI.md) (Chinese).
 
+The current-source Python wrapper can explicitly select a `Bot(player_id)` constructor and inspect interface signatures with `--check`. The check does not construct the Bot or call `react`, though importing a module can have side effects; signature compatibility does not verify inference with real weights. See [MJAI setup](docs/MJAI.md) (Chinese) for arguments and checks.
+
 ## Optional NAGA replay export
 
 The full edition's `牌谱复盘 · NAGA` panel is disabled by default. Open a complete replay, enable it, explicitly select East-only / South game, one red five per suit / no red fives, and four-player open tanyao rules, then confirm generation. Conversion reads the entire replay locally, independently of the cursor. Select hands, preview, copy, or download one `Tenhou URL` per hand, then sign in and submit yourself on the [official NAGA page](https://naga.dmv.nico/naga_report/order_form/). Exports include all four hands and replace player names with seat labels.
@@ -140,6 +142,12 @@ The full edition's `牌谱复盘 · NAGA` panel is disabled by default. Open a c
 The first version supports standard four-player calls, kans, riichi, single-winner hands, and ordinary exhaustive draws. Multiple winners, responsibility payments, nagashi mangan, abortive draws, three-player games, unknown yaku, and missing data are rejected per hand. See [NAGA integration](docs/NAGA-INTEGRATION.md) for exact limits. The extension does not automatically upload, charge, read reports, or collect account credentials. Official prices and acceptance are determined on the official site. The collector-only edition contains no NAGA modules.
 
 ## History and replays
+
+### Manual match review index (current source)
+
+`打开整盘整理` stays collapsed until you open it manually, for example after a match or during history/replay review. It builds a local overview of retained decision samples from saved snapshots, original analyses, and questions, organized into four themes: push/fold and risk, tile efficiency, calls and riichi positions, and user questions. It makes no model calls and does not automatically generate an LLM match summary. Each source links back to its original decision, captured hand, and advice, where you can continue asking questions through your configured and enabled `chat` LLM at its usual API cost. Live collection continues; hand annotations pause while viewing a historical decision.
+
+Coverage includes only retained analyses, excluding unanalyzed or evicted records. A missing match ID is marked as an unconfirmed scope; `刷新留存记录` refreshes the index. Advice does not establish what the player actually did: actual actions remain unknown, with no inferred error rate, overall performance, or user preferences. Questions distinguish answered, pending, and incomplete states. This is a current-source addition; the source version remains 0.8.1 and this does not claim inclusion in published packages.
 
 ### Optional match memory learning
 

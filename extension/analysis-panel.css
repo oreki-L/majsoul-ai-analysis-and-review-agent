@@ -83,3 +83,10 @@
 .discussion-chat { max-height: 420px; overflow-y: auto; overscroll-behavior: contain; }
 .decision-navigator { display: grid; gap: 6px; }
 .decision-discussion pre { max-height: 240px; overflow: auto; }
+.postgame-review{border:1px solid var(--mj-border,#46515a);border-radius:8px;padding:10px;overflow-wrap:anywhere}
+.postgame-review>button{width:100%;text-align:left;color:var(--mj-accent,#8bd4d1)}
+.postgame-review select{width:100%;margin-top:5px}
+.review-overview{font-weight:650}
+.review-topic{border-top:1px solid var(--mj-border,#46515a);padding:5px 0}
+.review-topic article{padding:6px 0;border-bottom:1px dotted var(--mj-border,#46515a)}
+.review-topic article button{font-size:11px;text-align:left;white-space:normal}

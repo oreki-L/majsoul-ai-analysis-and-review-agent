@@ -6,6 +6,9 @@
   let previousDiscards = 0;
   let discussionRecords = [], currentDiscussionId = null, discussionLoaded = false, discussionBusy = null, discussionError = '';
   let historyOpen = false, historyFilter = '', historyAsked = false, selectedDecisionId = null;
+  let reviewOpen = false, reviewKey = '', reviewError = '';
+  let reviewLimits = {}, reviewPlan = null;
+  let reviewWasEnded = false;
   const discussionDrafts = new Map();
   const clone = value => JSON.parse(JSON.stringify(value));
   function mergeDiscussion(record) {
@@ -120,11 +123,12 @@
         <button id="discussion-send-${index}" ${discussionBusy || !enabled || provider !== 'chat' ? 'disabled' : ''}>${discussionBusy === record.id ? '正在追问…' : '发送追问并保留讨论'}</button>${!enabled || provider !== 'chat' ? '<p class="muted">追问需在模型设置中开启 LLM 接口。</p>' : ''}`}</article>`;
     };
     const matches = discussionRecords.filter(r => (!historyAsked || r.chat.length) && discussionLabel(r, true).toLowerCase().includes(historyFilter.toLowerCase())).slice().reverse();
-    return `<section class="decision-discussions" aria-label="决策讨论">${decisionNavigatorHtml(latest)}${cards.map(cardHtml).join('')}${discussionError ? `<p class="warn">${escape(discussionError)}</p>` : ''}
+    return `<section class="decision-discussions" aria-label="决策讨论">${reviewHtml()}${decisionNavigatorHtml(latest)}${cards.map(cardHtml).join('')}${discussionError ? `<p class="warn">${escape(discussionError)}</p>` : ''}
       <button id="discussion-history">${historyOpen ? '收起决策历史' : '查询决策历史'}</button>
       ${historyOpen ? `<label>筛选对局 / 小局 / 巡目 / 事件<input id="discussion-filter" value="${escape(historyFilter)}" placeholder="例如：东1局 或 巡目 7"></label><label><input id="discussion-asked" type="checkbox" ${historyAsked ? 'checked' : ''}>仅有追问</label><p class="muted">共 ${matches.length} 条。折叠和移出面板均保留历史；空间不足时优先淘汰未提问的旧分析。</p>${matches.map((r,i) => `<p>${escape(discussionLabel(r, true))} · ${r.chat.length} 次追问 <button id="discussion-open-${i}">重新打开讨论</button></p>`).join('')}` : ''}</section>`;
   }
   function wireDiscussions($, render) {
+    wireReview($, render);
     const latest = discussionRecords.find(r => r.id === (selectedDecisionId || currentDiscussionId));
     const cards = [...(latest ? [latest] : []), ...discussionRecords.filter(r => r.panel && r.id !== latest?.id).reverse()];
     const patch = async (r, value) => { try { await discussionCall({ type: 'discussion:patch', id: r.id, patch: value }); } catch (e) { discussionError = e.message; } render(); };
@@ -143,6 +147,71 @@
       $('discussion-asked').onchange = e => { historyAsked = e.target.checked; render(); };
       discussionRecords.filter(r => (!historyAsked || r.chat.length) && discussionLabel(r, true).toLowerCase().includes(historyFilter.toLowerCase())).slice().reverse().forEach((r,i) => { $('discussion-open-' + i).onclick = () => patch(r, { panel: true, collapsed: false }); });
     }
+  }
+  function reviewGroups() { return typeof MJPostgameReview === 'undefined' ? [] : MJPostgameReview.groups(discussionRecords); }
+  function reviewAvailable() { return context?.mode !== 'live' || current?.matchEnded === true || historyOpen || !!selectedDecisionId; }
+  function chosenReview(groups) {
+    return groups.find(group => group.key === reviewKey) || groups.find(group => group.matchId && group.matchId === context?.contextIdentity?.matchId)
+      || groups.find(group => group.records.some(record => record.id === (selectedDecisionId || currentDiscussionId))) || groups.at(-1);
+  }
+  function reviewHtml() {
+    if (!reviewAvailable()) { reviewOpen = false; reviewLimits = {}; reviewPlan = null; return ''; }
+    const toggle = `<button id="review-toggle" aria-expanded="${reviewOpen}">${reviewOpen ? '收起整盘整理' : '打开整盘整理'}</button>`;
+    if (!reviewOpen) { reviewPlan = null; return `<section class="postgame-review" aria-label="整盘整理">${toggle}</section>`; }
+    const groups = reviewGroups(), group = chosenReview(groups);
+    const summary = group && MJPostgameReview.summarize(discussionRecords, group.key);
+    reviewPlan = { groups, group, summary, references: [] };
+    const records = new Map(discussionRecords.map(record => [record.id, record]));
+    let referenceIndex = 0;
+    return `<section class="postgame-review" aria-label="整盘整理">${toggle}
+      <p class="muted">仅整理留存分析，不新增模型调用。</p><button id="review-refresh">刷新留存记录</button>
+      ${summary ? `<label>整理范围<select id="review-match">${groups.map((item, index) => `<option value="${index}" ${item.key === group.key ? 'selected' : ''}>${escape(item.matchId ? '对局 · ' + item.matchId : '归属未确认 · ' + (index + 1))}</option>`).join('')}</select></label>
+        ${summary.verified ? '' : '<p class="warn">归属未确认：这些记录可能不属于同一盘对局。</p>'}
+        <p class="review-overview">采样概览：${summary.roundCount} 个有记录小局 · ${summary.decisionCount} 个分析决策 · ${summary.questionCount} 次追问</p>
+        <p class="muted">未记录实际出牌，以下为原建议与问答。</p>
+        <details data-section="review-scope"><summary>整理范围说明</summary><p class="muted">仅覆盖留存的分析采样，未分析或已淘汰记录不在此列。实际动作未知；主题依据原分析、快照与问题整理，不用于判断失误率、整盘表现或用户偏好。归属未确认时，记录可能仅来自同一次查看，也可能只包含单个决策。</p></details>
+        ${summary.topics.map(topic => `<div class="review-topic"><h4>${escape(topic.label)} · ${topic.references.length} 条来源</h4>${topic.references.length ? topic.references.slice(0, reviewLimits[topic.id] || 5).map(ref => {
+          const index = referenceIndex++, record = records.get(ref.decisionId);
+          reviewPlan.references.push(ref);
+          return `<article><p><strong>${escape(ref.source)}</strong> · ${escape(ref.content.slice(0, 480))}${ref.content.length > 480 ? '…（完整内容见原决策）' : ''}</p>${record ? `<button id="review-reference-${index}" data-decision-id="${escape(ref.decisionId)}">回看并追问 · ${escape(discussionLabel(record))}</button>` : '<p class="muted">原决策已不在留存历史中，请刷新留存记录。</p>'}</article>`;
+        }).join('') : '<p class="muted">暂无该主题的留存依据。</p>'}${topic.references.length > (reviewLimits[topic.id] || 5) ? `<button id="review-more-${topic.id}">再显示 5 条来源</button>` : ''}</div>`).join('')}` : '<p class="muted">暂无已保存的分析决策，生成分析后可在此整理。</p>'}
+        ${reviewError ? `<p class="warn">${escape(reviewError)}</p>` : ''}</section>`;
+  }
+  function wireReview($, render) {
+    if (!reviewAvailable() || !$('review-toggle')) return;
+    $('review-toggle').onclick = () => { reviewOpen = !reviewOpen; reviewError = ''; render(); };
+    if (!reviewOpen) return;
+    $('review-refresh').onclick = async () => {
+      const generation = lifecycle;
+      try {
+        const response = await discussionCall({ type: 'discussion:list' });
+        if (generation !== lifecycle) return;
+        discussionRecords = response.records || [];
+        if (selectedDecisionId && !discussionRecords.some(record => record.id === selectedDecisionId)) selectedDecisionId = null;
+        reviewError = ''; render();
+      } catch (error) { if (generation === lifecycle) { reviewError = error.message; render(); } }
+    };
+    const { groups, group, summary, references } = reviewPlan || {};
+    if (!group) return;
+    $('review-match').onchange = event => { reviewKey = groups[Number(event.target.value)]?.key || ''; reviewError = ''; reviewLimits = {}; render(); };
+    summary.topics.forEach(topic => {
+      if (topic.references.length > (reviewLimits[topic.id] || 5)) $('review-more-' + topic.id).onclick = () => { reviewLimits[topic.id] = (reviewLimits[topic.id] || 5) + 5; render(); };
+    });
+    references.forEach((ref, index) => {
+      const button = $('review-reference-' + index);
+      if (!button) return;
+      button.onclick = async () => {
+        const generation = lifecycle;
+        const record = discussionRecords.find(record => record.id === ref.decisionId);
+        if (!record) { reviewError = '原决策已不在留存历史中。'; render(); return; }
+        try {
+          await discussionCall({ type: 'discussion:patch', id: record.id, patch: { panel: true, collapsed: false } });
+          if (generation !== lifecycle) return;
+          selectedDecisionId = record.id; reviewError = ''; render();
+          $('discussion-question-0')?.focus?.({ preventScroll: false });
+        } catch (error) { if (generation === lifecycle) { reviewError = error.message + ' 可点击“刷新留存记录”更新整理。'; render(); } }
+      };
+    });
   }
   let preferences = defaults(), preferencesLoaded = false, autoTimer = null, lastPosition = '', pendingFingerprint = '', lastAutoKey = '', roundKey = '', autoCalls = 0, lastModelAt = 0;
   function selectedTask() { return preferences.strategy || (preferences.danger && preferences.efficiency) ? 'combined' : preferences.danger ? 'danger' : 'efficiency'; }
@@ -336,6 +405,9 @@
     connected = false; enabled = false; busy = false; result = null; failure = ''; preview = false; provider = 'chat';
     globalResult = null; globalFailure = ''; pendingAutomatic = false; questionDraft = '';
     discussionRecords = []; currentDiscussionId = null; discussionLoaded = false; discussionBusy = null; discussionError = ''; discussionDrafts.clear(); historyOpen = false; selectedDecisionId = null;
+    reviewOpen = false; reviewKey = ''; reviewError = '';
+    reviewLimits = {}; reviewPlan = null;
+    reviewWasEnded = false;
     modelFailures = {}; modelFailureExpanded = {};
     current = null; context = null; repaint = null;
     preparationKey = ''; preparation = null; preparationError = ''; preparationBusy = false;
@@ -360,6 +432,13 @@
       if (!busy || pendingAutomatic) cancelWork();
       failure = ''; preparationKey = ''; preparation = null; preparationError = ''; preparationBusy = false;
       if (sourceChanged) { result = null; focusTile = null; focusExpanded = false; }
+    }
+    if (position?.mode === 'live') {
+      if (reviewWasEnded && analysisView.matchEnded !== true) {
+        reviewOpen = false; reviewKey = ''; reviewLimits = {}; reviewPlan = null;
+        historyOpen = false; selectedDecisionId = null;
+      }
+      reviewWasEnded = analysisView.matchEnded === true;
     }
     current = analysisView; context = { ...position }; repaint = render;
     connect();
