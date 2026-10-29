@@ -435,3 +435,58 @@ test('configuration changes cancel pending analysis and clear sessions while pre
   assert.doesNotMatch(JSON.stringify(exported), /PRIOR_ROUND_ANSWER|SNAPSHOT_ANSWER|NEW_CONFIG_SECRET|API_SECRET/);
   assert.doesNotMatch(JSON.stringify(w.requests[2].body.messages), /PRIOR_ROUND_ANSWER/);
 });
+
+
+test('tenth automatic live payload has one snapshot, bounded dated excerpts, important events and complete rivers', async () => {
+  const responses = Array.from({ length: 10 }, (_, i) => {
+    const value = reply('ADVICE_' + (i + 1));
+    if (i < 5) { const result = JSON.parse(value.choices[0].message.content); result.decision.action = i % 2 ? 'fold' : 'defend'; value.choices[0].message.content = JSON.stringify(result); }
+    return value;
+  });
+  const w = worker({ responses });
+  const events = [{ kind: 'NewRound', source: 'live', position: 0, hand: ['7z'], snapshot: position(0) }];
+  for (let step = 1; step <= 10; step++) {
+    events.push({ kind: 'DiscardTile', source: 'live', position: step, seat: 1, tile: '2p', riichi: step === 3 });
+    const snapshot = position(step);
+    snapshot.rivers = Array.from({ length: 4 }, (_, seat) => ({ seat, discards: Array.from({ length: step }, () => ({ tile: '2p', riichi: false, tsumogiri: false })) }));
+    const result = await w.analyze(step, { lane: 'live', snapshot, context: { identity: { matchId: 'm1', roundStartId: 'r1', viewId: 'v1' }, position: step, events, historyComplete: true } });
+    assert.equal(result.ok, true, result.error);
+  }
+  const body = w.requests.at(-1).body;
+  const serialized = JSON.stringify(body.messages.slice(1));
+  assert.equal((serialized.match(/\\"snapshot\\":/g) || []).length, 1);
+  assert.doesNotMatch(serialized, /initialSnapshot|localAnalysis|tool_calls|OPPONENT_SECRET/);
+  const history = JSON.parse(body.messages[1].content.split('\n')[1]);
+  assert.deepEqual(history.advice.map(a => a.position), [4, 5, 6, 7, 8, 9]);
+  assert.equal(new Set(history.advice.map(a => a.decisionId)).size, 6);
+  assert.ok(history.advice.every(a => a.excerpt === true));
+  assert.deepEqual(history.importantEvents.map(e => e.position), [0, 3]);
+  assert.doesNotMatch(JSON.stringify(history), /selfHand|snapshot|efficiency|danger/);
+  const current = JSON.parse(body.messages.at(-1).content.split('\n')[1]);
+  assert.equal(current.snapshot.rivers.length, 4);
+  assert.ok(current.snapshot.rivers.every(r => r.discards.length === 10));
+  const session = w.local.values.agentRoundContextV1.sessions.find(s => s.lane === 'live');
+  assert.equal(session.timeline.filter(e => e.type === 'exchange').length, 10);
+  assert.ok(session.timeline.filter(e => e.type === 'exchange').every(e => e.request.includes('snapshot')));
+});
+
+test('automatic projection retains events at failed analyses, clears cross-round and authorization history, and leaves questions complete', async () => {
+  const w = worker({ responses: [reply('FIRST'), new Error('offline'), toolReply('get_round_events'), reply('THIRD')] });
+  const ctx = (step, round = 'r1') => ({ identity: { matchId: 'm1', roundStartId: round, viewId: 'v1' }, position: step,
+    events: [{ kind: 'DiscardTile', source: 'live', seat: 0, tile: '1m', position: step }], historyComplete: true });
+  assert.equal((await w.analyze(1, { lane: 'live', context: ctx(1) })).ok, true);
+  assert.equal((await w.analyze(2, { lane: 'live', context: ctx(2) })).ok, false);
+  assert.equal((await w.analyze(3, { lane: 'live', context: ctx(3) })).ok, true);
+  const body = w.requests.at(-1).body;
+  const tool = body.messages.find(m => m.role === 'tool');
+  assert.deepEqual(JSON.parse(tool.content).events.map(e => e.position), [1, 2, 3]);
+  assert.equal(JSON.parse(body.messages[1].content.split('\n')[1]).advice.length, 1);
+  await w.analyze(4, { lane: 'live', question: '为什么？', context: ctx(4) });
+  assert.match(JSON.stringify(w.requests.at(-1).body.messages), /initialSnapshot|FIRST/);
+  await w.analyze(5, { lane: 'live', context: ctx(5, 'r2') });
+  assert.deepEqual(JSON.parse(w.requests.at(-1).body.messages[1].content.split('\n')[1]).advice, []);
+  const snapshot = position(6); delete snapshot.selfHand; delete snapshot.rivers;
+  assert.equal((await w.analyze(6, { lane: 'live', snapshot, context: ctx(6, 'r2') })).ok, true);
+  assert.deepEqual(JSON.parse(w.requests.at(-1).body.messages[1].content.split('\n')[1]).advice, []);
+  assert.doesNotMatch(JSON.stringify(w.requests.at(-1).body.messages.slice(1)), /FIRST|THIRD|initialSnapshot|selfHand/);
+});

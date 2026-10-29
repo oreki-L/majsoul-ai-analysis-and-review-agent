@@ -188,7 +188,7 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
             roundStartId: identity.roundStartId, viewId: identity.viewId },
           position: info.position, events: info.events, eventWindowStart: info.eventWindowStart, historyComplete: info.historyComplete,
           lane, provider: url.href, model: c.model, task,
-          config: { revision, memoryVersion: memory.version, mode: contextMode, promptVersion: 4, maxTokens: c.maxTokens, selection: true } });
+          config: { revision, memoryVersion: memory.version, mode: contextMode, promptVersion: 5, maxTokens: c.maxTokens, selection: true } });
         checkCancelled(); sessionContext = await roundContexts.getContext(session);
         if (lane === 'live' && memory.entries.length) sessionContext.userMemory = memory;
       }
@@ -201,6 +201,7 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
       try {
         const analysis = await MJAgent.run({ snapshot: message.snapshot, task, signal: controller.signal,
           runtime: MJPiRuntime, sessionContext, question, toolCalling: true,
+          contextPolicy: lane === 'live' && !question && !message.discussionId ? 'live-selective' : 'full',
           maxTurns: lane === 'manual-review' ? 3 : 2,
           timeoutMs: outputOptions.thinking?.type === 'enabled' ? 120000 : 25000,
           transport: async request => {
@@ -242,6 +243,7 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
         const exchangeId = `${started}-${newRevision()}`;
         try {
           const committed = await roundContexts.appendExchange(session, { id: exchangeId, question: question || '分析当时局面',
+            automatic: lane === 'live' && !question, task, position: sessionContext.checkpoint.position,
             answer: sessionTurn?.answer || JSON.stringify(outcome.result), ...(sessionTurn?.request ? { request: sessionTurn.request } : {}) }, { signal: controller.signal });
           checkCancelled();
           if (!committed) {

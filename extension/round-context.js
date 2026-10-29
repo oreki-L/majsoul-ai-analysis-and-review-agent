@@ -90,6 +90,9 @@
     function cleanExchange(e) {
       if (!e || typeof e.id !== 'string' || !Number.isSafeInteger(e.version)) throw new Error('Invalid exchange');
       return { type: 'exchange', id: e.id.slice(0, 200), version: e.version,
+        ...(typeof e.automatic === 'boolean' ? { automatic: e.automatic } : {}),
+        ...(['combined', 'danger', 'efficiency'].includes(e.task) ? { task: e.task } : {}),
+        ...(Number.isInteger(e.position) ? { position: e.position } : {}),
         question: typeof e.question === 'string' ? e.question : '', answer: typeof e.answer === 'string' ? e.answer : '',
         ...(typeof e.request === 'string' ? { request: e.request } : {}) };
     }
