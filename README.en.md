@@ -119,6 +119,8 @@ The full edition accepts your own model API; no project-specific service or acco
 
 Settings include an optional **Magpie** preset, manual service identification, model discovery, and an artificial connection diagnostic that may incur charges. The editable default is `http://127.0.0.1:3425/v1`; Bearer `magpie-majsoul-agent` identifies this local app, rather than providing an upstream key or credits. Prefer a fixed model. A model listing does not establish tools support, aliases do not identify the actual upstream, and routed costs may remain unknown. Diagnostics check a fixed tool round trip and a minimal final JSON contract; they do not certify live gateway compatibility or mahjong advice quality. Confirm thinking parameters in your gateway. See [configuration and diagnostics](docs/MODEL_CONFIGURATION.md) (Chinese).
 
+An optional experimental **CC Switch** preset and explicit Codex catalog loader are also available (editable default `http://127.0.0.1:15721/v1`). Enable Codex routing yourself with a third-party upstream supporting Chat Completions. It shares Codex providers, switching and usage classification; the catalog may be empty and manual model IDs remain available. Verification covers released v4.0.22 source and an artificial local HTTP contract server, not a running gateway or paid model. This is not official integration or full compatibility certification. See [conditions and verification limits](docs/MODEL_CONFIGURATION.md) (Chinese).
+
 | Service type | How to connect |
 | --- | --- |
 | Cloud model or compatible third-party gateway | Enter the full HTTPS Chat Completions endpoint, model ID, and your API key |

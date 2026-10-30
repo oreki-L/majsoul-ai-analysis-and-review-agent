@@ -6,9 +6,9 @@
 
 直连仍填写 Chat Completions 兼容地址、模型 ID 和自己的密钥。选择“新增 Magpie 预设”会保留原配置，并填写 `http://127.0.0.1:3425/v1` 和 `magpie-majsoul-agent`；请按自己的网关改地址或端口。Magpie 必须由用户自主安装、运行并启用模型；本扩展不扫描端口、不读取桌面设置、账号或私有数据库，也不提供额度。Pi 是扩展内运行时，不能自动读取桌面 Pi 配置。
 
-Bearer 标识只是 Magpie 按应用归类用量的本机标识，不是上游 API Key。用户点击“识别 Magpie”才请求同源 `GET /api/hello`；“加载已启用模型”请求所填 API 基址的 `GET /models`（默认 `/v1/models`）。目录只接受标准 `data` 数组，保留模型 ID 原文与可用的 `display_name`；同一身份加载失败保留原目录与手填值，成功也不自动替换已选模型。`provider/model` 和组名均按原文发送。可一直手填，不要求先识别服务。目录绑定当前服务类型、profile ID、规范化 Chat Completions 地址和实际发送的 Bearer 值；切换／新增／删除／清除配置或修改地址、鉴权后，旧目录不再可选，手填模型保留，过期响应不能写回。身份只在页面内存比较，不持久化或显示凭据。
+Bearer 标识只是 Magpie 按应用归类用量的本机标识，不是上游 API Key。用户点击“识别 Magpie”才请求同源 `GET /api/hello`；“加载标准 / Magpie 模型”请求所填 API 基址的 `GET /models`（默认 `/v1/models`）。目录只接受标准 `data` 数组，保留模型 ID 原文与可用的 `display_name`；同一身份加载失败保留原目录与手填值，成功也不自动替换已选模型。`provider/model` 和组名均按原文发送。可一直手填，不要求先识别服务。目录绑定当前服务类型、profile ID、规范化 Chat Completions 地址和实际发送的 Bearer 值；切换／新增／删除／清除配置或修改地址、鉴权后，旧目录不再可选，手填模型保留，过期响应不能写回。身份只在页面内存比较，不持久化或显示凭据。
 
-优先使用固定且已测试的模型。网关别名不代表已识别真实上游，路由组、网关重试与换模型的真实费用可能未知；本项目的配置价格只是估算。DeepSeek 思考开关仅作用于官方域名，经网关不发送其专用开关，**不等于已关闭上游思考**。请自行确认网关参数与输出限制。本轮没有动态路由追踪、统一账单、订阅登录、Magpie 插件、Agents 注册或 CC Switch 专属实现。
+优先使用固定且已测试的模型。网关别名不代表已识别真实上游，路由组、网关重试与换模型的真实费用可能未知；本项目的配置价格只是估算。DeepSeek 思考开关仅作用于官方域名，经网关不发送其专用开关，**不等于已关闭上游思考**。请自行确认网关参数与输出限制。本轮没有动态路由追踪、统一账单、订阅登录、Magpie 插件或 Agents 注册。CC Switch 的可选实验入口见下文。
 
 ## 诊断的范围
 
@@ -31,3 +31,14 @@ Bearer 标识只是 Magpie 按应用归类用量的本机标识，不是上游 A
 `background.js` 保留可信组合入口及消息的扩展身份、URL、frame 检查与分发；`model-analysis-worker.js` 的 `create` 接收 storage、permissions、fetchModel、runtime 和同一份 roundContexts/runStore/discussions/memoryWorker 实例。`prepare/analyze` 承接授权 DTO 准备、配置校验、Pi 与 mjai 请求、timeout/abort、会话提交回滚与用量记账。`busy/cancel/cancelAll/invalidate` 公开生命周期控制；pending 与配置 revision 只在该服务各保留一份，记忆模块通过 busy 回调服从实时分析优先。
 
 诊断、记忆、历史和讨论保留各自模块；HTTP 与密钥仍仅在可信后台执行。服务不依赖 Chrome／DOM／采集器全局，只使用注入能力；固定 Pi bundle、提示词、工具预算、lane、冻结追问与用量未知语义保持不变。两项新模块登记静态依赖白名单、加载顺序和 Agent-only 资源闭包，Collector 不会分发它们。
+## CC Switch（可选实验接入）
+
+点击“新增 CC Switch 预设”新增一份关闭分析的配置，默认 `http://127.0.0.1:15721/v1`，端口／地址可编辑，密钥留空。必须自行安装并保持 CC Switch 运行，在其中启用 **Codex 路由或聚合**，并配置支持 Chat Completions、非流式 function tools 的第三方上游及其密钥。本项目不启动服务、不扫描端口、不接管 Codex，也不读取桌面设置或账号。该入口共用 **Codex 供应商、路由切换、故障转移和用量分类**，没有独立应用管理或统计项；在 CC Switch 改 Codex 可能影响本扩展。
+
+v4.0.22 普通 Chat／models 入口没有独立的本地网关 token 校验；第三方供应商的上游鉴权由 CC Switch 配置提取并替换。预设留空不代表任何上游免鉴权／免费。若本机另设了反向代理鉴权，请自行填写 Bearer。**官方 ChatGPT 登录透传、OAuth／订阅、Responses-only 和 Anthropic-only 上游不属于本次支持范围**；不能把 CC Switch 为 Responses 或其他客户端提供的格式转换直接套用到此 Chat 入口。不要把真实账号 token 复制到这里试图绕过限制。
+
+“加载 CC Switch Codex 目录”显式请求当前基址的 `GET /models`（默认 `/v1/models`），只解析已核对的 `models[].slug` 与可选 `display_name`；标准／Magpie 按钮仍只接受 `data[].id`，不会自动推断服务身份或 schema。该按钮不是身份认证。成功不自动改手填模型；ID 原文保存、发送，聚合的 `ccs-<key>/<model>` 前缀不能删改，未带前缀由默认 Codex 供应商承接。不要使用 Claude 专用的 `ccs-claude-…--…` ID。
+
+目录依赖当前 Codex `config.toml` 仍引用 CC Switch 自有 `cc-switch-model-catalog.json`，文件缺失、读取／解析失败、路径归属或大小检查不通过时可能返回 `{"models":[]}`。空目录不等于路由不可用，也不代表所有上游模型均已列出；可始终手填精确模型 ID。不会为获取目录而修改真实 Codex 配置。目录按现有身份隔离与取消语义处理：同身份失败保留旧目录和手填值，成功空目录清除旧候选但保留手填值；切换 profile、地址或 Bearer 后旧目录不可选。响应上限 256 KB，最多扫描前 1000 项、返回 200 个有效去重 ID，每个 ID／显示名最多 200 字符。超大、错误 schema 或全无有效 ID 的非空 CC 目录报告格式错误，可继续手填。
+
+**验证边界（2026-10-30）**：核对 CC Switch 正式 v4.0.22，提交 `b76426741ef93069e2f374ac01ca7ef5760e1d0e`；已完成源码、模拟权限／响应和本地 HTTP 合同服务器上的目录 → 通用非流式工具往返 → 最小 JSON 验证。该服务器是人工 fixture，**不是 CC Switch 程序**。官方 Windows portable 包已下载审查但未运行：`CC_SWITCH_TEST_HOME` 能覆盖业务 home，却不能保证启动前读取的 Tauri `app_paths.json` 与 OS 用户存储隔离；`portable.ini` 仅标识更新方式。本机无 Rust 工具链，无法构建隔离宿主。未读取真实配置、密钥、账号，未调用收费模型或上传牌局。真实 CC Switch → 上游路由、聚合、重启／故障转移、统计和实际模型输出均未端到端验证；本功能不构成官方适配或全面兼容认证。详细证据见 [研究记录](MODEL_GATEWAY_RESEARCH.md#cc-switch-限定接入复核2026-10-30)。

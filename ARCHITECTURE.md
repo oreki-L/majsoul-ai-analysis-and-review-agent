@@ -28,7 +28,7 @@
 | `extension/adapters/model-endpoint.js` | 模型地址校验与主机权限模式 | 后台 / 设置 / Node |
 | `extension/model-profiles.js` | 命名 chat 配置的无损迁移、校验与选择，纯转换，不读写存储 | 设置 / Node |
 | `extension/model-session-transport.js` | 通用非流式 Chat Completions 消息、function tools 和响应解析，不发网络请求 | 后台 / Node |
-| `extension/model-diagnostics.js` | 人工最小工具与 JSON 合同诊断、Magpie 身份与目录发现；只依赖 endpoint/transport，权限与请求通过端口注入 | 后台 / Node |
+| `extension/model-diagnostics.js` | 人工最小工具与 JSON 合同诊断、Magpie 身份、标准目录与显式 CC Switch Codex 目录发现；只依赖 endpoint/transport，权限与请求通过端口注入 | 后台 / Node |
 | `extension/analysis-panel.js` | 数据范围与任务选择、发送预览、结构化牌面建议、本地效率表和过期提示 | ISOLATED 世界 |
 | `extension/analysis-panel.css` | 分析卡样式，通过扩展本地资源载入Shadow DOM | 扩展静态资源 |
 | `extension/background.js` | 可信能力组合、消息来源校验与分发、配置失效通知 | 扩展 Service Worker |
@@ -46,7 +46,7 @@
 | `agent/engine-server.cjs` / `engine-review.cjs` | 可选本机 HTTP 桥接与导出事件协议复盘 | Node CLI |
 | `scripts/check-boundaries.mjs` | 静态依赖白名单及纯核心能力边界检查 | Node |
 | `scripts/build-extensions.mjs` | 按profiles追踪资源闭包、验证加载顺序、复制安装目录 | Node |
-| `extension/options.html/js/css` | 命名配置草稿、手动切换、Magpie 预设；保存与手动诊断／发现的主机权限申请，目录身份隔离与过期结果丢弃 | 扩展设置页 |
+| `extension/options.html/js/css` | 命名配置草稿、手动切换、Magpie／CC Switch 可选预设；保存与手动诊断／发现的主机权限申请，目录身份隔离与过期结果丢弃 | 扩展设置页 |
 | `extension/tiles/` | 本地牌面资源 | 扩展静态资源 |
 | `tests/` | Node 协议、采集、状态、分析测试与离线浏览器预览 | 本地 |
 | `research/` | 调研记录与被 Git 忽略的本地验证证据 | 开发使用 |
@@ -122,7 +122,7 @@ LLM 分析与解释保持主要定位，默认 `chat` 且分析关闭。设置�
 - **配置与凭据**：设置页把命名配置保存在 `llmProfilesV1`，当前生效配置仍为 `modelConfig`，`analysisProviders` 保留 chat/mjai 旧槽位；旧值由纯模块迁移，存储只由设置页／后台负责。后台将访问级别限制为 `TRUSTED_CONTEXTS`。内容脚本通过 `model:status` 仅取得开关和配置的模型名称，不将网关别名当已识别上游。设置回到游戏时刷新状态，也可手动刷新；即使面板状态过时，后台仍重新检查开关与授权。
 - **授权**：manifest 只声明可选主机范围，设置页在用户点击保存、人工诊断或服务／模型发现时申请配置的主机。允许 HTTPS 和 HTTP loopback；拒绝 URL 用户信息、查询和片段。目标端口保留在实际请求地址中，授权模式遵循浏览器按主机匹配的规则。
 - **游戏消息**：`model:settings` 打开设置，`model:status` 查询状态，`model:analyze` 发送当前快照与任务，`model:cancel` 取消当前标签页的请求。此路径只接受同扩展、指定游戏 URL、顶层 frame 的调用，不接受任意请求地址或密钥参数。
-- **人工诊断与发现**：`model:diagnose`、`model:discover` 和按 requestId 取消的 `model:cancel` 只接受同扩展精确 `options.html` 来源，允许用户提交当前配置草稿；不走 Agent、harness 或采集器，也不读取牌局、记忆或历史。关闭分析后仍可手动发起可能收费的人工测试。后台注入 `permissions` / `fetchModel`，诊断复用通用 transport 完成固定 function tool → 无副作用结果 → 最小 JSON 合同，并单独限制并发、25 秒总超时和 256 KB 响应；配置变化与撤权会取消，错误不返回上游正文。Magpie 预设沿用相同 Chat Completions transport，额外手动 GET hello/models，不引入专用 Agent 或采集依赖。设置页目录绑定服务类型、profile、规范化 endpoint 和实际 Bearer 值，身份变化清除候选并阻止过期响应回填；同身份刷新失败保留目录。通过最小诊断不代表麻将合同、真实网关或模型质量已通过验收。
+- **人工诊断与发现**：`model:diagnose`、`model:discover` 和按 requestId 取消的 `model:cancel` 只接受同扩展精确 `options.html` 来源，允许用户提交当前配置草稿；不走 Agent、harness 或采集器，也不读取牌局、记忆或历史。关闭分析后仍可手动发起可能收费的人工测试。后台注入 `permissions` / `fetchModel`，诊断复用通用 transport 完成固定 function tool → 无副作用结果 → 最小 JSON 合同，并单独限制并发、25 秒总超时和 256 KB 响应；配置变化与撤权会取消，错误不返回上游正文。Magpie 预设沿用相同 Chat Completions transport，额外手动 GET hello/models，不引入专用 Agent 或采集依赖。CC Switch 也复用该 transport，仅以显式 `cc-switch-models` 动作解析 Codex 的 `models[].slug`，不自动猜测 schema、读取桌面配置或进入 Agent／Pi loop。设置页目录绑定服务类型、profile、规范化 endpoint 和实际 Bearer 值，身份变化清除候选并阻止过期响应回填；同身份刷新失败保留目录。通过最小诊断不代表麻将合同、真实网关或模型质量已通过验收。
 - **网络**：单标签页最多一个请求；25秒超时；拒绝重定向、不携带浏览器 cookies；请求快照上限60000字符，响应上限1MiB，展示上限16000字符。关闭、修改或清除设置会取消进行中的请求。
 - **展示**：模型文本进行 HTML 转义，不执行模型输出的 HTML、脚本或链接。模型只作建议，不参与状态更新或出牌。
 

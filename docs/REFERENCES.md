@@ -41,7 +41,12 @@ Pi 是当前实际运行依赖；DeepSeek Harness 是设计参考。mjai 专业�
 
 - [yetone/magpie](https://github.com/yetone/magpie)：v0.11.0 提供可选预设、手动身份识别和模型目录，沿用通用 Chat Completions transport；不要求安装，不读取桌面设置或账号。
 - 协议参考固定 v0.1.2183、commit `0414bbeddbfc2028508b610fd1e7c194143454a0` 的 [接入规范](https://github.com/yetone/magpie/blob/0414bbeddbfc2028508b610fd1e7c194143454a0/docs/integrating.md) 和 gateway 路由。未完成真实 Magpie／模型端到端验收，不是全面兼容认证；工具诊断、别名、费用和思考参数限制见 [配置与诊断](MODEL_CONFIGURATION.md)。
-- 本轮不包含 CC Switch 专属接入、Magpie 插件或 Agents 注册。
+- 未提供 Magpie 插件或 Agents 注册。
+
+## 可选实验 CC Switch 接入（2026-10-30）
+
+- [farion1231/cc-switch](https://github.com/farion1231/cc-switch)：新增可选实验预设与显式 Codex 目录解析，仅核对正式 v4.0.22、commit `b76426741ef93069e2f374ac01ca7ef5760e1d0e`。共用 Codex 供应商、切换和统计，目录依赖受管理 Codex 配置，不能把其他协议的转换能力直接套用到 Chat 入口。
+- 验证限发布源码、模拟权限和人工本地 HTTP 合同服务器；官方 portable 已下载但因用户配置隔离不能确认而未运行。尚无真实 CC Switch／上游端到端验收，不作官方适配或全面兼容声明。支持条件、证据与未验证范围见 [配置文档](MODEL_CONFIGURATION.md) 和 [研究记录](MODEL_GATEWAY_RESEARCH.md)。
 
 ## 使用此索引时
 

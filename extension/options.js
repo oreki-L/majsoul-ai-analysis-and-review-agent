@@ -173,16 +173,17 @@ $('profile').onchange = () => {
     drafts.chat = { ...defaults('chat'), ...MJModelProfiles.active(profiles).config, enabled: false }; renderProfiles(); show('chat'); status('已选择配置；保存后应用，分析保持关闭。');
   } catch (error) { $('profile').value = profiles.activeId; status(error.message); }
 };
-function newProfile(magpie) {
-  try { captureProfile(); let name = magpie ? 'Magpie' : '新直连配置', suffix = 2;
+function newProfile(preset) {
+  try { captureProfile(); let name = preset === 'magpie' ? 'Magpie' : preset === 'cc-switch' ? 'CC Switch' : '新直连配置', suffix = 2;
     const base = name; while (profiles.profiles.some(item => item.name === name)) name = base + ' ' + suffix++;
-    const config = { ...defaults('chat'), ...(magpie ? { endpoint: 'http://127.0.0.1:3425/v1', apiKey: 'magpie-majsoul-agent' } : {}) };
+    const config = { ...defaults('chat'), ...(preset === 'magpie' ? { endpoint: 'http://127.0.0.1:3425/v1', apiKey: 'magpie-majsoul-agent' } : preset === 'cc-switch' ? { endpoint: 'http://127.0.0.1:15721/v1' } : {}) };
     profiles = MJModelProfiles.upsert(profiles, { name, config }); cancelDiagnostic(); configStore.invalidate();
     drafts.chat = config; renderProfiles(); show('chat'); status('新配置尚未保存；分析保持关闭。');
   } catch (error) { status(error.message); }
 }
 $('newProfile').onclick = () => newProfile(false);
-$('magpiePreset').onclick = () => newProfile(true);
+$('magpiePreset').onclick = () => newProfile('magpie');
+$('ccSwitchPreset').onclick = () => newProfile('cc-switch');
 $('deleteProfile').onclick = () => {
   try { profiles = MJModelProfiles.remove(profiles, profiles.activeId); cancelDiagnostic(); configStore.invalidate();
     drafts.chat = { ...defaults('chat'), ...MJModelProfiles.active(profiles).config, enabled: false }; renderProfiles(); show('chat'); status('删除尚未保存；保存后应用。');
@@ -204,12 +205,12 @@ async function modelOperation(action) {
     const response = await chrome.runtime.sendMessage({ type: action === 'diagnose' ? 'model:diagnose' : 'model:discover', config: c, requestId: diagnosticRequestId, ...(action !== 'diagnose' ? { action } : {}) });
     if (generation !== diagnosticGeneration || requestIdentity !== directoryIdentity()) return;
     if (!response?.ok) { $('diagnosticStatus').textContent = response?.error || '后台请求失败，请重试。'; return; }
-    if (action === 'models') {
+    if (action === 'models' || action === 'cc-switch-models') {
       modelDirectoryIdentity = requestIdentity;
       const select = $('discoveredModels'); select.replaceChildren(); select.disabled = false;
       const empty = document.createElement('option'); empty.value = ''; empty.textContent = '请选择（不自动覆盖手填模型）'; select.appendChild(empty);
       for (const model of response.models) { const option = document.createElement('option'); option.value = model.id; option.textContent = model.name ? model.name + ' — ' + model.id : model.id; select.appendChild(option); }
-      $('diagnosticStatus').textContent = '已加载 ' + response.models.length + ' 个模型；工具能力仍需单独测试。';
+      $('diagnosticStatus').textContent = action === 'cc-switch-models' && !response.models.length ? 'CC Switch 返回空目录；请检查 Codex 的受管理目录引用，也可继续手填模型 ID。' : '已加载 ' + response.models.length + ' 个模型；工具能力仍需单独测试。';
     } else $('diagnosticStatus').textContent = action === 'hello' ? '已识别 Magpie；未验证模型能力。' : '接口、固定工具往返和最终 JSON 最小合同通过；不代表麻将分析或真实网关全面兼容。';
   } catch (_) { if (generation === diagnosticGeneration) $('diagnosticStatus').textContent = '请求未完成，请检查地址、权限和后台服务。'; }
   finally { if (generation === diagnosticGeneration) diagnosticRequestId = null; }
@@ -217,6 +218,7 @@ async function modelOperation(action) {
 $('diagnose').onclick = () => modelOperation('diagnose');
 $('magpieHello').onclick = () => modelOperation('hello');
 $('loadModels').onclick = () => modelOperation('models');
+$('loadCcSwitchModels').onclick = () => modelOperation('cc-switch-models');
 $('cancelDiagnostic').onclick = () => { cancelDiagnostic(); $('diagnosticStatus').textContent = '测试已取消。'; };
 
 $('config').oninput = () => { cancelDiagnostic(); configStore.invalidate(); syncModelDirectory(); };
