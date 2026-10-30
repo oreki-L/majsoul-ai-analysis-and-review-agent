@@ -1,6 +1,6 @@
 # 参考项目与已确认边界
 
-记录日期：2026-10-26。项目已发布版本：**v0.10.0**。本文件集中保留用户提及的参考对象、后续补充研究与项目取舍，供其他会话接续；它不是第三方背书、兼容认证或模型能力排名。下列“已接入”仅指明确描述的范围，不表示所有上游版本、模型和线上服务均可用。
+参考关系记录于 2026-10-26；发布版本标识于 2026-10-30 同步为 **v0.10.1**。本文件集中保留用户提及的参考对象、后续补充研究与项目取舍，供其他会话接续；它不是第三方背书、兼容认证或模型能力排名。下列“已接入”仅指明确描述的范围，不表示所有上游版本、模型和线上服务均可用。
 
 ## 产品方向与共同边界
 
@@ -22,7 +22,7 @@ Pi 是当前实际运行依赖；DeepSeek Harness 是设计参考。mjai 专业�
 | 开源 Pi：[earendil-works/pi](https://github.com/earendil-works/pi)，固定 [v1.4.0](https://github.com/earendil-works/pi/tree/v1.4.0) | 轻量 Agent loop、工具声明、参数校验、工具执行与事件运行时 | 实际分发 `@earendil-works/pi-agent-core@1.4.0` 和 `@earendil-works/pi-ai@1.4.0` 的审计后浏览器代码；作 MV3／CSP 适配，collector 不含 Pi | 不等于接入 Pi 全部原生 provider SDK。当前 canonical 依据 npm 与许可证来源使用 earendil-works/pi；不将未经核对的旧 pi-mono 地址当唯一来源。固定来源与许可见 [licenses/SOURCES.md](../licenses/SOURCES.md)，实现见 [pi-runtime.md](pi-runtime.md) |
 | DeepSeek Harness：确切仓库／文章 URL **待定位** | 用户提及的 harness 设计参考：把输入准备、工具、运行轨迹与结果校验组织起来 | 仅设计参考，不是运行依赖；本项目自己的有界 harness 配合实际 Pi loop | 当前上下文没有足够可靠的 canonical URL，不编造地址；也不将它等同于 DeepSeek 模型 API 或声称移植其实现 |
 | 独立 NAGA：[官方提交页](https://naga.dmv.nico/naga_report/order_form/) | 外部专业复盘服务；借鉴牌谱导出、选局预览和用户自行提交的工作流 | 默认关闭，仅完整版提供本地转换、预览、复制／下载与官方页入口 | 没有接入账号、自动上传、扣费、任务轮询或报告回读；导出成功不代表官方受理。当前模型、额度、价格和服务条件以官方页面为准，见 [NAGA-INTEGRATION.md](NAGA-INTEGRATION.md) |
-| 雀魂内置 MAKA：本文件未确认独立 canonical URL | 游戏内首选建议参考，用于对照 LLM 输出；与独立 NAGA 是不同对象 | 已有同一场牌谱 39 个决策点的小样本对照；MAKA 首选一致 16/39，仅作参考 | 历史沟通曾使用 nano／nago／naga 称呼，**本次基准实际为 MAKA**，不能把这些名称混用。39 点标签未全量人工语义核验；一致率不是正确率、胜率或牌力。没有 MAKA API 接入，详见 [MODEL_BENCHMARK.md](MODEL_BENCHMARK.md) |
+| 雀魂内置 MAKA：本文件未确认独立 canonical URL | 游戏内首选建议参考，用于对照 LLM 输出；与独立 NAGA 是不同对象 | 已有同一场牌谱 39 个决策点的小样本对照；MAKA 首选一致 16/39，仅作参考 | 历史沟通曾使用 nano／nago／naga 称呼，**本次基准实际为 MAKA**，不能把这些名称混用。39 点统计保留当时未全量人工核验的标签快照，未按后续更正标签重评分；一致率不是正确率、胜率或牌力。没有 MAKA API 接入，详见 [MODEL_BENCHMARK.md](MODEL_BENCHMARK.md) |
 | 用户提及的“mjai bot 在线服务”：确切 URL **待定位** | 可能的托管专业引擎入口线索 | 未确认身份，未接入或作为产品依赖 | 不根据名称猜测网站，不编造当前模型列表；需先确认具体服务、协议、授权、费用与数据处理边界 |
 
 ## 后续研究补充资料

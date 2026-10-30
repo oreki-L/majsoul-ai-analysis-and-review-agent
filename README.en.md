@@ -1,14 +1,38 @@
-# Majsoul AI Analysis & Review Agent
+# Majsoul Agent
 
-**Live advice · Follow-up questions · Bring your own model API**
+An interactive Mahjong Soul AI assistant for explanations and follow-up questions
+
+**Understand each trade-off. Ask why at any decision.**
 
 [简体中文](README.md) | **English** | [日本語](README.ja.md)
 
-A live analysis assistant for the Mahjong Soul web client, centered on a pure LLM runtime using your own model API. Get advice at the current decision point, then ask “Why not discard another tile?” or “Should I push or defend now?” Replay review and match records are supporting features.
+A live analysis assistant for the Mahjong Soul web client, centered on a pure LLM runtime using your own model API. Ask “Why not discard another tile?” or “Should I push or defend now?” Each decision keeps its own frozen position and discussion, so you can return to a question after new advice arrives. Explore tile efficiency and push/fold trade-offs in concrete positions to build your own judgment. Replay review and match records are supporting features.
+
+[**Download v0.10.1**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.10.1) · [LLM setup](#llm-setup) · [Test evidence](docs/MODEL_BENCHMARK.md)
+
+| What you want to do | What the assistant provides |
+| --- | --- |
+| **Understand advice during play** | A floating card with the first choice, alternatives, and reasons; local shanten, efficiency, and danger evidence available through tools |
+| **Question a specific decision** | A separate frozen position and context for each decision, with retained discussions restored after reload |
+| **Return to an earlier turn** | Select a recorded turn/decision, inspect the captured hand and original advice, and continue asking questions |
+| **Just record games** | A standalone collector for collection, display, history, and export |
 
 **Choose your own model and API.** Set the endpoint, model ID, and API key for an **OpenAI Chat Completions-compatible API with tools support**: a cloud model, third-party gateway, or local service. Requests go directly to your configured service. [LLM setup](#llm-setup)
 
-**You can try DeepSeek-V4.1-Flash first:** in a small real-API experiment across 39 decision points, strategy B had a median summed HTTP time of **5.6 s per analysis**, at an estimated **CNY 0.024 per analysis** using peak cache-aware rates. MAKA first-choice agreement was **16/39 (41%)**. This non-thinking context experiment does not measure playing strength; costs are estimates, not account bills. [Setup and test conditions](docs/MODEL_BENCHMARK.md)
+| Model tested with the real API | Estimated mean cost per analysis | Median summed HTTP time per analysis |
+| --- | ---: | ---: |
+| **DeepSeek-V4.1-Flash** | **About CNY 0.024** | **About 5.6 s** |
+
+**39 analyses, about CNY 0.92 estimated total.** One replay, 39 points, older B context, thinking disabled. Peak cache-aware cost estimate, not an account bill; follow-ups excluded. Summed HTTP time is not end-to-end latency, and these are not current v0.10.1 results.
+
+<details>
+<summary>Historical test: 39 points / 41% MAKA first-choice agreement — conditions and limits</summary>
+
+**39 analyses, about CNY 0.92 in estimated total cost.** Measured on 2026-10-25 across 39 decision points from one replay, using the older B context strategy with thinking disabled. Cost uses returned usage and peak cache-aware rates, includes failed analyses, and is not an account bill; it excludes follow-up questions. Time is not end-to-end UI latency. The research prompt and context differ from **v0.10.1**, so these figures do not promise current-version speed or cost. [Settings, formulas, and full results](docs/MODEL_BENCHMARK.md) (Chinese).
+
+**What about advice quality?** MAKA first-choice agreement was **16/39 (41%)**, with **38/39** structurally valid outputs; 16 valid outputs had empty core reasons, leaving explanation quality to improve. These statistics use the experiment's label snapshot, which had not undergone complete manual verification; they have not been rescored against later corrected labels. Agreement is not recommendation accuracy or playing strength. The product supports follow-up questions about saved advice; that historical experiment did not evaluate follow-up quality.
+
+</details>
 
 The pure LLM path needs no specialist decision engine such as Mortal. Local shanten, tile-efficiency calculations, and danger evidence support validation and explanation. Specialist engines are optional backends, disabled by default. No claim is made that pure LLM playing strength matches MAKA, Mortal, or other specialist engines.
 
@@ -16,13 +40,7 @@ The pure LLM path needs no specialist decision engine such as Mortal. Local shan
 - **Standalone collector:** collection, display, history, and export only; no model code or model host permissions.
 - **Opt in:** model calls and automatic analysis start disabled. Local calculations work without an API. Built with Manifest V3, a bundled MV3-adapted Pi Agent, and no telemetry.
 
-| Status | Scope |
-| --- | --- |
-| Verified | Synthetic positions, simulated model responses, offline UI behavior, and local regressions, plus the small DeepSeek real-API experiment above; see [VALIDATION.md](VALIDATION.md) and [benchmark notes](docs/MODEL_BENCHMARK.md) |
-| Experimental / unverified | Full live protocol coverage for the current Unity client, reconnection recovery, broader model compatibility and live advice quality; local mjai has only been tested with the Akagi v2 small Mortal example on the Windows CPU combination below |
-| Planned | Broader real-game and model-quality evaluation; this is not a delivered capability |
-
-The descriptions below cover the current version. Packaged contents of [stable release **0.10.1**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.10.1) are specific to that release. Earlier profiles passed synthetic-game checks in isolated Edge and Chrome environments. In 0.6.0, Edge passed an actual extension flow with simulated responses and Chrome passed offline UI checks; these do not establish complete current Chrome MV3 loading or live protocol validation.
+Full live protocol coverage, reconnection recovery, and real-game advice quality remain unverified. Local mjai checks cover only a specific Akagi v2 example and Windows CPU environment. See [VALIDATION.md](VALIDATION.md) for synthetic-position, simulated-response, and offline UI validation scope.
 
 **New in 0.10.1: bounded live history excerpts.** Each automatic live request includes the full current authorized snapshot, the latest four successful automatic recommendations and at most two earlier defensive/fold excerpts. Old full snapshots and answers are not repeated. Current complete rivers and authorized important events remain available, alongside complete local records, frozen decision discussions and history navigation. This is a candidate engineering default, with no claim of optimality, better advice or lower cost. [Context contract](docs/AGENT_SESSIONS.md) (Chinese).
 
@@ -51,14 +69,14 @@ Local history retains up to 20 matches and 100 hands per match, evicting the old
 
 ## Installation
 
-[Download v0.10.0, source, and SHA256 checksums](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.10.0)
+[Download v0.10.1, source, and SHA256 checksums](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.10.1)
 
 | Package | Capabilities |
 | --- | --- |
-| [majsoul-ai-analysis-and-review-agent-0.10.0.zip](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.10.0/majsoul-ai-analysis-and-review-agent-0.10.0.zip) | Collector, panel, match history, Agent, model settings, and harness traces |
-| [majsoul-collector-0.10.0.zip](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.10.0/majsoul-collector-0.10.0.zip) | Collection, display, history, and export only; no model code, settings page, or model host permissions |
+| [majsoul-ai-analysis-and-review-agent-0.10.1.zip](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.10.1/majsoul-ai-analysis-and-review-agent-0.10.1.zip) | Collector, panel, match history, Agent, model settings, and harness traces |
+| [majsoul-collector-0.10.1.zip](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.10.1/majsoul-collector-0.10.1.zip) | Collection, display, history, and export only; no model code, settings page, or model host permissions |
 
-Local engine tools require the separate [0.10.0 source package](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.10.0/majsoul-ai-analysis-and-review-agent-source-0.10.0.zip). Neither extension ZIP bundles model weights, Python environments, or upstream native modules.
+Local engine tools require the separate [0.10.1 source package](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.10.1/majsoul-ai-analysis-and-review-agent-source-0.10.1.zip). Neither extension ZIP bundles model weights, Python environments, or upstream native modules.
 
 Enable only one profile on a game page. The collector works independently and can export records for offline review. The profiles have separate local storage and do not migrate data automatically. The source `extension/` directory is the full edition; `npm run build` generates both loadable directories.
 
@@ -95,7 +113,7 @@ Suggested starting configuration: model ID **`deepseek-flash`**, endpoint **`htt
 
 The per-analysis model-request budget includes the final answer and is a limit, not a required call count. The conditional memory tool `get_user_memory` does not increase the total tool-call budget.
 
-Every analysis proactively sends the full frozen authorized snapshot: your current hand, drawn tile, public table, and discards. Current facts override old answers. `round` retains captured authorized events and successful exchanges interleaved in time within the current round, branch, and discussion group; mid-round starts and coverage gaps are explicit. Six default read-only tools expose your hand, public table, selected players' discards, round events, local discard comparisons, and danger evidence, reading only frozen authorized input. Local safety limits fail explicitly and preserve history without silent cropping. Chat Completions still retransmits history; cache hits and cost savings are not promised. Missing usage remains unknown. See [authorization and caching](docs/AGENT_SESSIONS.md) (Chinese).
+Every analysis proactively sends the full frozen authorized snapshot: your current hand, drawn tile, public table, and discards. Current facts override old answers. Automatic live requests use excerpts from the latest 4 recommendations, at most 2 earlier defensive/fold recommendations, and important events, without accumulating old full snapshots. Manual global analysis and frozen decision discussions retain their respective complete contexts. `round` locally retains captured authorized events and successful exchanges within the current round, branch, and discussion group; mid-round starts and coverage gaps are explicit. Six default read-only tools expose your hand, public table, selected players' discards, round events, local discard comparisons, and danger evidence, reading only frozen authorized input. Local safety limits fail explicitly and preserve history without silent cropping. Chat Completions still retransmits history; cache hits and cost savings are not promised. Missing usage remains unknown. See [authorization and caching](docs/AGENT_SESSIONS.md) (Chinese).
 
 The full edition accepts your own model API; no project-specific service or account is required. LLM analysis and explanation remain the main use. The default provider is `chat`, with analysis disabled. One `chat` and one optional `mjai` configuration are retained separately; only the selected provider runs per request.
 

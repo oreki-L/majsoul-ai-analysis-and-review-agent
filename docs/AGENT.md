@@ -1,6 +1,6 @@
 # Majsoul AI Analysis & Review Agent：Agent、harness与获取器
 
-0.4.0整合0.3.0已实现的危险牌、牌效率、综合攻守任务，不重写其本地算法和结构化合同。第一阶段服务于局面分析和复盘。
+Majsoul Agent 以用户自配 LLM API 的实时局面建议与独立决策追问为核心，牌谱复盘为辅助，获取器可单独使用。本文按 v0.10.1 描述组件边界；模型上下文与工具的详细合同见 [AGENT_SESSIONS.md](AGENT_SESSIONS.md)。
 
 ## 三个边界
 
@@ -16,8 +16,8 @@ flowchart LR
   Collector --> Export[JSON导出]
   Export --> Review[离线复盘CLI]
   Collector --> Snapshot[用户选择的授权快照]
-  Snapshot --> Agent[Agent固定计划]
-  Agent --> Harness[Harness执行已注册工具]
+  Snapshot --> Agent[Agent输入准备与校验]
+  Agent --> Harness[Harness预算与工具边界]
   Harness --> Local[本地向听/进张/防守特征]
   Harness --> Model[模型解释]
   Model --> Validate[合同与合法性校验]
@@ -25,7 +25,7 @@ flowchart LR
   Review --> Local
 ```
 
-当前是有界分析Agent的基础版本：计划固定为快照校验、分析准备、模型解释、结果校验；本地复盘只执行前两步。模型不自行选择工具，不执行任意代码，也没有多轮规划、自我修正或自动打牌。工具边界已经独立，可在后续有明确评测用例时再扩展。
+外层执行流程为快照校验、分析准备、模型解释与结果校验；本地复盘只执行前两步。模型解释阶段使用实际 Pi Agent loop，可在预算内自行选择已注册的只读工具，再输出结构化建议；不执行任意代码或自动打牌。实时自动分析每次提供当前完整授权局面、最近 4 条成功自动建议、最多 2 条更早防守／弃和摘录及重要事件；手动全局与冻结决策追问沿用各自完整上下文。
 
 分析悬浮卡顶部提供「实时对局 / 牌谱复盘」切换，无需展开获取器。实时模式使用最新收到的实时局面；牌谱模式可选择玩家视角、逐事件前进或后退、回到本局开局，只分析游标之前的局面。游标独立于雀魂播放器，需手动与游戏画面对齐。两种来源分别保留状态，切换模式不停止采集；切换来源会清除旧建议并取消在途分析，移动牌谱游标也会取消在途分析。牌谱结果可标记悬浮卡内的手牌，不贴到游戏中的实时手牌上。未载入牌谱时显示载入说明。
 
@@ -48,7 +48,7 @@ npm run build
 python scripts/package-public.py
 ```
 
-前者使用`extension/profiles/agent.json`和`collector.json`，在`dist/`生成`majsoul-ai-analysis-and-review-agent-0.4.0/`和`majsoul-collector-0.4.0/`；后者先检查和测试，再生成完整源码、两种安装ZIP和SHA-256文件。获取器只含必要的采集、状态、历史、展示代码与原创牌面。其后台仅处理历史记录，没有模型监听器、分析模块、设置页或可选模型主机权限。
+前者使用`extension/profiles/agent.json`和`collector.json`，在`dist/`生成`majsoul-ai-analysis-and-review-agent-<version>/`和`majsoul-collector-<version>/`；后者先检查和测试，再生成完整源码、两种安装ZIP和SHA-256文件。获取器只含必要的采集、状态、历史、展示代码与原创牌面。其后台仅处理历史记录，没有模型监听器、分析模块、设置页或可选模型主机权限。
 
 构建按各profile的资源依赖闭包复制文件，不对共享UI做字符串替换。默认`extension/manifest.json`与agent profile一致。`npm run check`验证静态模块边界、纯核心不访问浏览器能力、资源完整性及加载顺序；collector闭包不能引入分析或模型文件。新增模块需同步显式入口与静态依赖规则。
 
