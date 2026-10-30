@@ -58,7 +58,7 @@
         check();
         const headers = { 'Content-Type': 'application/json', ...(config.apiKey ? { Authorization: 'Bearer ' + config.apiKey } : {}) };
         if (message.type === 'model:discover') {
-          if (!['hello', 'models'].includes(message.action)) throw fail('INVALID');
+          if (!['hello', 'models', 'cc-switch-models'].includes(message.action)) throw fail('INVALID');
           const address = message.action === 'hello' ? new URL('/api/hello', url).href : url.href.replace(/\/chat\/completions$/, '/models');
           const data = await json(address, { method: 'GET', headers });
           if (message.action === 'hello') {
@@ -66,14 +66,20 @@
             const version = typeof data.version === 'string' && /^[\w.+-]{1,60}$/.test(data.version) ? data.version : undefined;
             return { ok: true, requestId, hello: { service: 'magpie', ...(version ? { version } : {}) } };
           }
-          if (!Array.isArray(data?.data)) throw fail('RESPONSE');
+          // CC Switch's ordinary Codex catalog is opt-in; never infer this
+          // schema from a generic OpenAI/Magpie discovery response.
+          const codexCatalog = message.action === 'cc-switch-models';
+          const entries = codexCatalog ? data?.models : data?.data;
+          if (!Array.isArray(entries) || (codexCatalog && Object.hasOwn(data, 'data'))) throw fail('RESPONSE');
           const models = [], seen = new Set();
-          for (const item of data.data.slice(0, 1000)) {
-            if (typeof item?.id !== 'string' || !item.id.trim() || item.id.length > 200 || /[\u0000-\u001f\u007f]/.test(item.id) || seen.has(item.id)) continue;
+          for (const item of entries.slice(0, 1000)) {
+            const id = codexCatalog ? item?.slug : item?.id;
+            if (typeof id !== 'string' || !id.trim() || id.length > 200 || /[\u0000-\u001f\u007f]/.test(id) || seen.has(id)) continue;
             const name = typeof item.display_name === 'string' && item.display_name.length <= 200 && !/[\u0000-\u001f\u007f]/.test(item.display_name) ? item.display_name : null;
-            seen.add(item.id); models.push({ id: item.id, ...(name ? { name } : {}) });
+            seen.add(id); models.push({ id, ...(name ? { name } : {}) });
             if (models.length >= 200) break;
           }
+          if (codexCatalog && entries.length && !models.length) throw fail('RESPONSE');
           return { ok: true, requestId, models };
         }
         if (message.type !== 'model:diagnose' || typeof config.model !== 'string' || !config.model.trim() || config.model.length > 200) throw fail('INVALID');

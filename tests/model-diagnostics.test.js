@@ -92,3 +92,30 @@ test('model display names remain bounded optional labels and IDs remain exact', 
   const result = await w.run(message('model:discover', { action: 'models' }));
   assert.deepEqual(result.models, [{ id: 'provider/model', name: 'Fixed model' }, { id: ' route group ' }]);
 });
+
+test('CC Switch Codex discovery is explicit and preserves slug IDs without inferring standard schemas', async () => {
+  const payload = { models: [{ slug: 'ccs-mock/vendor/model', display_name: 'Mock', private: 'PRIVATE' }, { slug: 'ccs-mock/vendor/model' }, { slug: 'bad\nmodel' }] };
+  const w = fixture([payload, payload, { data: [{ id: 'standard' }] }, { models: [] }, { models: [{ id: 'wrong-schema' }] }]);
+  const cc = () => message('model:discover', { action: 'cc-switch-models' });
+  const result = await w.run(cc()); assert.deepEqual(result.models, [{ id: 'ccs-mock/vendor/model', name: 'Mock' }]);
+  assert.equal(w.calls[0].url, 'http://127.0.0.1:3425/prefix/v1/models');
+  assert.equal(w.calls[0].init.headers.Authorization, 'Bearer PRIVATE_KEY');
+  assert.doesNotMatch(JSON.stringify(result), /PRIVATE/);
+  assert.equal((await w.run(message('model:discover', { action: 'models' }))).code, 'RESPONSE');
+  assert.equal((await w.run(cc())).code, 'RESPONSE');
+  assert.deepEqual((await w.run(cc())).models, []);
+  assert.equal((await w.run(cc())).code, 'RESPONSE');
+});
+
+test('CC Switch directory bounds, errors and aborts use the common discovery limits', async () => {
+  const cc = () => message('model:discover', { action: 'cc-switch-models', config: { ...config, apiKey: '' } });
+  const w = fixture([{ models: Array.from({ length: 1100 }, (_, i) => ({ slug: 'ccs-mock/model-' + i })) }, { models: [{ slug: 'x'.repeat(201) }] }, { models: [], data: [] }]);
+  assert.equal((await w.run(cc())).models.length, 200); assert.equal(w.calls[0].init.headers.Authorization, undefined);
+  assert.equal((await w.run(cc())).code, 'RESPONSE'); assert.equal((await w.run(cc())).code, 'RESPONSE');
+  for (const [status, code] of [[401, 'AUTH'], [404, 'MODEL']]) {
+    assert.equal((await fixture([], { fetchModel: async () => new Response('PRIVATE', { status }) }).run(cc())).code, code);
+  }
+  assert.equal((await fixture([], { fetchModel: async () => new Response('x'.repeat(256 * 1024 + 1)) }).run(cc())).code, 'RESPONSE');
+  const slow = fixture([], { fetchModel: () => new Promise(() => {}) });
+  const running = slow.run(cc()); await Promise.resolve(); slow.cancel('test-1'); assert.equal((await running).code, 'CANCELLED');
+});

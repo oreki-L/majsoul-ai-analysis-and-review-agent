@@ -8,7 +8,7 @@ const ChatEndpoint = require('../extension/adapters/model-endpoint.js');
 
 async function settings(initial = {}, { permission = true, beforeSet, clearResult = { ok: true }, usageResult, modelResult } = {}) {
   const data = structuredClone(initial), calls = [], elements = new Map(), downloads = [];
-  for (const id of ['profilesPanel', 'profile', 'profileName', 'newProfile', 'magpiePreset', 'deleteProfile', 'discoveredModels', 'diagnosticStatus', 'diagnose', 'cancelDiagnostic', 'magpieHello', 'loadModels', 'status', 'provider', 'providerHint', 'engineSetup', 'engineGuide', 'enabled', 'endpoint', 'endpointHint', 'model', 'key', 'keyLabel', 'chatOptions', 'thinking', 'thinkingHint', 'maxTokens', 'priceCurrency', 'priceInput', 'priceOutput', 'priceCacheRead', 'priceCacheWrite', 'config', 'disable', 'clear', 'clearAgentData', 'exportUsage']) elements.set(id, { value: '', checked: false, textContent: '', children: [], replaceChildren() { this.children = []; }, appendChild(item) { this.children.push(item); } });
+  for (const id of ['profilesPanel', 'profile', 'profileName', 'newProfile', 'magpiePreset', 'ccSwitchPreset', 'loadCcSwitchModels', 'deleteProfile', 'discoveredModels', 'diagnosticStatus', 'diagnose', 'cancelDiagnostic', 'magpieHello', 'loadModels', 'status', 'provider', 'providerHint', 'engineSetup', 'engineGuide', 'enabled', 'endpoint', 'endpointHint', 'model', 'key', 'keyLabel', 'chatOptions', 'thinking', 'thinkingHint', 'maxTokens', 'priceCurrency', 'priceInput', 'priceOutput', 'priceCacheRead', 'priceCacheWrite', 'config', 'disable', 'clear', 'clearAgentData', 'exportUsage']) elements.set(id, { value: '', checked: false, textContent: '', children: [], replaceChildren() { this.children = []; }, appendChild(item) { this.children.push(item); } });
   const local = {
     get: async keys => { calls.push(['get']); return Object.fromEntries((Array.isArray(keys) ? keys : [keys]).filter(key => key in data).map(key => [key, structuredClone(data[key])])); },
     set: async value => { const copied = structuredClone(value); calls.push(['set']); if (beforeSet) await beforeSet(copied); Object.assign(data, copied); },
@@ -26,7 +26,7 @@ async function settings(initial = {}, { permission = true, beforeSet, clearResul
     if (message.type === 'agent:usage') return usageResult || { ok: true, records: structuredClone(data.agentRunsV1 || []) };
     if (clearResult.ok) { delete data.agentRoundContextV1; delete data.agentRunsV1; }
     return clearResult;
-  } }, permissions: { request: async value => { calls.push(['permission', value]); return permission; } } }, MJModelProfiles: require('../extension/model-profiles.js'), MJModelEndpoint: ChatEndpoint, MJEngineEndpoint: Endpoint });
+  } }, permissions: { request: async value => { calls.push(['permission', value]); return permission; } } }, MJModelConfigStore: require('../extension/model-config-store.js'), MJModelProfiles: require('../extension/model-profiles.js'), MJModelEndpoint: ChatEndpoint, MJEngineEndpoint: Endpoint });
   vm.runInContext(fs.readFileSync(require.resolve('../extension/options.js'), 'utf8'), context);
   await new Promise(resolve => setImmediate(resolve));
   const el = id => elements.get(id);
@@ -398,4 +398,43 @@ test('invalid profile names block provider and profile changes without losing dr
     page.el('profileName').value = 'Valid name'; await page.submit();
     assert.equal(page.data.modelConfig.provider, 'chat'); assert.equal(page.data.modelConfig.model, 'unsaved/model');
   }
+});
+
+test('CC Switch preset stays optional, preserves existing credentials and uses explicit Codex discovery', async () => {
+  let result = { ok: true, models: [{ id: 'ccs-mock/vendor/model', name: 'Mock' }] };
+  const initial = savedChat();
+  initial.modelConfig.extra = { preserved: 7 };
+  initial.analysisProviders = { mjai: { provider: 'mjai', apiKey: 'ENGINE_FIXTURE', extra: { preserved: 9 } } };
+  const page = await settings(initial, { modelResult: () => result });
+  page.el('ccSwitchPreset').onclick();
+  assert.equal(page.el('endpoint').value, 'http://127.0.0.1:15721/v1');
+  assert.equal(page.el('key').value, ''); assert.equal(page.el('enabled').checked, false);
+  page.el('endpoint').value = 'http://localhost:17899/v1'; page.el('model').value = 'manual/model';
+  await page.el('loadCcSwitchModels').onclick();
+  assert.equal(page.calls.find(c => c[0] === 'message')[1].action, 'cc-switch-models');
+  assert.equal(page.el('model').value, 'manual/model');
+  result = { ok: false, error: '目录格式错误。' }; await page.el('loadCcSwitchModels').onclick();
+  assert.equal(page.el('discoveredModels').children[1].value, 'ccs-mock/vendor/model');
+  page.el('discoveredModels').value = 'ccs-mock/vendor/model'; page.el('discoveredModels').onchange(); await page.submit();
+  assert.equal(page.data.modelConfig.model, 'ccs-mock/vendor/model');
+  assert.deepEqual(page.data.llmProfilesV1.profiles[0].config.extra, { preserved: 7 });
+  assert.equal(page.data.analysisProviders.mjai.apiKey, 'ENGINE_FIXTURE');
+  assert.deepEqual(page.data.analysisProviders.mjai.extra, { preserved: 9 });
+  assert.equal(page.data.modelConfig.endpoint, 'http://localhost:17899/v1/chat/completions');
+  assert.equal(page.data.llmProfilesV1.profiles[0].config.apiKey, 'EXISTING_SECRET');
+  result = { ok: true, models: [] }; await page.el('loadCcSwitchModels').onclick();
+  assert.match(page.el('diagnosticStatus').textContent, /空目录/);
+  assert.equal(page.el('model').value, 'ccs-mock/vendor/model');
+  page.el('key').value = 'changed'; page.el('key').oninput();
+  assert.equal(page.el('discoveredModels').disabled, true);
+});
+
+test('late CC Switch directory results and cancellation cannot cross profiles', async () => {
+  const pending = deferred();
+  const page = await settings(savedChat(), { modelResult: m => m.type === 'model:cancel' ? { ok: true } : pending.promise });
+  const loading = page.el('loadCcSwitchModels').onclick(); await new Promise(resolve => setImmediate(resolve));
+  page.el('ccSwitchPreset').onclick();
+  pending.resolve({ ok: true, models: [{ id: 'ccs-old/model' }] }); await loading;
+  assert.equal(page.el('discoveredModels').disabled, true); assert.equal(page.el('model').value, '');
+  assert.equal(page.calls.some(c => c[0] === 'message' && c[1].type === 'model:cancel'), true);
 });

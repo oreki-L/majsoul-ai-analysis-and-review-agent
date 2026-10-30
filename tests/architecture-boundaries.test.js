@@ -141,3 +141,14 @@ test('collector profile closure rejects an explicitly exposed Pi bundle', async 
     assert.throws(() => checkProfiles(temporary), /Collector dependency closure contains analysis\/model files/);
   } finally { rmSync(temporary, { recursive: true, force: true }); }
 });
+
+
+test('injected model services cannot acquire ambient capabilities or collector dependencies', async () => {
+  const { checkSourceBoundary } = await import('../scripts/check-boundaries.mjs');
+  for (const file of ['model-config-store.js', 'model-analysis-worker.js']) {
+    for (const source of ['chrome.storage.local.get()', 'fetch("https://example.com")', 'document.body', 'root.MJCollectorController.create()', "require('./collector/controller.js')"]) {
+      assert.throws(() => checkSourceBoundary(file, source), /forbidden/);
+    }
+    assert.throws(() => checkSourceBoundary('collector/controller.js', `require('../${file}')`), /collector must not depend/);
+  }
+});
