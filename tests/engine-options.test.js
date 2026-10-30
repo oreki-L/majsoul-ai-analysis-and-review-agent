@@ -26,7 +26,7 @@ async function settings(initial = {}, { permission = true, beforeSet, clearResul
     if (message.type === 'agent:usage') return usageResult || { ok: true, records: structuredClone(data.agentRunsV1 || []) };
     if (clearResult.ok) { delete data.agentRoundContextV1; delete data.agentRunsV1; }
     return clearResult;
-  } }, permissions: { request: async value => { calls.push(['permission', value]); return permission; } } }, MJModelProfiles: require('../extension/model-profiles.js'), MJModelEndpoint: ChatEndpoint, MJEngineEndpoint: Endpoint });
+  } }, permissions: { request: async value => { calls.push(['permission', value]); return permission; } } }, MJModelConfigStore: require('../extension/model-config-store.js'), MJModelProfiles: require('../extension/model-profiles.js'), MJModelEndpoint: ChatEndpoint, MJEngineEndpoint: Endpoint });
   vm.runInContext(fs.readFileSync(require.resolve('../extension/options.js'), 'utf8'), context);
   await new Promise(resolve => setImmediate(resolve));
   const el = id => elements.get(id);

@@ -19,3 +19,9 @@ Bearer 标识只是 Magpie 按应用归类用量的本机标识，不是上游 A
 本次自动化验证使用人工响应与模拟浏览器权限，未安装／启动 Magpie，也未发送收费真实模型请求。真实网关版本、路由配置、模型 tools 与最终麻将输出仍需用户在上述知情操作下验证。Magpie 协议来源固定为 v0.1.2183、commit `0414bbeddbfc2028508b610fd1e7c194143454a0` 的 `docs/integrating.md` 和 `internal/gateway/gateway.go`；这不是上游兼容认证。
 
 回归验证补充（2026-10-30）：模拟 DOM 单元测试直接调用处理器，不实现浏览器原生 select 行为和自动 input/change 冒泡，不能代替实际 DOM 验证。另使用真实 `options.html`、Playwright 和合成 Chrome API，确认目录跨服务隔离、同身份失败刷新保留、地址／鉴权失效、过期响应、原生选择事件冒泡、空／重复名称切换失败时草稿和选择恢复，且没有未处理 pageerror；未发送真实服务请求。
+
+## 配置持久化边界
+
+`model-config-store.js` 通过注入的 storage 提供 `load/save/disable/clear`，统一迁移读取、命名配置与兼容槽位的一次写入、关闭和清除的串行顺序；`model-profiles.js` 继续只做纯转换。`modelConfig` 是唯一运行时生效配置，`llmProfilesV1` 是用户保存集合，`analysisProviders` 是兼容草稿槽位。额外配置字段及 mjai 凭据保留。
+
+设置页持有表单、命名草稿和目录身份，真实用户手势内先申请主机权限，再调用 store 保存；选择不写存储、不自动开启。关闭／清除会使尚未开始写入的保存失效，已开始写入则由队列中后续操作覆盖。清除仍通过注入回调取消后台及清理会话，只移除既有模型／会话键，不碰历史和记忆。队列与 generation 属于每个设置页实例，未提供跨窗口事务保证。

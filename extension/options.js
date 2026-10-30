@@ -32,23 +32,13 @@ function captureProfile() {
   if (currentProvider === 'chat') profiles = MJModelProfiles.upsert(profiles, { id: profiles.activeId, name: $('profileName').value, config: { ...MJModelProfiles.active(profiles).config, ...fields('chat') } });
 }
 
-let operationGeneration = 0, storageQueue = Promise.resolve();
-// An already-started storage write cannot be cancelled; later destructive writes
-// must run after it. Permission requests stay outside this queue for user gestures.
-function writeInOrder(operation) {
-  const pending = storageQueue.then(operation);
-  storageQueue = pending.catch(() => {});
-  return pending;
-}
-function copyProviders(value) { return Object.fromEntries(Object.entries(value).map(([provider, config]) => [provider, { ...config }])); }
-const defaults = provider => ({ provider, enabled: false, endpoint: provider === 'mjai' ? 'http://127.0.0.1:17341/analyze' : '', model: provider === 'mjai' ? 'mjai' : '', apiKey: '' });
+const configStore = MJModelConfigStore.create({ storage: chrome.storage.local, clearAgentData: () => chrome.runtime?.sendMessage?.({ type: 'agent:clear-data' }) });
+const defaults = MJModelConfigStore.defaults;
 const priceFields = { input: 'priceInput', output: 'priceOutput', cacheRead: 'priceCacheRead', cacheWrite: 'priceCacheWrite' };
 function pricingFields() {
   return { currency: $('priceCurrency').value.trim() || null,
     ...Object.fromEntries(Object.entries(priceFields).map(([key, id]) => [key, $(id).value.trim() === '' ? null : Number($(id).value)])) };
 }
-function chatFields(c) { return { thinking: c.thinking === true, maxTokens: c.maxTokens,
-  contextMode: 'round', toolCalling: true, pricing: c.pricing }; }
 function fields(provider) { return { provider, enabled: $('enabled').checked, endpoint: $('endpoint').value.trim(), model: provider === 'mjai' ? 'mjai' : $('model').value, apiKey: $('key').value.trim(),
   ...(provider === 'chat' ? { thinking: !$('thinking').disabled && $('thinking').checked, maxTokens: Number($('maxTokens').value),
     contextMode: 'round', toolCalling: true, pricing: pricingFields() } : {}) }; }
@@ -80,35 +70,21 @@ function show(provider) {
   $('providerHint').textContent = engine ? '需手动启动桥接服务并自备模型，不捆绑权重。仅支持无副露四麻。' : '';
   syncModelDirectory();
 }
-async function load(generation = operationGeneration) {
-  const stored = await chrome.storage.local.get(['modelConfig', 'analysisProviders', 'llmProfilesV1']);
-  const { modelConfig: c, analysisProviders: saved } = stored;
-  if (generation !== operationGeneration) return;
-  profiles = MJModelProfiles.migrate(stored);
-  renderProfiles();
-  drafts = {};
-  for (const provider of ['chat', 'mjai']) {
-    const item = saved?.[provider];
-    if (item && typeof item === 'object') drafts[provider] = { ...defaults(provider), enabled: !!item.enabled,
-      endpoint: typeof item.endpoint === 'string' ? item.endpoint : defaults(provider).endpoint,
-      model: provider === 'mjai' ? 'mjai' : typeof item.model === 'string' ? item.model : '', apiKey: typeof item.apiKey === 'string' ? item.apiKey : '',
-      ...(provider === 'chat' ? chatFields(item) : {}) };
-  }
-  // Older modelConfig values belong exclusively to the chat provider.
-  if (c) drafts[providerOf(c)] = { ...defaults(providerOf(c)), ...c, provider: providerOf(c) };
-  drafts.chat = { ...defaults('chat'), ...MJModelProfiles.active(profiles).config, enabled: providerOf(c) === 'chat' && c?.enabled === true };
-  show(providerOf(c));
+async function load(generation = configStore.generation) {
+  const state = await configStore.load();
+  if (generation !== configStore.generation) return;
+  ({ profiles, drafts } = state); renderProfiles(); show(state.provider);
 }
 load().catch(() => status('读取设置失败，请重新打开设置页。'));
 $('provider').onchange = () => {
-  cancelDiagnostic(); ++operationGeneration;
+  cancelDiagnostic(); configStore.invalidate();
   try {
     captureProfile(); drafts[currentProvider] = fields(currentProvider);
     const next = $('provider').value === 'mjai' ? 'mjai' : 'chat';
     drafts[next] = { ...(drafts[next] || defaults(next)), enabled: false }; show(next); status('');
   } catch (error) { $('provider').value = currentProvider; status(error.message); }
 };
-for (const id of ['endpoint', 'model', 'key', 'maxTokens', 'thinking']) $(id).oninput = () => { cancelDiagnostic(); ++operationGeneration; syncModelDirectory(); updateThinking(); };
+for (const id of ['endpoint', 'model', 'key', 'maxTokens', 'thinking']) $(id).oninput = () => { cancelDiagnostic(); configStore.invalidate(); syncModelDirectory(); updateThinking(); };
 $('thinking').onchange = () => {
   const previousDefault = MJModelEndpoint.defaultMaxTokens(!$('thinking').checked);
   if (Number($('maxTokens').value) === previousDefault) $('maxTokens').value = MJModelEndpoint.defaultMaxTokens($('thinking').checked);
@@ -116,7 +92,7 @@ $('thinking').onchange = () => {
 $('config').onsubmit = async event => {
   event.preventDefault();
   cancelDiagnostic();
-  const generation = ++operationGeneration;
+  const generation = configStore.invalidate();
   try {
     const c = fields(currentProvider), adapter = c.provider === 'mjai' ? MJEngineEndpoint : MJModelEndpoint;
     const url = adapter.endpoint(c.endpoint);
@@ -130,56 +106,44 @@ $('config').onsubmit = async event => {
     if (c.provider === 'chat') MJModelProfiles.validateName($('profileName').value);
     // Request inside the submit gesture, before any asynchronous storage work.
     const allowed = await chrome.permissions.request({ origins: [adapter.permissionOrigin(url.href)] });
-    if (generation !== operationGeneration) return;
+    if (generation !== configStore.generation) return;
     if (!allowed) throw new Error('未授予接口访问权限，设置尚未保存。');
     c.endpoint = url.href;
     if (c.provider === 'chat') profiles = MJModelProfiles.upsert(profiles, { id: profiles.activeId, name: $('profileName').value, config: { ...MJModelProfiles.active(profiles).config, ...c } });
-    const savedProfiles = structuredClone(profiles);
-    const providers = copyProviders({ ...drafts, [c.provider]: c });
-    await writeInOrder(async () => {
-      if (generation !== operationGeneration) return;
-      await chrome.storage.local.set({ modelConfig: c, analysisProviders: providers, llmProfilesV1: savedProfiles });
-      if (generation === operationGeneration) drafts = providers;
-    });
-    if (generation === operationGeneration) {
+    const providers = await configStore.save({ config: c, profiles, drafts }, generation);
+    if (providers && generation === configStore.generation) drafts = providers;
+    if (generation === configStore.generation) {
       if (currentProvider === c.provider) $('endpoint').value = c.endpoint;
       if (c.provider === 'chat') renderProfiles();
       status('已保存。在牌局面板开启“调用模型”即可使用。');
     }
-  } catch (error) { if (generation === operationGeneration) status(error.message); }
+  } catch (error) { if (generation === configStore.generation) status(error.message); }
 };
 $('disable').onclick = async () => {
-  const generation = ++operationGeneration;
+  let generation;
   cancelDiagnostic();
   profiles = { ...(profiles || MJModelProfiles.migrate({})), profiles: (profiles || MJModelProfiles.migrate({})).profiles.map(item => ({ ...item, config: { ...item.config, enabled: false } })) };
   for (const provider of ['chat', 'mjai']) if (drafts[provider]) drafts[provider].enabled = false;
-  const providers = copyProviders(drafts), disabledProfiles = structuredClone(profiles);
   $('enabled').checked = false;
   try {
-    await writeInOrder(async () => {
-      const { modelConfig: c } = await chrome.storage.local.get('modelConfig');
-      await chrome.storage.local.set({ ...(c ? { modelConfig: { ...c, enabled: false } } : {}), analysisProviders: providers, llmProfilesV1: disabledProfiles });
-    });
-    if (generation === operationGeneration) status('模型分析已关闭，正在进行的请求将取消。');
-  } catch (_) { if (generation === operationGeneration) status('关闭失败，请重试。'); }
+    const pending = configStore.disable({ drafts, profiles }); generation = configStore.generation; await pending;
+    if (generation === configStore.generation) status('模型分析已关闭，正在进行的请求将取消。');
+  } catch (_) { if (generation === configStore.generation) status('关闭失败，请重试。'); }
 };
 $('clear').onclick = async () => {
-  const generation = ++operationGeneration;
+  let generation;
   cancelDiagnostic();
   profiles = MJModelProfiles.migrate({}); renderProfiles();
   drafts = {}; show('chat');
   try {
-    await writeInOrder(async () => {
-      try { await chrome.runtime?.sendMessage?.({ type: 'agent:clear-data' }); }
-      finally { await chrome.storage.local.remove(['modelConfig', 'analysisProviders', 'llmProfilesV1', 'agentRoundContextV1', 'agentRunsV1', 'decisionDiscussionsV1']); }
-    });
-    if (generation === operationGeneration) status('已清除所有服务配置、密钥、本地会话和运行用量。');
-  } catch (_) { if (generation === operationGeneration) status('清除失败，请重试。'); }
+    const pending = configStore.clear(); generation = configStore.generation; await pending;
+    if (generation === configStore.generation) status('已清除所有服务配置、密钥、本地会话和运行用量。');
+  } catch (_) { if (generation === configStore.generation) status('清除失败，请重试。'); }
 };
 $('clearAgentData').onclick = async () => {
   const button = $('clearAgentData'); button.disabled = true;
   try {
-    const result = await writeInOrder(() => chrome.runtime.sendMessage({ type: 'agent:clear-data' }));
+    const result = await configStore.enqueue(() => chrome.runtime.sendMessage({ type: 'agent:clear-data' }));
     if (result?.ok === false) throw new Error(result.error || '清除失败，请重试。');
     status('已清除本地会话和运行用量。');
   } catch (error) { status(error.message || '清除失败，请重试。'); }
@@ -188,7 +152,7 @@ $('clearAgentData').onclick = async () => {
 $('exportUsage').onclick = async () => {
   const button = $('exportUsage'); button.disabled = true;
   try {
-    const response = await writeInOrder(() => chrome.runtime.sendMessage({ type: 'agent:usage' }));
+    const response = await configStore.enqueue(() => chrome.runtime.sendMessage({ type: 'agent:usage' }));
     if (response?.ok !== true || !Array.isArray(response.records)) throw new Error(response?.error || '读取用量记录失败，请重试。');
     const now = new Date().toISOString();
     const blob = new Blob([JSON.stringify({ format: 'mj-agent-usage-v1', exportedAt: now, records: response.records }, null, 2)], { type: 'application/json;charset=utf-8' });
@@ -205,7 +169,7 @@ $('exportUsage').onclick = async () => {
 // Profile edits remain local until the user saves. Never enable on selection.
 $('profile').onchange = () => {
   const id = $('profile').value;
-  try { captureProfile(); profiles = MJModelProfiles.select(profiles, id); cancelDiagnostic(); ++operationGeneration;
+  try { captureProfile(); profiles = MJModelProfiles.select(profiles, id); cancelDiagnostic(); configStore.invalidate();
     drafts.chat = { ...defaults('chat'), ...MJModelProfiles.active(profiles).config, enabled: false }; renderProfiles(); show('chat'); status('已选择配置；保存后应用，分析保持关闭。');
   } catch (error) { $('profile').value = profiles.activeId; status(error.message); }
 };
@@ -213,18 +177,18 @@ function newProfile(magpie) {
   try { captureProfile(); let name = magpie ? 'Magpie' : '新直连配置', suffix = 2;
     const base = name; while (profiles.profiles.some(item => item.name === name)) name = base + ' ' + suffix++;
     const config = { ...defaults('chat'), ...(magpie ? { endpoint: 'http://127.0.0.1:3425/v1', apiKey: 'magpie-majsoul-agent' } : {}) };
-    profiles = MJModelProfiles.upsert(profiles, { name, config }); cancelDiagnostic(); ++operationGeneration;
+    profiles = MJModelProfiles.upsert(profiles, { name, config }); cancelDiagnostic(); configStore.invalidate();
     drafts.chat = config; renderProfiles(); show('chat'); status('新配置尚未保存；分析保持关闭。');
   } catch (error) { status(error.message); }
 }
 $('newProfile').onclick = () => newProfile(false);
 $('magpiePreset').onclick = () => newProfile(true);
 $('deleteProfile').onclick = () => {
-  try { profiles = MJModelProfiles.remove(profiles, profiles.activeId); cancelDiagnostic(); ++operationGeneration;
+  try { profiles = MJModelProfiles.remove(profiles, profiles.activeId); cancelDiagnostic(); configStore.invalidate();
     drafts.chat = { ...defaults('chat'), ...MJModelProfiles.active(profiles).config, enabled: false }; renderProfiles(); show('chat'); status('删除尚未保存；保存后应用。');
   } catch (error) { status(error.message); }
 };
-$('discoveredModels').onchange = () => { if (modelDirectoryIdentity !== directoryIdentity()) { syncModelDirectory(); return; } if ($('discoveredModels').value) { $('model').value = $('discoveredModels').value; cancelDiagnostic(); ++operationGeneration; updateThinking(); } };
+$('discoveredModels').onchange = () => { if (modelDirectoryIdentity !== directoryIdentity()) { syncModelDirectory(); return; } if ($('discoveredModels').value) { $('model').value = $('discoveredModels').value; cancelDiagnostic(); configStore.invalidate(); updateThinking(); } };
 async function modelOperation(action) {
   cancelDiagnostic();
   syncModelDirectory();
@@ -255,4 +219,4 @@ $('magpieHello').onclick = () => modelOperation('hello');
 $('loadModels').onclick = () => modelOperation('models');
 $('cancelDiagnostic').onclick = () => { cancelDiagnostic(); $('diagnosticStatus').textContent = '测试已取消。'; };
 
-$('config').oninput = () => { cancelDiagnostic(); ++operationGeneration; syncModelDirectory(); };
+$('config').oninput = () => { cancelDiagnostic(); configStore.invalidate(); syncModelDirectory(); };

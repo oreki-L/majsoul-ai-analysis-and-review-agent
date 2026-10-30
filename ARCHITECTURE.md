@@ -133,3 +133,9 @@ LLM 分析与解释保持主要定位，默认 `chat` 且分析关闭。设置�
 检查规则、依赖方向和静态扫描局限见[可执行的模块边界](docs/DECOUPLING.md)。
 
 运行 `npm test`。分析测试通过 VM 中的模拟 Chrome API 和模拟 HTTP 响应覆盖开关、授权、身份、请求、错误与取消，不连接真实模型。`tests/preview.html` 用于离线界面验证，不代表真实协议采集或模型正确率。版本验证记录见 `VALIDATION.md`。
+
+## 配置持久化边界
+
+`model-config-store.js` 通过注入的 storage 提供 `load/save/disable/clear`，统一迁移读取、命名配置与兼容槽位的一次写入、关闭和清除的串行顺序；`model-profiles.js` 继续只做纯转换。`modelConfig` 是唯一运行时生效配置，`llmProfilesV1` 是用户保存集合，`analysisProviders` 是兼容草稿槽位。额外配置字段及 mjai 凭据保留。
+
+设置页持有表单、命名草稿和目录身份，真实用户手势内先申请主机权限，再调用 store 保存；选择不写存储、不自动开启。关闭／清除会使尚未开始写入的保存失效，已开始写入则由队列中后续操作覆盖。清除仍通过注入回调取消后台及清理会话，只移除既有模型／会话键，不碰历史和记忆。队列与 generation 属于每个设置页实例，未提供跨窗口事务保证。

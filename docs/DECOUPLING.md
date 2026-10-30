@@ -31,3 +31,9 @@
 `tests/architecture-boundaries.test.js` 用违规代码注入验证依赖方向、浏览器能力、动态路径、未知 global、加载顺序、缺失传递资源和默认 manifest 漂移均被拒绝。`tests/build-profiles.test.js` 检查 Collector 实际闭包排除模型文件，Agent 保留相应能力。
 
 这些是针对当前代码约定的静态约束，不是完整 JavaScript parser，也不能全面证明运行时动态依赖。别名、反射、原型和新语法可能超出检查范围；新写法需要增加规则及负例测试，运行时行为仍需测试和浏览器验收。
+
+## 配置持久化边界
+
+`model-config-store.js` 通过注入的 storage 提供 `load/save/disable/clear`，统一迁移读取、命名配置与兼容槽位的一次写入、关闭和清除的串行顺序；`model-profiles.js` 继续只做纯转换。`modelConfig` 是唯一运行时生效配置，`llmProfilesV1` 是用户保存集合，`analysisProviders` 是兼容草稿槽位。额外配置字段及 mjai 凭据保留。
+
+设置页持有表单、命名草稿和目录身份，真实用户手势内先申请主机权限，再调用 store 保存；选择不写存储、不自动开启。关闭／清除会使尚未开始写入的保存失效，已开始写入则由队列中后续操作覆盖。清除仍通过注入回调取消后台及清理会话，只移除既有模型／会话键，不碰历史和记忆。队列与 generation 属于每个设置页实例，未提供跨窗口事务保证。
