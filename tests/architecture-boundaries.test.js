@@ -65,6 +65,29 @@ test('Pi vendor bundle has a separate precise capability check', async () => {
   assert.throws(() => dependencies('unregistered-vendor.js', 'root.MJUnknown.run()'), /undeclared project global/);
 });
 
+test('model configuration and diagnostics stay independent of collection and browser capabilities', async () => {
+  const { checkSourceBoundary } = await import('../scripts/check-boundaries.mjs');
+  for (const file of ['model-profiles.js', 'model-diagnostics.js']) {
+    for (const source of [
+      'root.MJCollectorController.create()', "require('./collector/controller.js')",
+      'root.MJAgent.run()', 'root.MJModelProfiles.active(state)',
+      'document.createElement("p")', 'chrome.storage.local.get()',
+      'localStorage.getItem(key)', 'sessionStorage.clear()', 'indexedDB.open(name)', 'caches.open(name)',
+      'fetch(url)', 'new XMLHttpRequest()', 'new WebSocket(url)', "globalThis['chrome'].storage",
+      "const capability = 'document'; root[capability]"
+    ]) {
+      // A module may publish/reference its own API without adding a dependency.
+      if (file === 'model-profiles.js' && source === 'root.MJModelProfiles.active(state)') continue;
+      assert.throws(() => checkSourceBoundary(file, source), /forbidden/, `${file}: ${source}`);
+    }
+  }
+  assert.throws(() => checkSourceBoundary('model-profiles.js', 'root.MJModelDiagnostics.create()'), /forbidden dependency/);
+  assert.throws(() => checkSourceBoundary('model-profiles.js', "require('./adapters/model-endpoint.js')"), /forbidden dependency/);
+  assert.deepEqual(checkSourceBoundary('model-profiles.js', readFileSync(join(__dirname, '../extension/model-profiles.js'), 'utf8')), []);
+  assert.deepEqual(checkSourceBoundary('model-diagnostics.js', readFileSync(join(__dirname, '../extension/model-diagnostics.js'), 'utf8')), ['adapters/model-endpoint.js', 'model-session-transport.js']);
+  assert.deepEqual(checkSourceBoundary('model-diagnostics.js', 'function run({ permissions, fetchModel }) { return permissions.contains({}).then(() => fetchModel(url)); }'), []);
+});
+
 test('lexical rules ignore comment/string/regex text and scan template expressions', async () => {
   const { checkSourceBoundary, dependencies, workerImports } = await import('../scripts/check-boundaries.mjs');
   assert.deepEqual(checkSourceBoundary('harness.js', `// MJAgent.run(); document\n/* importScripts('agent.js') */\nconst text = 'MJAgent chrome'; const pattern = /MJAgent["']/; const t = \`MJAgent text\`;`), []);

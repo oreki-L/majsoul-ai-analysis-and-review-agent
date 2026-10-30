@@ -1,6 +1,6 @@
 # 参考项目与已确认边界
 
-参考关系记录于 2026-10-26；发布版本标识于 2026-10-30 同步为 **v0.10.1**。本文件集中保留用户提及的参考对象、后续补充研究与项目取舍，供其他会话接续；它不是第三方背书、兼容认证或模型能力排名。下列“已接入”仅指明确描述的范围，不表示所有上游版本、模型和线上服务均可用。
+参考关系记录于 2026-10-26；发布版本标识于 2026-10-30 同步为 **v0.11.0**。本文件集中保留用户提及的参考对象、后续补充研究与项目取舍，供其他会话接续；它不是第三方背书、兼容认证或模型能力排名。下列“已接入”仅指明确描述的范围，不表示所有上游版本、模型和线上服务均可用。
 
 ## 产品方向与共同边界
 
@@ -36,6 +36,12 @@ Pi 是当前实际运行依赖；DeepSeek Harness 是设计参考。mjai 专业�
 | [Avenshy/mahjong-helper-majsoul-mitmproxy](https://github.com/Avenshy/mahjong-helper-majsoul-mitmproxy) | Liqi 消息封装和字段定义研究 | 本项目使用独立最小 wire reader，未捆绑其代码、proto 文件或生成代码 | GPL-3.0 代码不纳入本项目 MIT 授权；字段线索不证明当前 Unity 全协议兼容 |
 | [Avenshy/MajsoulMax](https://github.com/Avenshy/MajsoulMax) | 网页及桌面采集可行性线索 | 未捆绑客户端修改逻辑，不作为运行依赖 | 不把其采集方法或兼容性直接等同于本项目浏览器扩展能力 |
 | [matttang27/majsoul-vision](https://github.com/matttang27/majsoul-vision) | 私密早期原型曾使用其中游戏牌面截图，后续用于追踪素材来源 | 公开历史全部提交已移除旧 PNG／ZIP，替换为本项目原创 SVG；不分发其旧素材 | 原素材授权范围未确认，不能将历史使用记录视为再授权；详见 [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md) |
+
+## 可选 Magpie 接入（2026-10-30）
+
+- [yetone/magpie](https://github.com/yetone/magpie)：v0.11.0 提供可选预设、手动身份识别和模型目录，沿用通用 Chat Completions transport；不要求安装，不读取桌面设置或账号。
+- 协议参考固定 v0.1.2183、commit `0414bbeddbfc2028508b610fd1e7c194143454a0` 的 [接入规范](https://github.com/yetone/magpie/blob/0414bbeddbfc2028508b610fd1e7c194143454a0/docs/integrating.md) 和 gateway 路由。未完成真实 Magpie／模型端到端验收，不是全面兼容认证；工具诊断、别名、费用和思考参数限制见 [配置与诊断](MODEL_CONFIGURATION.md)。
+- 本轮不包含 CC Switch 专属接入、Magpie 插件或 Agents 注册。
 
 ## 使用此索引时
 

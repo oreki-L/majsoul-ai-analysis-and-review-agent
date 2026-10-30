@@ -6,25 +6,27 @@ const vm = require('node:vm');
 const Endpoint = require('../extension/adapters/engine-endpoint.js');
 const ChatEndpoint = require('../extension/adapters/model-endpoint.js');
 
-async function settings(initial = {}, { permission = true, beforeSet, clearResult = { ok: true }, usageResult } = {}) {
+async function settings(initial = {}, { permission = true, beforeSet, clearResult = { ok: true }, usageResult, modelResult } = {}) {
   const data = structuredClone(initial), calls = [], elements = new Map(), downloads = [];
-  for (const id of ['status', 'provider', 'providerHint', 'engineSetup', 'engineGuide', 'enabled', 'endpoint', 'endpointHint', 'model', 'key', 'keyLabel', 'chatOptions', 'thinking', 'thinkingHint', 'maxTokens', 'priceCurrency', 'priceInput', 'priceOutput', 'priceCacheRead', 'priceCacheWrite', 'config', 'disable', 'clear', 'clearAgentData', 'exportUsage']) elements.set(id, { value: '', checked: false, textContent: '' });
+  for (const id of ['profilesPanel', 'profile', 'profileName', 'newProfile', 'magpiePreset', 'deleteProfile', 'discoveredModels', 'diagnosticStatus', 'diagnose', 'cancelDiagnostic', 'magpieHello', 'loadModels', 'status', 'provider', 'providerHint', 'engineSetup', 'engineGuide', 'enabled', 'endpoint', 'endpointHint', 'model', 'key', 'keyLabel', 'chatOptions', 'thinking', 'thinkingHint', 'maxTokens', 'priceCurrency', 'priceInput', 'priceOutput', 'priceCacheRead', 'priceCacheWrite', 'config', 'disable', 'clear', 'clearAgentData', 'exportUsage']) elements.set(id, { value: '', checked: false, textContent: '', children: [], replaceChildren() { this.children = []; }, appendChild(item) { this.children.push(item); } });
   const local = {
     get: async keys => { calls.push(['get']); return Object.fromEntries((Array.isArray(keys) ? keys : [keys]).filter(key => key in data).map(key => [key, structuredClone(data[key])])); },
     set: async value => { const copied = structuredClone(value); calls.push(['set']); if (beforeSet) await beforeSet(copied); Object.assign(data, copied); },
     remove: async keys => { calls.push(['remove']); for (const key of Array.isArray(keys) ? keys : [keys]) delete data[key]; }
   };
-  const context = vm.createContext({ Blob, setTimeout, URL: {
+  const context = vm.createContext({ Blob, setTimeout, structuredClone, URL: {
     createObjectURL(blob) { downloads.push({ blob }); return 'blob:usage-' + downloads.length; },
     revokeObjectURL(url) { calls.push(['revoke', url]); }
   }, document: { getElementById: id => elements.get(id), body: { appendChild() {} }, createElement(tag) {
+    if (tag === 'option') return { value: '', textContent: '' };
     assert.equal(tag, 'a'); return { click() { Object.assign(downloads.at(-1), { href: this.href, filename: this.download }); calls.push(['download']); }, remove() {} };
   } }, chrome: { storage: { local }, runtime: { sendMessage: async message => {
     calls.push(['message', structuredClone(message)]);
+    if (message.type.startsWith('model:')) return typeof modelResult === 'function' ? modelResult(message) : modelResult || clearResult;
     if (message.type === 'agent:usage') return usageResult || { ok: true, records: structuredClone(data.agentRunsV1 || []) };
     if (clearResult.ok) { delete data.agentRoundContextV1; delete data.agentRunsV1; }
     return clearResult;
-  } }, permissions: { request: async value => { calls.push(['permission', value]); return permission; } } }, MJModelEndpoint: ChatEndpoint, MJEngineEndpoint: Endpoint });
+  } }, permissions: { request: async value => { calls.push(['permission', value]); return permission; } } }, MJModelProfiles: require('../extension/model-profiles.js'), MJModelEndpoint: ChatEndpoint, MJEngineEndpoint: Endpoint });
   vm.runInContext(fs.readFileSync(require.resolve('../extension/options.js'), 'utf8'), context);
   await new Promise(resolve => setImmediate(resolve));
   const el = id => elements.get(id);
@@ -266,5 +268,134 @@ test('empty usage can be exported and failed usage reads never download', async 
     const page = await settings({}, { usageResult }); await page.el('exportUsage').onclick();
     assert.equal(page.downloads.length, 0); assert.equal(page.el('exportUsage').disabled, false);
     assert.match(page.el('status').textContent, /读取用量/);
+  }
+});
+
+
+test('named profiles preserve direct and Magpie settings and selecting never enables analysis', async () => {
+  const page = await settings(savedChat());
+  page.el('magpiePreset').onclick();
+  assert.equal(page.el('endpoint').value, 'http://127.0.0.1:3425/v1');
+  assert.equal(page.el('key').value, 'magpie-majsoul-agent');
+  assert.equal(page.el('enabled').checked, false);
+  page.el('model').value = 'provider/model'; await page.submit();
+  assert.equal(page.data.modelConfig.model, 'provider/model');
+  assert.equal(page.data.modelConfig.enabled, false);
+  assert.equal(page.data.llmProfilesV1.profiles.length, 2);
+  const direct = page.data.llmProfilesV1.profiles.find(p => p.config.apiKey === 'EXISTING_SECRET');
+  page.el('profile').value = direct.id; page.el('profile').onchange();
+  assert.equal(page.el('enabled').checked, false); assert.equal(page.el('key').value, 'EXISTING_SECRET');
+  await page.submit();
+  assert.equal(page.data.modelConfig.enabled, false); assert.equal(page.data.modelConfig.model, 'chat');
+  const reload = await settings(page.data); assert.equal(reload.el('key').value, 'EXISTING_SECRET');
+  await reload.el('clear').onclick(); assert.equal('llmProfilesV1' in reload.data, false);
+});
+
+test('model discovery requests permission and does not alter a manually entered model or saved configuration', async () => {
+  const page = await settings(savedChat(), { clearResult: { ok: true, models: [{ id: 'group/name', name: 'Group' }] } });
+  const initial = structuredClone(page.data);
+  await page.el('loadModels').onclick();
+  assert.equal(page.el('model').value, 'chat'); assert.deepEqual(page.data, initial);
+  assert.equal(page.el('discoveredModels').children[1].value, 'group/name');
+  page.el('discoveredModels').value = 'group/name'; page.el('discoveredModels').onchange();
+  assert.equal(page.el('model').value, 'group/name');
+  const denied = await settings(savedChat(), { permission: false });
+  await denied.el('diagnose').onclick();
+  assert.equal(denied.calls.some(c => c[0] === 'message'), false);
+  assert.match(denied.el('diagnosticStatus').textContent, /未授予/);
+});
+
+
+test('failed and stale model discovery preserve hand input and previous directory', async () => {
+  const pending = deferred(); let index = 0;
+  const page = await settings(savedChat(), { modelResult: message => {
+    if (message.type === 'model:cancel') return { ok: true };
+    return ++index === 1 ? { ok: true, models: [{ id: 'saved/model' }] } : index === 2 ? { ok: false, error: '服务不可达。' } : pending.promise;
+  } });
+  await page.el('loadModels').onclick();
+  await page.el('loadModels').onclick();
+  assert.equal(page.el('discoveredModels').children[1].value, 'saved/model');
+  assert.equal(page.el('model').value, 'chat');
+  const loading = page.el('loadModels').onclick();
+  await new Promise(resolve => setImmediate(resolve));
+  page.el('model').value = 'manual/group'; page.el('model').oninput();
+  pending.resolve({ ok: true, models: [{ id: 'stale/model' }] }); await loading;
+  assert.equal(page.el('discoveredModels').children[1].value, 'saved/model');
+  assert.equal(page.el('model').value, 'manual/group');
+  assert.equal(page.el('diagnosticStatus').textContent, '');
+});
+
+test('saving switched named profile preserves mjai credentials and permission denial leaves active config intact', async () => {
+  const initial = { ...savedChat(), analysisProviders: { mjai: { provider: 'mjai', enabled: true, endpoint: 'http://localhost:17341/analyze', model: 'mjai', apiKey: 'ENGINE_PRIVATE' } } };
+  const page = await settings(initial, { permission: false });
+  page.el('magpiePreset').onclick(); page.el('model').value = 'route/group'; await page.submit();
+  assert.deepEqual(page.data, initial); assert.equal(page.el('enabled').checked, false);
+  assert.equal(page.el('key').value, 'magpie-majsoul-agent');
+  const allowed = await settings(initial); allowed.el('magpiePreset').onclick(); allowed.el('model').value = 'route/group'; await allowed.submit();
+  assert.deepEqual(allowed.data.analysisProviders.mjai, initial.analysisProviders.mjai);
+  assert.equal(allowed.data.modelConfig.enabled, false);
+});
+
+
+test('discovered model IDs including route group whitespace are saved without rewriting', async () => {
+  const page = await settings(savedChat(), { modelResult: { ok: true, models: [{ id: ' route group ' }] } });
+  await page.el('loadModels').onclick();
+  page.el('discoveredModels').value = ' route group '; page.el('discoveredModels').onchange(); await page.submit();
+  assert.equal(page.data.modelConfig.model, ' route group ');
+});
+
+
+// This fixture calls property handlers directly: it does not implement native
+// DOM select behavior or automatic input/change bubbling. Actual options.html
+// browser QA is recorded in docs/MODEL_CONFIGURATION.md; explicit parent calls
+// here exercise its guard order.
+test('model directory is scoped to profile, normalized endpoint and effective Bearer credential', async () => {
+  const page = await settings(savedChat(), { modelResult: { ok: true, models: [{ id: 'old-provider/model' }] } });
+  const load = () => page.el('loadModels').onclick();
+  const input = id => { page.el(id).oninput?.(); page.el('config').oninput(); };
+  const empty = () => { assert.equal(page.el('discoveredModels').disabled, true); assert.equal(page.el('discoveredModels').children.length, 1); };
+  await load();
+  // Base and full Chat Completions URLs identify the same service.
+  page.el('endpoint').value = 'https://example.com/v1'; input('endpoint');
+  assert.equal(page.el('discoveredModels').children[1].value, 'old-provider/model');
+  page.el('key').value = 'different-token'; input('key'); empty(); assert.equal(page.el('model').value, 'chat');
+  await load(); page.el('endpoint').value = 'https://second.invalid/v1'; input('endpoint'); empty();
+  await load();
+  const directId = page.el('profile').value;
+  page.el('magpiePreset').onclick(); empty(); assert.equal(page.el('model').value, '');
+  await load();
+  page.el('profile').value = directId; page.el('config').oninput(); page.el('profile').onchange(); empty();
+  await load(); page.el('deleteProfile').onclick(); empty();
+  await load(); await page.el('clear').onclick(); empty();
+});
+
+test('directory selection refuses a previous identity and late responses never restore it', async () => {
+  const pending = deferred(); let count = 0;
+  const page = await settings(savedChat(), { modelResult: message => message.type === 'model:cancel' ? { ok: true } : ++count === 1 ? { ok: true, models: [{ id: 'old-provider/model' }] } : pending.promise });
+  await page.el('loadModels').onclick();
+  const loading = page.el('loadModels').onclick(); await new Promise(resolve => setImmediate(resolve));
+  // Guard against changed field values even before an input event is delivered.
+  page.el('key').value = 'another-token'; page.el('discoveredModels').value = 'old-provider/model'; page.el('discoveredModels').onchange();
+  assert.equal(page.el('model').value, 'chat'); assert.equal(page.el('discoveredModels').disabled, true);
+  pending.resolve({ ok: true, models: [{ id: 'stale/model' }] }); await loading;
+  assert.equal(page.el('discoveredModels').children.length, 1);
+});
+
+test('invalid profile names block provider and profile changes without losing drafts or throwing', async () => {
+  for (const name of ['', 'Magpie']) {
+    const page = await settings(savedChat());
+    page.el('magpiePreset').onclick();
+    const magpie = page.el('profile').value;
+    page.el('profile').value = 'profile-1'; page.el('profile').onchange();
+    page.el('profileName').value = name; page.el('model').value = 'unsaved/model'; page.el('key').value = 'UNSAVED_TOKEN';
+    page.el('provider').value = 'mjai';
+    assert.doesNotThrow(() => page.el('provider').onchange());
+    assert.equal(page.el('provider').value, 'chat'); assert.equal(page.el('profilesPanel').hidden, false);
+    assert.equal(page.el('profileName').value, name); assert.equal(page.el('model').value, 'unsaved/model'); assert.equal(page.el('key').value, 'UNSAVED_TOKEN');
+    assert.match(page.el('status').textContent, /配置名称/);
+    page.el('profile').value = magpie; assert.doesNotThrow(() => page.el('profile').onchange());
+    assert.equal(page.el('profile').value, 'profile-1'); assert.equal(page.el('profileName').value, name);
+    page.el('profileName').value = 'Valid name'; await page.submit();
+    assert.equal(page.data.modelConfig.provider, 'chat'); assert.equal(page.data.modelConfig.model, 'unsaved/model');
   }
 });

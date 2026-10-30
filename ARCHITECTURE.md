@@ -2,7 +2,7 @@
 
 0.4.0以 **Majsoul AI Analysis & Review Agent** 为整体名称，提供完整版与独立牌局获取器。`extension/agent.js`复用0.3.0分析能力编排任务，`extension/harness.js`负责有界执行、取消和脱敏轨迹；`agent/`提供离线复盘与回归评测。完整说明见 [Agent与harness](docs/AGENT.md)。
 
-这是无第三方运行依赖的 Manifest V3 扩展。`extension/` 可直接加载完整版；`npm run build` 根据显式profiles生成完整版和独立获取器。采集器、标准数据合同、Agent、UI和网络访问通过组合入口接线。
+这是 Manifest V3 扩展，完整版捆绑经浏览器适配的固定 Pi 1.4.0 运行时；collector 不含模型依赖。`extension/` 可直接加载完整版；`npm run build` 根据显式profiles生成完整版和独立获取器。采集器、标准数据合同、Agent、UI和网络访问通过组合入口接线。
 
 ## 目录与职责
 
@@ -26,6 +26,9 @@
 | `extension/mahjong-analysis.js` | 向听、形状进张、已见牌计数和逐对手防守特征 | ISOLATED / 后台 / Node 测试 |
 | `extension/analysis.js` | 标准快照的任务准备、提示词、本地计算准备、JSON Schema和结果校验 | 后台 / 离线预览 / Node |
 | `extension/adapters/model-endpoint.js` | 模型地址校验与主机权限模式 | 后台 / 设置 / Node |
+| `extension/model-profiles.js` | 命名 chat 配置的无损迁移、校验与选择，纯转换，不读写存储 | 设置 / Node |
+| `extension/model-session-transport.js` | 通用非流式 Chat Completions 消息、function tools 和响应解析，不发网络请求 | 后台 / Node |
+| `extension/model-diagnostics.js` | 人工最小工具与 JSON 合同诊断、Magpie 身份与目录发现；只依赖 endpoint/transport，权限与请求通过端口注入 | 后台 / Node |
 | `extension/analysis-panel.js` | 数据范围与任务选择、发送预览、结构化牌面建议、本地效率表和过期提示 | ISOLATED 世界 |
 | `extension/analysis-panel.css` | 分析卡样式，通过扩展本地资源载入Shadow DOM | 扩展静态资源 |
 | `extension/background.js` | 身份校验、读取配置、验证授权、添加密钥、调用模型、取消与超时 | 扩展 Service Worker |
@@ -41,7 +44,7 @@
 | `agent/engine-server.cjs` / `engine-review.cjs` | 可选本机 HTTP 桥接与导出事件协议复盘 | Node CLI |
 | `scripts/check-boundaries.mjs` | 静态依赖白名单及纯核心能力边界检查 | Node |
 | `scripts/build-extensions.mjs` | 按profiles追踪资源闭包、验证加载顺序、复制安装目录 | Node |
-| `extension/options.html/js/css` | 开关、接口、模型、密钥；主机权限申请、保存与清除 | 扩展设置页 |
+| `extension/options.html/js/css` | 命名配置草稿、手动切换、Magpie 预设；保存与手动诊断／发现的主机权限申请，目录身份隔离与过期结果丢弃 | 扩展设置页 |
 | `extension/tiles/` | 本地牌面资源 | 扩展静态资源 |
 | `tests/` | Node 协议、采集、状态、分析测试与离线浏览器预览 | 本地 |
 | `research/` | 调研记录与被 Git 忽略的本地验证证据 | 开发使用 |
@@ -83,7 +86,7 @@ controller独立于DOM和浏览器API；存储、时钟、ID和hash通过端口�
 
 ## 可选引擎数据流
 
-LLM 分析与解释保持主要定位，默认 `chat` 且分析关闭。设置分别保留 `chat` 与 `mjai` 一份配置，一次只使用所选后端；不会自动串联 LLM 和引擎。Mortal/mjai 是自备模型的可选适配，不增加独立获取器的依赖或权限。
+LLM 分析与解释保持主要定位，默认 `chat` 且分析关闭。设置保留多份命名 `chat` 配置与可选 `mjai` 配置，一次只使用所选后端；切换不自动启用分析，也不会自动串联 LLM 和引擎。Mortal/mjai 是自备模型的可选适配，不增加独立获取器的依赖或权限。
 
 组合入口提供授权观察的本局连续事件，由 `adapters/mjai.js` 转换为 `majsoul-mjai-v1`：`start_game`、13张 `start_kyoku` 与游标前事件；玩家名匿名化，对手手牌/摸牌遮蔽。后台 `engine-agent.js` 执行 `request.validate → engine.infer → engine.validate`，只依赖净化 DTO，重放自家手牌并对照局数、点数、供托、宝牌、有序公开牌河及立直状态。原始获取器 state 不进入引擎 Agent。
 
@@ -114,9 +117,10 @@ LLM 分析与解释保持主要定位，默认 `chat` 且分析关闭。设置�
 输出经固定 JSON Schema 和本地严格解析校验，兼容 JSON 代码围栏，无需服务商支持 `response_format`。检查任务、合法候选、逐对手风险、现物证据及无内容结果；13 张、立直摸牌未知、手牌非法或已结算时禁止具体弃牌建议。未知手摸切保留 `null`，协议已确认的默认 `false` 仍为手切。界面转义文本，仅加载本地 SVG 牌面；任务、取消或配置变更使在途响应失效，防止旧结果回填。
 
 - **数据合同**：`mj-analysis-v1` 包含来源、完整性、阶段、自家座位、最近动作序号和有限的采集警告。可选的 `game` 不含手牌和牌河；`rivers` 仅含所选座位的弃牌及摸切、立直、已鸣标记；`selfHand` 仅含已选自家的手牌。显式逐字段拷贝，避免扩展局面对象时顺带外发账号或对手暗牌。
-- **凭据**：`modelConfig` 由设置页保存到 `chrome.storage.local`，后台将访问级别限制为 `TRUSTED_CONTEXTS`。内容脚本通过 `model:status` 仅取得开关和模型名称。设置回到游戏时刷新状态，也可手动刷新；即使面板状态过时，后台仍重新检查开关与授权。
-- **授权**：manifest 只声明可选主机范围，设置页在用户点击保存时申请配置的主机。允许 HTTPS 和 HTTP loopback；拒绝 URL 用户信息、查询和片段。目标端口保留在实际请求地址中，授权模式遵循浏览器按主机匹配的规则。
-- **消息**：`model:settings` 打开设置，`model:status` 查询状态，`model:analyze` 发送当前快照与任务，`model:cancel` 取消当前标签页的请求。后台只接受同扩展、指定游戏 URL、顶层 frame 的调用，不接受任意请求地址或密钥参数。
+- **配置与凭据**：设置页把命名配置保存在 `llmProfilesV1`，当前生效配置仍为 `modelConfig`，`analysisProviders` 保留 chat/mjai 旧槽位；旧值由纯模块迁移，存储只由设置页／后台负责。后台将访问级别限制为 `TRUSTED_CONTEXTS`。内容脚本通过 `model:status` 仅取得开关和配置的模型名称，不将网关别名当已识别上游。设置回到游戏时刷新状态，也可手动刷新；即使面板状态过时，后台仍重新检查开关与授权。
+- **授权**：manifest 只声明可选主机范围，设置页在用户点击保存、人工诊断或服务／模型发现时申请配置的主机。允许 HTTPS 和 HTTP loopback；拒绝 URL 用户信息、查询和片段。目标端口保留在实际请求地址中，授权模式遵循浏览器按主机匹配的规则。
+- **游戏消息**：`model:settings` 打开设置，`model:status` 查询状态，`model:analyze` 发送当前快照与任务，`model:cancel` 取消当前标签页的请求。此路径只接受同扩展、指定游戏 URL、顶层 frame 的调用，不接受任意请求地址或密钥参数。
+- **人工诊断与发现**：`model:diagnose`、`model:discover` 和按 requestId 取消的 `model:cancel` 只接受同扩展精确 `options.html` 来源，允许用户提交当前配置草稿；不走 Agent、harness 或采集器，也不读取牌局、记忆或历史。关闭分析后仍可手动发起可能收费的人工测试。后台注入 `permissions` / `fetchModel`，诊断复用通用 transport 完成固定 function tool → 无副作用结果 → 最小 JSON 合同，并单独限制并发、25 秒总超时和 256 KB 响应；配置变化与撤权会取消，错误不返回上游正文。Magpie 预设沿用相同 Chat Completions transport，额外手动 GET hello/models，不引入专用 Agent 或采集依赖。设置页目录绑定服务类型、profile、规范化 endpoint 和实际 Bearer 值，身份变化清除候选并阻止过期响应回填；同身份刷新失败保留目录。通过最小诊断不代表麻将合同、真实网关或模型质量已通过验收。
 - **网络**：单标签页最多一个请求；25秒超时；拒绝重定向、不携带浏览器 cookies；请求快照上限60000字符，响应上限1MiB，展示上限16000字符。关闭、修改或清除设置会取消进行中的请求。
 - **展示**：模型文本进行 HTML 转义，不执行模型输出的 HTML、脚本或链接。模型只作建议，不参与状态更新或出牌。
 
@@ -124,7 +128,7 @@ LLM 分析与解释保持主要定位，默认 `chat` 且分析关闭。设置�
 
 协议变更修改 `protocol.js` 并补人工协议帧；采集兼容性修改 `capture.js`；局面规则和推导修改 `state.js`。新增发送字段应先修改 `contracts/snapshot.js` 的显式合同和测试，再修改需要该字段的输入adapter；新模型协议应在后台适配，不将密钥或网络调用移入页面脚本。
 
-`npm run check`检查源码语法、依赖白名单、纯核心禁止浏览器能力及profiles。构建从显式入口追踪脚本和页面资源闭包，验证内容脚本、worker和设置页的加载顺序；agent profile须与默认manifest一致，collector闭包不得包含分析或模型文件。检查器支持本项目的静态引用，不是通用JavaScript解析器；新增项目全局或加载方式需同步检查规则。两个安装目录由依赖闭包复制生成，不修改共享UI源码。
+`npm run check`检查源码语法、依赖白名单、纯核心禁止浏览器能力及profiles。`model-profiles.js` 不允许模块依赖，`model-diagnostics.js` 仅允许 endpoint 与 transport；两者禁止直接 DOM、Chrome、网络和存储全局能力，注入端口仍可用。构建从显式入口追踪脚本和页面资源闭包，验证内容脚本、worker和设置页的加载顺序；agent profile须与默认manifest一致，collector闭包不得包含分析或模型文件。检查器支持本项目的静态引用，不是通用JavaScript解析器；新增项目全局或加载方式需同步检查规则。两个安装目录由依赖闭包复制生成，不修改共享UI源码。
 
 检查规则、依赖方向和静态扫描局限见[可执行的模块边界](docs/DECOUPLING.md)。
 

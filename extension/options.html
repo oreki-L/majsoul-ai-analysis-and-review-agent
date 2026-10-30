@@ -5,6 +5,12 @@
 <form id="config">
 <label class="toggle"><input id="enabled" type="checkbox"> 开启模型分析</label>
 <label for="provider">服务类型</label><select id="provider"><option value="chat">OpenAI 兼容</option><option value="mjai">本地 mjai</option></select>
+<section id="profilesPanel">
+<label for="profile">已保存的 LLM 配置</label><select id="profile"></select>
+<label for="profileName">配置名称</label><input id="profileName" maxlength="40" placeholder="例如：直连 / 本机网关">
+<div class="actions"><button type="button" id="newProfile">新增直连配置</button><button type="button" id="magpiePreset">新增 Magpie 预设</button><button type="button" id="deleteProfile">删除此配置</button></div>
+<p class="hint">选择配置后，点击“保存设置”才应用；切换配置会关闭分析，请自行重新开启。未保存的编辑保留在本页。</p>
+</section>
 <p id="providerHint" class="hint"></p>
 <aside id="engineSetup" class="engine-setup" hidden aria-labelledby="engineSetupTitle">
 <h2 id="engineSetupTitle">第一次使用本地引擎</h2>
@@ -16,6 +22,12 @@
 <p id="endpointHint" class="hint">自动补全 /chat/completions，也可填写完整接口地址。</p>
 <label for="model">模型名称</label><input id="model" placeholder="例如 deepseek-chat" maxlength="200" required>
 <div id="chatOptions">
+<div class="actions"><button type="button" id="magpieHello">识别 Magpie</button><button type="button" id="loadModels">加载已启用模型</button></div>
+<label for="discoveredModels">服务返回的模型（可继续手填上方名称）</label><select id="discoveredModels"><option value="">请选择</option></select>
+<p class="hint">Magpie 仅适用于自主运行的网关，默认 http://127.0.0.1:3425/v1，地址和端口可改。建议 Bearer 标识 magpie-majsoul-agent；它不是上游 API Key，也不提供额度。优先固定模型；目录存在不代表支持工具。模型 ID 原样发送，别名不代表已识别上游，路由费用未知。</p>
+<div class="actions"><button type="button" id="diagnose">发送测试请求（可能收费）</button><button type="button" id="cancelDiagnostic">取消测试</button></div>
+<p class="hint">仅发送人工测试内容，不含牌局或历史；验证接口、一次固定只读工具与最终 JSON 最小合同。通过不代表麻将分析质量或所有输出均兼容。</p>
+<p id="diagnosticStatus" role="status" aria-live="polite"></p>
 <label><input id="thinking" type="checkbox"> 开启思考</label>
 <p id="thinkingHint" class="hint"></p>
 <label for="maxTokens">输出上限（tokens）</label><input id="maxTokens" type="number" min="1" max="393216" step="1" required>
@@ -53,4 +65,4 @@
 <p id="memoryStatus" role="status" aria-live="polite"></p>
 </section>
 <p class="hint footnote">密钥仅保存在本机。</p>
-</main><script src="adapters/model-endpoint.js"></script><script src="adapters/engine-endpoint.js"></script><script src="options.js"></script><script src="options-memory.js"></script></body></html>
+</main><script src="adapters/model-endpoint.js"></script><script src="adapters/engine-endpoint.js"></script><script src="model-profiles.js"></script><script src="options.js"></script><script src="options-memory.js"></script></body></html>
