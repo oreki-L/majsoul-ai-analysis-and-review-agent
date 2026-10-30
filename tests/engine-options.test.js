@@ -402,7 +402,10 @@ test('invalid profile names block provider and profile changes without losing dr
 
 test('CC Switch preset stays optional, preserves existing credentials and uses explicit Codex discovery', async () => {
   let result = { ok: true, models: [{ id: 'ccs-mock/vendor/model', name: 'Mock' }] };
-  const page = await settings(savedChat(), { modelResult: () => result });
+  const initial = savedChat();
+  initial.modelConfig.extra = { preserved: 7 };
+  initial.analysisProviders = { mjai: { provider: 'mjai', apiKey: 'ENGINE_FIXTURE', extra: { preserved: 9 } } };
+  const page = await settings(initial, { modelResult: () => result });
   page.el('ccSwitchPreset').onclick();
   assert.equal(page.el('endpoint').value, 'http://127.0.0.1:15721/v1');
   assert.equal(page.el('key').value, ''); assert.equal(page.el('enabled').checked, false);
@@ -414,6 +417,9 @@ test('CC Switch preset stays optional, preserves existing credentials and uses e
   assert.equal(page.el('discoveredModels').children[1].value, 'ccs-mock/vendor/model');
   page.el('discoveredModels').value = 'ccs-mock/vendor/model'; page.el('discoveredModels').onchange(); await page.submit();
   assert.equal(page.data.modelConfig.model, 'ccs-mock/vendor/model');
+  assert.deepEqual(page.data.llmProfilesV1.profiles[0].config.extra, { preserved: 7 });
+  assert.equal(page.data.analysisProviders.mjai.apiKey, 'ENGINE_FIXTURE');
+  assert.deepEqual(page.data.analysisProviders.mjai.extra, { preserved: 9 });
   assert.equal(page.data.modelConfig.endpoint, 'http://localhost:17899/v1/chat/completions');
   assert.equal(page.data.llmProfilesV1.profiles[0].config.apiKey, 'EXISTING_SECRET');
   result = { ok: true, models: [] }; await page.el('loadCcSwitchModels').onclick();

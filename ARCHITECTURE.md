@@ -71,13 +71,15 @@ flowchart TD
   Controller --> Adapter[collector/snapshot-adapter.js]
   Adapter --> Contract[contracts/snapshot.js 授权 DTO]
   Contract --> Panel[analysis-panel.js 预览 / 手动发送]
-  Options[设置页 开关 / 地址 / 密钥] --> Storage[扩展本地存储]
-  Panel --> Worker[background.js 校验与请求]
-  Storage --> Worker
-  Worker --> Agent[agent.js / harness.js → analysis.js]
-  Worker --> Provider[用户指定的模型接口]
-  Provider --> Worker
-  Worker --> Result[逐对手风险 / 本地效率表 / 过期标记]
+  Options[设置页 开关 / 地址 / 密钥] --> ConfigStore[model-config-store.js 串行配置持久化]
+  ConfigStore --> Storage[扩展本地存储]
+  Panel --> Worker[background.js 来源校验与分发]
+  Worker --> AnalysisWorker[model-analysis-worker.js 分析生命周期]
+  Storage --> AnalysisWorker
+  AnalysisWorker --> Agent[agent.js / harness.js → analysis.js]
+  AnalysisWorker --> Provider[用户指定的模型接口]
+  Provider --> AnalysisWorker
+  AnalysisWorker --> Result[逐对手风险 / 本地效率表 / 过期标记]
 ```
 
 MAIN 中的采集器仅观察已有通信，不主动获取牌谱，不调用游戏出牌接口。桥接数据不作为可信来源；模型消息不复用页面的 `postMessage` 通道。
@@ -119,7 +121,7 @@ LLM 分析与解释保持主要定位，默认 `chat` 且分析关闭。设置�
 输出经固定 JSON Schema 和本地严格解析校验，兼容 JSON 代码围栏，无需服务商支持 `response_format`。检查任务、合法候选、逐对手风险、现物证据及无内容结果；13 张、立直摸牌未知、手牌非法或已结算时禁止具体弃牌建议。未知手摸切保留 `null`，协议已确认的默认 `false` 仍为手切。界面转义文本，仅加载本地 SVG 牌面；任务、取消或配置变更使在途响应失效，防止旧结果回填。
 
 - **数据合同**：`mj-analysis-v1` 包含来源、完整性、阶段、自家座位、最近动作序号和有限的采集警告。可选的 `game` 不含手牌和牌河；`rivers` 仅含所选座位的弃牌及摸切、立直、已鸣标记；`selfHand` 仅含已选自家的手牌。显式逐字段拷贝，避免扩展局面对象时顺带外发账号或对手暗牌。
-- **配置与凭据**：设置页把命名配置保存在 `llmProfilesV1`，当前生效配置仍为 `modelConfig`，`analysisProviders` 保留 chat/mjai 旧槽位；旧值由纯模块迁移，存储只由设置页／后台负责。后台将访问级别限制为 `TRUSTED_CONTEXTS`。内容脚本通过 `model:status` 仅取得开关和配置的模型名称，不将网关别名当已识别上游。设置回到游戏时刷新状态，也可手动刷新；即使面板状态过时，后台仍重新检查开关与授权。
+- **配置与凭据**：设置页把命名配置保存在 `llmProfilesV1`，当前生效配置仍为 `modelConfig`，`analysisProviders` 保留 chat/mjai 旧槽位；旧值由纯模块转换，设置页通过注入 storage 的 model-config-store 统一持久化。后台将访问级别限制为 `TRUSTED_CONTEXTS`。内容脚本通过 `model:status` 仅取得开关和配置的模型名称，不将网关别名当已识别上游。设置回到游戏时刷新状态，也可手动刷新；即使面板状态过时，后台仍重新检查开关与授权。
 - **授权**：manifest 只声明可选主机范围，设置页在用户点击保存、人工诊断或服务／模型发现时申请配置的主机。允许 HTTPS 和 HTTP loopback；拒绝 URL 用户信息、查询和片段。目标端口保留在实际请求地址中，授权模式遵循浏览器按主机匹配的规则。
 - **游戏消息**：`model:settings` 打开设置，`model:status` 查询状态，`model:analyze` 发送当前快照与任务，`model:cancel` 取消当前标签页的请求。此路径只接受同扩展、指定游戏 URL、顶层 frame 的调用，不接受任意请求地址或密钥参数。
 - **人工诊断与发现**：`model:diagnose`、`model:discover` 和按 requestId 取消的 `model:cancel` 只接受同扩展精确 `options.html` 来源，允许用户提交当前配置草稿；不走 Agent、harness 或采集器，也不读取牌局、记忆或历史。关闭分析后仍可手动发起可能收费的人工测试。后台注入 `permissions` / `fetchModel`，诊断复用通用 transport 完成固定 function tool → 无副作用结果 → 最小 JSON 合同，并单独限制并发、25 秒总超时和 256 KB 响应；配置变化与撤权会取消，错误不返回上游正文。Magpie 预设沿用相同 Chat Completions transport，额外手动 GET hello/models，不引入专用 Agent 或采集依赖。CC Switch 也复用该 transport，仅以显式 `cc-switch-models` 动作解析 Codex 的 `models[].slug`，不自动猜测 schema、读取桌面配置或进入 Agent／Pi loop。设置页目录绑定服务类型、profile、规范化 endpoint 和实际 Bearer 值，身份变化清除候选并阻止过期响应回填；同身份刷新失败保留目录。通过最小诊断不代表麻将合同、真实网关或模型质量已通过验收。

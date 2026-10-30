@@ -26,11 +26,8 @@ Bearer 标识只是 Magpie 按应用归类用量的本机标识，不是上游 A
 
 设置页持有表单、命名草稿和目录身份，真实用户手势内先申请主机权限，再调用 store 保存；选择不写存储、不自动开启。关闭／清除会使尚未开始写入的保存失效，已开始写入则由队列中后续操作覆盖。清除仍通过注入回调取消后台及清理会话，只移除既有模型／会话键，不碰历史和记忆。队列与 generation 属于每个设置页实例，未提供跨窗口事务保证。
 
-## 后台分析编排边界
+后台消息来源校验与分析生命周期分别由 background.js 和 model-analysis-worker.js 负责；模块 API、单一 pending／revision 及 Agent／Collector 边界见 [项目架构](../ARCHITECTURE.md#后台分析编排边界)。
 
-`background.js` 保留可信组合入口及消息的扩展身份、URL、frame 检查与分发；`model-analysis-worker.js` 的 `create` 接收 storage、permissions、fetchModel、runtime 和同一份 roundContexts/runStore/discussions/memoryWorker 实例。`prepare/analyze` 承接授权 DTO 准备、配置校验、Pi 与 mjai 请求、timeout/abort、会话提交回滚与用量记账。`busy/cancel/cancelAll/invalidate` 公开生命周期控制；pending 与配置 revision 只在该服务各保留一份，记忆模块通过 busy 回调服从实时分析优先。
-
-诊断、记忆、历史和讨论保留各自模块；HTTP 与密钥仍仅在可信后台执行。服务不依赖 Chrome／DOM／采集器全局，只使用注入能力；固定 Pi bundle、提示词、工具预算、lane、冻结追问与用量未知语义保持不变。两项新模块登记静态依赖白名单、加载顺序和 Agent-only 资源闭包，Collector 不会分发它们。
 ## CC Switch（可选实验接入）
 
 点击“新增 CC Switch 预设”新增一份关闭分析的配置，默认 `http://127.0.0.1:15721/v1`，端口／地址可编辑，密钥留空。必须自行安装并保持 CC Switch 运行，在其中启用 **Codex 路由或聚合**，并配置支持 Chat Completions、非流式 function tools 的第三方上游及其密钥。本项目不启动服务、不扫描端口、不接管 Codex，也不读取桌面设置或账号。该入口共用 **Codex 供应商、路由切换、故障转移和用量分类**，没有独立应用管理或统计项；在 CC Switch 改 Codex 可能影响本扩展。
