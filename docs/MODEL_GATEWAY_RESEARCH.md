@@ -1,6 +1,6 @@
 # 可选模型网关接入研究
 
-本文件记录本次 CC Switch 限定接入的证据与未验证范围。已发布的命名配置／Magpie 功能与来源见 [配置与诊断](MODEL_CONFIGURATION.md)；本次不改其协议与直连主路径。
+本文件汇总 CC Switch 与 Magpie 限定接入的证据与未验证范围。官方 CC Switch v4.0.22 和 Magpie v0.1.2204 均已通过真实程序＋本地人工上游联调；未调用真实云模型或收费服务，也不代表完整 MV3 网络链路或麻将质量验收。命名配置、预设与协议边界见 [配置与诊断](MODEL_CONFIGURATION.md)。
 
 ## CC Switch 限定接入复核（2026-10-30）
 
@@ -22,3 +22,10 @@
 可复现模拟验证：`node --test tests/cc-switch-contract.test.js tests/model-diagnostics.test.js tests/engine-options.test.js`。其中 contract 测试启动随机回环端口的**人工 HTTP 服务器**，实际通过项目诊断模块和 fetch 验证 `/v1/models`、两次非流式 `/v1/chat/completions`、精确聚合 ID、无凭据请求、function tool result 回传和最终 JSON。其余单元覆盖 schema 分离、空目录、大小／条数、错误凭据／路径、取消、陈旧结果、手填保留、profile 和鉴权隔离；均不能代替 CC Switch 程序的路由验收。
 
 真实官方网关＋人工上游已验证目录、工具／JSON、请求鉴权替换、聚合到正确供应商、Codex 统计分类，以及退出／重新进入本地路由后的恢复。尚未验证：真实云端或收费模型、完整麻将建议、故障转移、完整应用退出后的自动恢复、OAuth／订阅、Responses-only／Anthropic-only 上游，以及真实费用。功能标记为可选实验接入，不称官方适配或全面兼容。
+
+
+## Magpie 后续真实程序验证（2026-10-30）
+
+首轮协议研究固定 v0.1.2183；后续按官方 Windows v0.1.2204（发布提交 `cf9ea977ca77a4d21dbaef289e42cca725fd139c`）验证，不追逐其后更新。真实程序到本地人工上游已覆盖 hello、空／标准目录、原文模型 ID、非流式 function tools 两轮、上游密钥注入、模型／鉴权错误、取消及退出重启恢复。项目诊断模块使用真实 fetch，Chrome 权限端口使用合成适配；未测试真实模型、路由组、收费账单、远程 gateway key 或完整 MV3 链路。
+
+默认回环模式的入站 Bearer 是应用标识，实测任意值／空值可用，不能视作安全认证；上游收到的是 Magpie 配置的人工上游凭据。文件来源、SHA256、便携隔离、原始证据入口和清理情况见 [Magpie 验证](MAGPIE_VALIDATION.md) 及 [精简 JSON](validation/magpie-v0.1.2204.json)。这些证据不代替真实云模型、麻将建议或费用验证。
