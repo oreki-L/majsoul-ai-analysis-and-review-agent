@@ -17,8 +17,8 @@
 
 实现只加可选预设与手动、显式 Codex 目录动作，保留既有 Chat transport、人工诊断和目录身份隔离。不同于标准 `data[].id`，CC 目录解析必须经用户点击专属按钮；不根据端口、服务名称或宽松 schema 自动认领，不新增安装包依赖，也不修改 Agent、Pi 或 collector。具体失败与空目录策略见 [配置文档](MODEL_CONFIGURATION.md)。
 
-真实进程验证的可行性核查：已从官方 Release 下载 `CC-Switch-v4.0.22-Windows-Portable.zip`，18,474,271 字节，SHA256 `f6ab1023d8ba3b72505c5e1267a85d69e8e8a10f35c235d39395cb67ad81f875`，仅解压审查，未运行。该哈希只用于本次取样复现，不声称供应链签名认证。[config.rs](https://github.com/farion1231/cc-switch/blob/b76426741ef93069e2f374ac01ca7ef5760e1d0e/src-tauri/src/config.rs#L20) 的 `CC_SWITCH_TEST_HOME` 覆盖业务 home，但 [app_store.rs](https://github.com/farion1231/cc-switch/blob/b76426741ef93069e2f374ac01ca7ef5760e1d0e/src-tauri/src/app_store.rs#L29) 先经 Tauri store 读取 `app_paths.json` 的路径覆盖；`portable.ini` 仅用于 [更新模式识别](https://github.com/farion1231/cc-switch/blob/b76426741ef93069e2f374ac01ca7ef5760e1d0e/src-tauri/src/commands/misc.rs#L126)，不足以保证真实用户配置隔离。本机没有 Rust 工具链可构建独立测试宿主，因此没有安全可靠地启动真实程序验证。未读取真实账号或密钥，也没有改动用户 Codex／CC Switch 设置。
+真实程序验证已完成：从官方 Release 下载的 `CC-Switch-v4.0.22-Windows-Portable.zip` 为 18,474,271 字节，SHA256 `f6ab1023d8ba3b72505c5e1267a85d69e8e8a10f35c235d39395cb67ad81f875`。此前仅凭 `CC_SWITCH_TEST_HOME` 不能确认隔离；后续用独立子进程调用 Windows `SHGetKnownFolderPath`，发现 `USERPROFILE` 覆盖实际会改变 Roaming／Local AppData 的解析，而 Profile 本身仍是真实路径。因此结合**仅对子进程生效**的 `USERPROFILE`、AppData、`CC_SWITCH_TEST_HOME` 和独立 WebView 目录，环境先清空再加入必要 OS 白名单，成功运行正式二进制。未修改系统环境、用户账号、ACL 或真实配置。详细隔离方法、真实 HTTP 结果与清理证据见 [真实联调记录](CC_SWITCH_VALIDATION.md)；先前的“未启动”状态已由本轮验证更新。
 
 可复现模拟验证：`node --test tests/cc-switch-contract.test.js tests/model-diagnostics.test.js tests/engine-options.test.js`。其中 contract 测试启动随机回环端口的**人工 HTTP 服务器**，实际通过项目诊断模块和 fetch 验证 `/v1/models`、两次非流式 `/v1/chat/completions`、精确聚合 ID、无凭据请求、function tool result 回传和最终 JSON。其余单元覆盖 schema 分离、空目录、大小／条数、错误凭据／路径、取消、陈旧结果、手填保留、profile 和鉴权隔离；均不能代替 CC Switch 程序的路由验收。
 
-尚未验证：真实 CC Switch 到上游的请求／鉴权替换、聚合选择和故障转移、服务重启、实际统计、OAuth／订阅、Responses-only／Anthropic-only 上游，以及收费模型和完整麻将建议。功能标记为可选实验接入，不称官方适配或全面兼容。
+真实官方网关＋人工上游已验证目录、工具／JSON、请求鉴权替换、聚合到正确供应商、Codex 统计分类，以及退出／重新进入本地路由后的恢复。尚未验证：真实云端或收费模型、完整麻将建议、故障转移、完整应用退出后的自动恢复、OAuth／订阅、Responses-only／Anthropic-only 上游，以及真实费用。功能标记为可选实验接入，不称官方适配或全面兼容。

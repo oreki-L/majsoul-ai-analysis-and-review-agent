@@ -25,7 +25,7 @@
 <div class="actions"><button type="button" id="magpieHello">识别 Magpie</button><button type="button" id="loadModels">加载标准 / Magpie 模型</button><button type="button" id="loadCcSwitchModels">加载 CC Switch Codex 目录</button></div>
 <label for="discoveredModels">服务返回的模型（可继续手填上方名称）</label><select id="discoveredModels"><option value="">请选择</option></select>
 <p class="hint">Magpie 仅适用于自主运行的网关，默认 http://127.0.0.1:3425/v1，地址和端口可改。建议 Bearer 标识 magpie-majsoul-agent；它不是上游 API Key，也不提供额度。优先固定模型；目录存在不代表支持工具。模型 ID 原样发送，别名不代表已识别上游，路由费用未知。</p>
-<p class="hint">CC Switch 为可选实验接入，默认 http://127.0.0.1:15721/v1，可改端口；须自行启用 Codex 路由并选支持 Chat Completions 的上游。调用共用 Codex 供应商、切换与用量统计，没有独立应用隔离。预设密钥留空，不读取桌面凭据；若本机服务另要求鉴权，请自行填写。Codex 目录依赖受管理配置，可能为空；可始终手填模型 ID，聚合的 ccs- 前缀须原样保留。仅完成发布源码与模拟合同核对，尚未真实网关验收。</p>
+<p class="hint">CC Switch 为可选实验接入，默认 http://127.0.0.1:15721/v1，可改端口；须自行启用 Codex 路由并选支持 Chat Completions 的上游。调用共用 Codex 供应商、切换与用量统计，没有独立应用隔离。预设密钥留空，不读取桌面凭据；若本机服务另要求鉴权，请自行填写。Codex 目录依赖受管理配置，可能为空；可始终手填模型 ID，聚合的 ccs- 前缀须原样保留。已用 v4.0.22 真实路由与本地人工上游验证；真实云模型及全面兼容仍未验证。</p>
 <div class="actions"><button type="button" id="diagnose">发送测试请求（可能收费）</button><button type="button" id="cancelDiagnostic">取消测试</button></div>
 <p class="hint">仅发送人工测试内容，不含牌局或历史；验证接口、一次固定只读工具与最终 JSON 最小合同。通过不代表麻将分析质量或所有输出均兼容。</p>
 <p id="diagnosticStatus" role="status" aria-live="polite"></p>

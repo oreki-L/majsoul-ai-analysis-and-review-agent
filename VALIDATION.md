@@ -6,7 +6,8 @@
 - `npm run check`、468/468 全仓自动测试与 `npm run build` 通过；collector 构建目录不包含新增模型逻辑或设置页，现有架构边界测试通过。
 - 随机回环端口人工 HTTP 服务器通过真实 fetch 验证 Codex 目录和通用非流式 function tool → 固定结果 → 最小 JSON；该服务器不是 CC Switch。单元测试覆盖显式 schema、空目录、响应／条数限制、鉴权／路径错误、取消、过期结果、手填模型与目录身份隔离。
 - 使用 playwright-cli、真实 Chrome DOM 的 `options.html` 和合成 Chrome API 验证新增预设不启用／不继承密钥、原生模型选择与事件冒泡、失败刷新保留、成功空目录保留手填值、凭据变化阻止过期回填；没有 pageerror，没有真实服务请求。
-- 固定核对 CC Switch 正式 v4.0.22 源码；官方便携包仅下载／解压未运行，原因是业务 home 覆盖不能保证启动前的 Tauri store 与真实 OS 用户配置隔离，且本机无 Rust 工具链。未读取真实密钥／账号、未调用收费模型或发送牌局。真实进程、上游、聚合／故障转移和统计仍未验收，详细证据见 [研究记录](docs/MODEL_GATEWAY_RESEARCH.md)。
+- 后续已运行官方 v4.0.22 portable，并通过实测 Windows Known Folder API 配合子进程专属 profile／AppData／CC_SWITCH_TEST_HOME 隔离。项目模块经真实 CC Switch 到两个本地人工上游验证目录／空目录、工具／JSON、鉴权替换、聚合、Codex 用量分类、路由服务关闭／恢复、错误与取消；结束时测试配置回到直连、测试进程／端口清理，现有路径／窗口设置元数据不变。未读取真实密钥／账号、调用真实云模型或上传牌局。故障转移、完整应用退出后的自动恢复、OAuth／订阅和真实费用仍未验证，详见 [真实联调记录](docs/CC_SWITCH_VALIDATION.md)。
+- 真实联调后仅修改验证范围文案和证据，未改传输代码；重验相关 55/55、`check` 和 `build` 通过。全仓 468/468 为前次同一 CC 实现的验证结果，本轮没有重复长跑。
 
 ## 0.11.0 模型配置与可选网关验收（2026-10-30）
 

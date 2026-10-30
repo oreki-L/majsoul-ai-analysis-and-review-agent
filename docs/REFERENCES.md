@@ -46,7 +46,7 @@ Pi 是当前实际运行依赖；DeepSeek Harness 是设计参考。mjai 专业�
 ## 可选实验 CC Switch 接入（2026-10-30）
 
 - [farion1231/cc-switch](https://github.com/farion1231/cc-switch)：新增可选实验预设与显式 Codex 目录解析，仅核对正式 v4.0.22、commit `b76426741ef93069e2f374ac01ca7ef5760e1d0e`。共用 Codex 供应商、切换和统计，目录依赖受管理 Codex 配置，不能把其他协议的转换能力直接套用到 Chat 入口。
-- 验证限发布源码、模拟权限和人工本地 HTTP 合同服务器；官方 portable 已下载但因用户配置隔离不能确认而未运行。尚无真实 CC Switch／上游端到端验收，不作官方适配或全面兼容声明。支持条件、证据与未验证范围见 [配置文档](MODEL_CONFIGURATION.md) 和 [研究记录](MODEL_GATEWAY_RESEARCH.md)。
+- 已用官方 v4.0.22 portable 程序与两个本地人工上游完成真实网关链路验证；项目模块使用真实 HTTP 和合成权限。真实云模型、OAuth／订阅和故障转移仍未验证，不作官方适配或全面兼容声明。支持条件、证据与未验证范围见 [配置文档](MODEL_CONFIGURATION.md) 和 [研究记录](MODEL_GATEWAY_RESEARCH.md)。
 
 ## 使用此索引时
 

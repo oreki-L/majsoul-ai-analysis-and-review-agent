@@ -1,0 +1,263 @@
+{
+  "date": "2026-10-30",
+  "version": "v4.0.22",
+  "commit": "b76426741ef93069e2f374ac01ca7ef5760e1d0e",
+  "binaryArchiveSha256": "f6ab1023d8ba3b72505c5e1267a85d69e8e8a10f35c235d39395cb67ad81f875",
+  "transport": "project model-diagnostics + real fetch; synthetic permission adapter",
+  "gateway": "http://127.0.0.1:19226/v1",
+  "upstreams": [
+    "http://127.0.0.1:19228/v1",
+    "http://127.0.0.1:19229/v1"
+  ],
+  "route": {
+    "directory": [
+      {
+        "id": "mock-alpha",
+        "name": "Artificial alpha"
+      }
+    ],
+    "diagnosticNoInbound": {
+      "connection": true,
+      "tools": true,
+      "json": true
+    },
+    "diagnosticWithInbound": {
+      "connection": true,
+      "tools": true,
+      "json": true
+    },
+    "noManagedReference": [],
+    "restoredDirectory": [
+      {
+        "id": "mock-alpha",
+        "name": "Artificial alpha"
+      }
+    ],
+    "wrongModel": "MODEL",
+    "wrongPath": "MODEL",
+    "upstreamFailure": "HTTP",
+    "cancelled": "CANCELLED"
+  },
+  "stack": {
+    "requestModel": "ccs-fixture-beta/mock-beta",
+    "directory": [
+      {
+        "id": "mock-alpha",
+        "name": "Artificial alpha"
+      },
+      {
+        "id": "ccs-fixture-beta/mock-beta",
+        "name": "Artificial beta（Fixture beta）"
+      }
+    ],
+    "checks": {
+      "connection": true,
+      "tools": true,
+      "json": true
+    },
+    "evidence": [
+      {
+        "sequence": 8,
+        "upstream": "beta",
+        "path": "/v1/chat/completions",
+        "model": "mock-beta",
+        "stream": false,
+        "auth": "configured-upstream-token",
+        "roles": [
+          "system",
+          "user"
+        ],
+        "tools": [
+          "diagnostic_echo"
+        ],
+        "mode": "ok"
+      },
+      {
+        "sequence": 9,
+        "upstream": "beta",
+        "path": "/v1/chat/completions",
+        "model": "mock-beta",
+        "stream": false,
+        "auth": "configured-upstream-token",
+        "roles": [
+          "system",
+          "user",
+          "assistant",
+          "tool"
+        ],
+        "toolResult": "{\"value\":\"pong\"}",
+        "mode": "ok"
+      },
+      {
+        "sequence": 10,
+        "upstream": "beta",
+        "path": "/v1/chat/completions",
+        "model": "mock-beta",
+        "stream": false,
+        "auth": "configured-upstream-token",
+        "roles": [
+          "system",
+          "user"
+        ],
+        "tools": [
+          "diagnostic_echo"
+        ],
+        "mode": "ok"
+      },
+      {
+        "sequence": 11,
+        "upstream": "beta",
+        "path": "/v1/chat/completions",
+        "model": "mock-beta",
+        "stream": false,
+        "auth": "configured-upstream-token",
+        "roles": [
+          "system",
+          "user",
+          "assistant",
+          "tool"
+        ],
+        "toolResult": "{\"value\":\"pong\"}",
+        "mode": "ok"
+      }
+    ]
+  },
+  "routeRestart": {
+    "checks": {
+      "connection": true,
+      "tools": true,
+      "json": true
+    },
+    "directory": [
+      {
+        "id": "mock-alpha",
+        "name": "Artificial alpha"
+      },
+      {
+        "id": "ccs-fixture-beta/mock-beta",
+        "name": "Artificial beta（Fixture beta）"
+      }
+    ]
+  },
+  "usage": {
+    "usage": [
+      {
+        "appType": "codex",
+        "summary": {
+          "totalRequests": 10,
+          "totalCost": "0.000000",
+          "totalInputTokens": 80,
+          "totalOutputTokens": 40,
+          "totalCacheCreationTokens": 0,
+          "totalCacheReadTokens": 0,
+          "successRate": 80,
+          "realTotalTokens": 120,
+          "cacheHitRate": 0
+        }
+      }
+    ],
+    "logs": [
+      {
+        "providerId": "fixture-beta",
+        "appType": "codex",
+        "model": "mock-beta",
+        "requestModel": "ccs-fixture-beta/mock-beta",
+        "statusCode": 200,
+        "inputTokens": 10,
+        "outputTokens": 5
+      },
+      {
+        "providerId": "fixture-beta",
+        "appType": "codex",
+        "model": "mock-beta",
+        "requestModel": "ccs-fixture-beta/mock-beta",
+        "statusCode": 200,
+        "inputTokens": 10,
+        "outputTokens": 5
+      },
+      {
+        "providerId": "fixture-beta",
+        "appType": "codex",
+        "model": "mock-beta",
+        "requestModel": "ccs-fixture-beta/mock-beta",
+        "statusCode": 200,
+        "inputTokens": 10,
+        "outputTokens": 5
+      },
+      {
+        "providerId": "fixture-beta",
+        "appType": "codex",
+        "model": "mock-beta",
+        "requestModel": "ccs-fixture-beta/mock-beta",
+        "statusCode": 200,
+        "inputTokens": 10,
+        "outputTokens": 5
+      },
+      {
+        "providerId": "fixture-alpha",
+        "appType": "codex",
+        "model": "mock-alpha",
+        "requestModel": "mock-alpha",
+        "statusCode": 503,
+        "inputTokens": 0,
+        "outputTokens": 0
+      },
+      {
+        "providerId": "fixture-alpha",
+        "appType": "codex",
+        "model": "unknown-artificial-model",
+        "requestModel": "unknown-artificial-model",
+        "statusCode": 404,
+        "inputTokens": 0,
+        "outputTokens": 0
+      },
+      {
+        "providerId": "fixture-alpha",
+        "appType": "codex",
+        "model": "mock-alpha",
+        "requestModel": "mock-alpha",
+        "statusCode": 200,
+        "inputTokens": 10,
+        "outputTokens": 5
+      },
+      {
+        "providerId": "fixture-alpha",
+        "appType": "codex",
+        "model": "mock-alpha",
+        "requestModel": "mock-alpha",
+        "statusCode": 200,
+        "inputTokens": 10,
+        "outputTokens": 5
+      },
+      {
+        "providerId": "fixture-alpha",
+        "appType": "codex",
+        "model": "mock-alpha",
+        "requestModel": "mock-alpha",
+        "statusCode": 200,
+        "inputTokens": 10,
+        "outputTokens": 5
+      },
+      {
+        "providerId": "fixture-alpha",
+        "appType": "codex",
+        "model": "mock-alpha",
+        "requestModel": "mock-alpha",
+        "statusCode": 200,
+        "inputTokens": 10,
+        "outputTokens": 5
+      }
+    ]
+  },
+  "cleanup": {
+    "gatewayPid": 45796,
+    "upstreamPids": [
+      30000,
+      56620
+    ],
+    "gatewayStopped": true,
+    "upstreamStopped": true,
+    "existingMetadataUnchanged": true,
+    "temporaryCodexRestoredToDirect": true
+  }
+}
