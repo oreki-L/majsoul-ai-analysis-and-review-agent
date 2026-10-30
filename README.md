@@ -8,7 +8,7 @@
 
 面向雀魂网页版的实时分析助手。使用你自己的 LLM API，在出牌决策点获取建议，再追问“为什么不打另一张？”“现在该进攻还是防守？”。每个决策保留独立的冻结局面和讨论，新建议到来后，仍能回到原来的问题继续聊。围绕具体局面理解牌效率与攻守取舍，帮助你逐步建立自己的判断。牌谱复盘与结算记录是辅助能力。
 
-[**下载 v0.11.0**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.11.0) · [接入大模型](#接入大模型) · [查看实测依据](docs/MODEL_BENCHMARK.md)
+[**下载 v0.11.1**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.11.1) · [接入大模型](#接入大模型) · [查看实测依据](docs/MODEL_BENCHMARK.md)
 
 | 你想做什么 | 助手提供什么 |
 | --- | --- |
@@ -23,12 +23,12 @@
 | --- | ---: | ---: |
 | **DeepSeek-V4.1-Flash** | **约 ¥0.024（2.4 分）** | **约 5.6 秒** |
 
-**39 次分析，总估费约 ¥0.92。** 同一场牌谱的 39 点旧 B 方案、关闭思考；按高峰缓存价估费，非账单，不含追问。HTTP 累计耗时非端到端时间，不代表当前 v0.11.0 表现。
+**39 次分析，总估费约 ¥0.92。** 同一场牌谱的 39 点旧 B 方案、关闭思考；按高峰缓存价估费，非账单，不含追问。HTTP 累计耗时非端到端时间，不代表当前 v0.11.1 表现。
 
 <details>
 <summary>历史实测：39点 / MAKA首选41%，查看条件与局限</summary>
 
-**39 次分析，总估费约 ¥0.92。** 来自 2026-10-25 同一场牌谱的 39 个决策点、旧 B 上下文方案、关闭思考的真实 API 实验。费用按返回用量及高峰缓存价估算，含失败分析，非实付账单，不含追问；耗时不是从局面变化到界面显示的端到端时间。实验提示与上下文不同于当前 **v0.11.0**，不能视为当前版速度或价格承诺。[设置、公式与完整结果](docs/MODEL_BENCHMARK.md)
+**39 次分析，总估费约 ¥0.92。** 来自 2026-10-25 同一场牌谱的 39 个决策点、旧 B 上下文方案、关闭思考的真实 API 实验。费用按返回用量及高峰缓存价估算，含失败分析，非实付账单，不含追问；耗时不是从局面变化到界面显示的端到端时间。实验提示与上下文不同于当前 **v0.11.1**，不能视为当前版速度或价格承诺。[设置、公式与完整结果](docs/MODEL_BENCHMARK.md)
 
 **实测效果怎么看？** 该次实验的 MAKA 首选一致 **16/39（41%）**，结构有效 **38/39**；其中 16 个有效结果的核心理由为空，解释质量仍需改进。该统计使用当时未完成全量人工核验的标签快照，不是按后续更正标签重新评分；一致率不等于建议正确率或牌力。当前产品支持围绕原建议继续追问，该历史实验未评估追问效果。
 
@@ -42,7 +42,7 @@
 
 当前完整实时协议、断线恢复和实战建议质量仍待验证；本地 mjai 仅验证了限定 Akagi v2 示例与 Windows CPU 环境。人工局面、模拟响应及离线 UI 验收的范围见 [VALIDATION.md](VALIDATION.md)。
 
-**0.11.0 新增：命名配置、可选 Magpie 与人工连接诊断。** 保留自接 API 直连主路径，保存多份 LLM 配置并手动切回；切换不会自动启用分析。Magpie 预设可识别本机服务并加载模型目录，不要求安装管理器。用户明确点击后，人工诊断验证固定 function tool 往返和最终 JSON 最小合同，可能收费；不发送牌局或历史。后续已用官方 Magpie v0.1.2204 与本地人工上游完成限定联调；未调用真实云模型或收费服务，未验证完整 MV3 网络链路，不代表全面兼容、模型质量或费用改善。[配置与限制](docs/MODEL_CONFIGURATION.md)
+**0.11.1 可选实验 CC Switch 与配置／后台分层。** 在直连和可选 Magpie 之外，增加 CC Switch 预设及显式 Codex 模型目录；共用 Codex 供应商、切换和用量分类，目录为空时仍可手填。配置持久化与后台分析生命周期分别由 store／worker 负责，切换仍不会自动启用模型。官方 CC Switch v4.0.22 和 Windows Magpie v0.1.2204 已与本地人工上游完成限定联调；不等于完整 MV3、真实云模型、费用或牌力认证。[配置与限制](docs/MODEL_CONFIGURATION.md)
 
 语言切换仅适用于介绍页，扩展界面目前为简体中文；英文、日文介绍不代表支持其他地区游戏域名。
 
@@ -69,16 +69,16 @@
 
 ## 安装
 
-[下载 v0.11.0、源码与 SHA256 校验文件](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.11.0)
+[下载 v0.11.1、源码与 SHA256 校验文件](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.11.1)
 
 ### 选择安装内容
 
 | 安装包 | 提供的能力 |
 | --- | --- |
-| [majsoul-ai-analysis-and-review-agent-0.11.0.zip](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.11.0/majsoul-ai-analysis-and-review-agent-0.11.0.zip) | 获取器、局面面板、结算历史、Agent、模型设置与harness运行记录 |
-| [majsoul-collector-0.11.0.zip](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.11.0/majsoul-collector-0.11.0.zip) | 仅采集、展示、历史与导出；不含模型代码、设置页或模型主机权限 |
+| [majsoul-ai-analysis-and-review-agent-0.11.1.zip](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.11.1/majsoul-ai-analysis-and-review-agent-0.11.1.zip) | 获取器、局面面板、结算历史、Agent、模型设置与harness运行记录 |
+| [majsoul-collector-0.11.1.zip](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.11.1/majsoul-collector-0.11.1.zip) | 仅采集、展示、历史与导出；不含模型代码、设置页或模型主机权限 |
 
-本地引擎工具需另下载 [0.11.0 源码包](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.11.0/majsoul-ai-analysis-and-review-agent-source-0.11.0.zip)；两个扩展安装包均不含模型权重、Python 环境或上游原生模块。
+本地引擎工具需另下载 [0.11.1 源码包](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.11.1/majsoul-ai-analysis-and-review-agent-source-0.11.1.zip)；两个扩展安装包均不含模型权重、Python 环境或上游原生模块。
 
 同一游戏页面只启用其中一个版本。获取器可以独立使用，导出记录再交给离线复盘工具；两种扩展的本地存储独立，不自动迁移。源码中的 `extension/` 为完整版；运行 `npm run build` 会生成两种可加载目录。
 

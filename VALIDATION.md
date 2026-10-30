@@ -1,16 +1,17 @@
 # 版本验证记录
 
-## 未发布：架构与两种真实网关联调整合（2026-10-30）
+## 0.11.1 架构与两种网关联调发布验收（2026-10-31）
 
-- 整合命名配置持久化 store、后台分析 worker、CC Switch 可选实验预设／显式 Codex 目录，以及两份已独立验收的真实网关联调文档与 JSON 证据；不包含 benchmark、Mortal 或其他工作区改动，不改变版本、依赖或 Pi bundle。
+- 整合命名配置持久化 store、后台分析 worker、CC Switch 可选实验预设／显式 Codex 目录，以及两份已独立验收的真实网关联调文档与 JSON 证据；不包含 benchmark、Mortal 或其他工作区改动；发布版本统一为 0.11.1，依赖与 Pi bundle 保持不变。
 - 官方 CC Switch v4.0.22 与两个本地人工上游、官方 Windows Magpie v0.1.2204 与本地人工上游均完成限定真实程序链路验证，分别见 [CC Switch](docs/CC_SWITCH_VALIDATION.md) 和 [Magpie](docs/MAGPIE_VALIDATION.md)。Magpie 按本次固定 v0.1.2204 验收，不因后续发布而追更或改变结论。
 - 两份证据均使用人工上游和合成 Chrome 权限，没有调用真实云模型／收费服务或上传牌局；不是完整 MV3 扩展网络链路、真实模型质量／费用、实战牌力或上游官方认证。
 - 整合回归：`npm run check`、`npm test`（472/472）、`npm run build`、`git diff --check`；Agent 包包含 store／worker，Collector 闭包排除。此次 Magpie 整合仅修改文档与证据，沿用先前真实 Chrome DOM＋合成 Chrome API 对 CC 预设、目录身份、权限顺序、保存竞态及配置保留的验证，未重新启动网关或运行付费请求。
+- 发行资产从合入整合分支后的干净提交 `git archive` 快照生成，执行锁依赖安装、源码检查和测试、双 profile 构建及人工向听回归；源码包只包含已提交授权范围，不包含网关二进制、临时证据目录、用户配置或忽略文件。
 - 配置串行队列仍属于每个设置页实例，没有新增跨窗口事务保证；两种网关各自未覆盖的认证、路由和模型限制保持原验证文档所列范围。
 
-## 未发布：CC Switch 可选实验接入（2026-10-30）
+## CC Switch 接入开发验证（2026-10-30，随 0.11.1 发布）
 
-- 基于 0.11.0 干净提交 `eb00d199852729479abf7573c76d0ba8f047b405` 的独立工作树完成，不提升版本、不创建 Release，也不混入共享工作区的 benchmark／Mortal 调研。
+- 该开发轮次基于 0.11.0 干净提交 `eb00d199852729479abf7573c76d0ba8f047b405` 的独立工作树完成，不提升版本、不创建 Release，也不混入共享工作区的 benchmark／Mortal 调研。
 - `npm run check`、468/468 全仓自动测试与 `npm run build` 通过；collector 构建目录不包含新增模型逻辑或设置页，现有架构边界测试通过。
 - 随机回环端口人工 HTTP 服务器通过真实 fetch 验证 Codex 目录和通用非流式 function tool → 固定结果 → 最小 JSON；该服务器不是 CC Switch。单元测试覆盖显式 schema、空目录、响应／条数限制、鉴权／路径错误、取消、过期结果、手填模型与目录身份隔离。
 - 使用 playwright-cli、真实 Chrome DOM 的 `options.html` 和合成 Chrome API 验证新增预设不启用／不继承密钥、原生模型选择与事件冒泡、失败刷新保留、成功空目录保留手填值、凭据变化阻止过期回填；没有 pageerror，没有真实服务请求。

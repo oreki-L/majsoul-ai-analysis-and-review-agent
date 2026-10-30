@@ -8,7 +8,7 @@
 
 雀魂ブラウザ版向けのリアルタイム分析アシスタントです。自分で設定した LLM API による純粋な LLM ランタイムを中心に、「別の牌を切らない理由は？」「今は押すべき、降りるべき？」と質問できます。判断ごとに固定した局面と議論を保存するため、新しい助言が来ても元の疑問に戻れます。具体的な局面で牌効率や押し引きの選択を学び、自分で判断する力を養うために使えます。牌譜の振り返りと対局記録は補助機能です。
 
-[**v0.11.0 をダウンロード**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.11.0) · [モデルの設定](#モデルの設定) · [実測の根拠](docs/MODEL_BENCHMARK.md)
+[**v0.11.1 をダウンロード**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.11.1) · [モデルの設定](#モデルの設定) · [実測の根拠](docs/MODEL_BENCHMARK.md)
 
 | やりたいこと | 使える機能 |
 | --- | --- |
@@ -23,12 +23,12 @@
 | --- | ---: | ---: |
 | **DeepSeek-V4.1-Flash** | **約0.024人民元** | **約5.6秒** |
 
-**39回の分析で合計推定費用は約0.92人民元。** 同一牌譜の39点、旧 B 文脈方式・思考無効。高峰キャッシュ料金による推定で請求額ではなく、追加質問は含みません。HTTP 合計時間は全処理時間ではなく、現行 v0.11.0 の結果ではありません。
+**39回の分析で合計推定費用は約0.92人民元。** 同一牌譜の39点、旧 B 文脈方式・思考無効。高峰キャッシュ料金による推定で請求額ではなく、追加質問は含みません。HTTP 合計時間は全処理時間ではなく、現行 v0.11.1 の結果ではありません。
 
 <details>
 <summary>過去の実測：39点 / MAKA第一候補との一致41% — 条件と限界</summary>
 
-**39回の分析で、合計推定費用は約0.92人民元。** 2026-10-25、同一牌譜の39判断点で、旧 B 文脈方式・思考無効の条件で実測しました。費用は返却された利用量と高峰のキャッシュ料金による推定で、失敗した分析も含み、実際の請求額ではなく、追加質問は含みません。時間は画面表示までの全処理時間ではありません。実験の指示と文脈は現行 **v0.11.0** と異なり、現行版の速度や費用を保証しません。[設定・計算式・全結果](docs/MODEL_BENCHMARK.md)（中国語）。
+**39回の分析で、合計推定費用は約0.92人民元。** 2026-10-25、同一牌譜の39判断点で、旧 B 文脈方式・思考無効の条件で実測しました。費用は返却された利用量と高峰のキャッシュ料金による推定で、失敗した分析も含み、実際の請求額ではなく、追加質問は含みません。時間は画面表示までの全処理時間ではありません。実験の指示と文脈は現行 **v0.11.1** と異なり、現行版の速度や費用を保証しません。[設定・計算式・全結果](docs/MODEL_BENCHMARK.md)（中国語）。
 
 **助言の質は？** MAKA 第一候補との一致は **16/39（41%）**、構造が有効な出力は **38/39** でした。ただし有効な結果のうち16件は主要な理由が空で、説明品質には改善の余地があります。この統計は当時全件手動検証が未完了だったラベルのスナップショットに基づき、後の修正ラベルで再採点したものではありません。一致率は正解率や雀力を意味しません。製品では保存した助言について追加質問できますが、この過去の実験では追加質問の品質を評価していません。
 
@@ -42,7 +42,7 @@
 
 現行クライアントの完全な通信対応、再接続の復元、実戦の助言品質は未検証です。ローカル mjai の検証範囲は特定の Akagi v2 サンプルと Windows CPU 環境に限ります。人工局面・模擬応答・オフライン UI の検証範囲は [VALIDATION.md](VALIDATION.md) を参照してください。
 
-**0.11.0：名前付き設定、任意の Magpie 接続、手動診断。** API への直接接続を維持し、複数の LLM 設定を保存して手動で戻せます。切り替えで分析は自動有効化されません。任意の Magpie プリセットでローカルサービスの識別とモデル一覧の取得ができ、管理ツールの導入は必須ではありません。明示的なクリックで人工の function tool 往復と最小 JSON 契約を確認します。料金が発生する場合がありますが、牌局や履歴は送りません。その後、公式 Magpie v0.1.2204 とローカル人工上流で限定的な接続を検証しました。実クラウド・有料モデルおよび完全な MV3 通信経路は未検証で、全面互換性・助言品質・費用改善の保証ではありません。[設定と制限](docs/MODEL_CONFIGURATION.md)（中国語）。
+**0.11.1：実験的な CC Switch と設定／バックグラウンドの分離。** API 直接接続と任意の Magpie 接続を維持し、CC Switch プリセットと明示的な Codex モデル一覧を追加しました。Codex の供給元・切り替え・利用量分類を共有し、一覧が空でもモデル ID を手入力できます。設定の永続化と分析ライフサイクルは専用 store／worker に分離し、切り替えでモデルは自動有効化されません。公式 CC Switch v4.0.22 と Windows Magpie v0.1.2204 をローカル人工上流で限定検証済みですが、完全な MV3 経路・実クラウドモデル・料金・牌力の認証ではありません。[設定と制限](docs/MODEL_CONFIGURATION.md)（中国語）。
 
 言語切り替えは紹介文のみです。拡張の画面は簡体字中国語で、日本語・英語の説明があっても他地域のゲーム URL に対応するわけではありません。
 
@@ -69,14 +69,14 @@
 
 ## インストール
 
-[v0.11.0・ソース・SHA256チェックサム](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.11.0)
+[v0.11.1・ソース・SHA256チェックサム](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.11.1)
 
 | パッケージ | 機能 |
 | --- | --- |
-| [majsoul-ai-analysis-and-review-agent-0.11.0.zip](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.11.0/majsoul-ai-analysis-and-review-agent-0.11.0.zip) | 取得・表示・履歴・Agent・モデル設定・harnessの実行記録 |
-| [majsoul-collector-0.11.0.zip](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.11.0/majsoul-collector-0.11.0.zip) | 取得・表示・履歴・エクスポートのみ。モデル用コード、設定画面、モデル接続先への権限は含みません |
+| [majsoul-ai-analysis-and-review-agent-0.11.1.zip](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.11.1/majsoul-ai-analysis-and-review-agent-0.11.1.zip) | 取得・表示・履歴・Agent・モデル設定・harnessの実行記録 |
+| [majsoul-collector-0.11.1.zip](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.11.1/majsoul-collector-0.11.1.zip) | 取得・表示・履歴・エクスポートのみ。モデル用コード、設定画面、モデル接続先への権限は含みません |
 
-ローカルエンジンのツールには別途 [0.11.0 ソース版](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.11.0/majsoul-ai-analysis-and-review-agent-source-0.11.0.zip)が必要です。両拡張 ZIP にモデル重み・Python 環境・上流のネイティブモジュールは含みません。
+ローカルエンジンのツールには別途 [0.11.1 ソース版](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.11.1/majsoul-ai-analysis-and-review-agent-source-0.11.1.zip)が必要です。両拡張 ZIP にモデル重み・Python 環境・上流のネイティブモジュールは含みません。
 
 同じゲームページでは一方のみを有効にしてください。取得専用版は単独で使用でき、記録を出力してオフラインで振り返れます。両版のローカル保存領域は独立しており、自動移行はしません。ソースの `extension/` は完全版です。`npm run build` で両方の読み込み可能なフォルダーを生成できます。
 

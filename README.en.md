@@ -8,7 +8,7 @@ An interactive Mahjong Soul AI assistant for explanations and follow-up question
 
 A live analysis assistant for the Mahjong Soul web client, centered on a pure LLM runtime using your own model API. Ask “Why not discard another tile?” or “Should I push or defend now?” Each decision keeps its own frozen position and discussion, so you can return to a question after new advice arrives. Explore tile efficiency and push/fold trade-offs in concrete positions to build your own judgment. Replay review and match records are supporting features.
 
-[**Download v0.11.0**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.11.0) · [LLM setup](#llm-setup) · [Test evidence](docs/MODEL_BENCHMARK.md)
+[**Download v0.11.1**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.11.1) · [LLM setup](#llm-setup) · [Test evidence](docs/MODEL_BENCHMARK.md)
 
 | What you want to do | What the assistant provides |
 | --- | --- |
@@ -23,12 +23,12 @@ A live analysis assistant for the Mahjong Soul web client, centered on a pure LL
 | --- | ---: | ---: |
 | **DeepSeek-V4.1-Flash** | **About CNY 0.024** | **About 5.6 s** |
 
-**39 analyses, about CNY 0.92 estimated total.** One replay, 39 points, older B context, thinking disabled. Peak cache-aware cost estimate, not an account bill; follow-ups excluded. Summed HTTP time is not end-to-end latency, and these are not current v0.11.0 results.
+**39 analyses, about CNY 0.92 estimated total.** One replay, 39 points, older B context, thinking disabled. Peak cache-aware cost estimate, not an account bill; follow-ups excluded. Summed HTTP time is not end-to-end latency, and these are not current v0.11.1 results.
 
 <details>
 <summary>Historical test: 39 points / 41% MAKA first-choice agreement — conditions and limits</summary>
 
-**39 analyses, about CNY 0.92 in estimated total cost.** Measured on 2026-10-25 across 39 decision points from one replay, using the older B context strategy with thinking disabled. Cost uses returned usage and peak cache-aware rates, includes failed analyses, and is not an account bill; it excludes follow-up questions. Time is not end-to-end UI latency. The research prompt and context differ from **v0.11.0**, so these figures do not promise current-version speed or cost. [Settings, formulas, and full results](docs/MODEL_BENCHMARK.md) (Chinese).
+**39 analyses, about CNY 0.92 in estimated total cost.** Measured on 2026-10-25 across 39 decision points from one replay, using the older B context strategy with thinking disabled. Cost uses returned usage and peak cache-aware rates, includes failed analyses, and is not an account bill; it excludes follow-up questions. Time is not end-to-end UI latency. The research prompt and context differ from **v0.11.1**, so these figures do not promise current-version speed or cost. [Settings, formulas, and full results](docs/MODEL_BENCHMARK.md) (Chinese).
 
 **What about advice quality?** MAKA first-choice agreement was **16/39 (41%)**, with **38/39** structurally valid outputs; 16 valid outputs had empty core reasons, leaving explanation quality to improve. These statistics use the experiment's label snapshot, which had not undergone complete manual verification; they have not been rescored against later corrected labels. Agreement is not recommendation accuracy or playing strength. The product supports follow-up questions about saved advice; that historical experiment did not evaluate follow-up quality.
 
@@ -42,7 +42,7 @@ The pure LLM path needs no specialist decision engine such as Mortal. Local shan
 
 Full live protocol coverage, reconnection recovery, and real-game advice quality remain unverified. Local mjai checks cover only a specific Akagi v2 example and Windows CPU environment. See [VALIDATION.md](VALIDATION.md) for synthetic-position, simulated-response, and offline UI validation scope.
 
-**New in 0.11.0: named configurations, optional Magpie, and manual connection diagnostics.** Keep direct API access, save multiple LLM configurations, and switch back manually without enabling analysis automatically. The optional Magpie preset can identify your local gateway and load its model directory; installing a manager is unnecessary. Only an explicit click runs an artificial function-tool round trip and minimal final JSON check, which may incur charges and sends no game data or history. Subsequent tests used the official Magpie v0.1.2204 binary with an artificial local upstream. No real cloud or paid model, or complete MV3 network path, was tested; this does not establish full compatibility, better advice, or lower cost. [Setup and limitations](docs/MODEL_CONFIGURATION.md) (Chinese).
+**0.11.1: optional experimental CC Switch and clearer configuration/background boundaries.** Direct API access and optional Magpie remain available. The CC Switch preset explicitly loads the Codex catalog, shares Codex providers, switching and usage classification, and keeps manual model IDs when the catalog is empty. Dedicated store/worker modules handle configuration persistence and analysis lifecycle; switching still does not enable models automatically. Official CC Switch v4.0.22 and Windows Magpie v0.1.2204 were tested against artificial local upstreams, not the complete MV3 path, real cloud models, costs or playing strength. [Setup and limitations](docs/MODEL_CONFIGURATION.md) (Chinese).
 
 Language links switch documentation only. The extension UI is currently Simplified Chinese; English and Japanese pages do not imply support for other regional game domains.
 
@@ -69,14 +69,14 @@ Local history retains up to 20 matches and 100 hands per match, evicting the old
 
 ## Installation
 
-[Download v0.11.0, source, and SHA256 checksums](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.11.0)
+[Download v0.11.1, source, and SHA256 checksums](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.11.1)
 
 | Package | Capabilities |
 | --- | --- |
-| [majsoul-ai-analysis-and-review-agent-0.11.0.zip](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.11.0/majsoul-ai-analysis-and-review-agent-0.11.0.zip) | Collector, panel, match history, Agent, model settings, and harness traces |
-| [majsoul-collector-0.11.0.zip](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.11.0/majsoul-collector-0.11.0.zip) | Collection, display, history, and export only; no model code, settings page, or model host permissions |
+| [majsoul-ai-analysis-and-review-agent-0.11.1.zip](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.11.1/majsoul-ai-analysis-and-review-agent-0.11.1.zip) | Collector, panel, match history, Agent, model settings, and harness traces |
+| [majsoul-collector-0.11.1.zip](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.11.1/majsoul-collector-0.11.1.zip) | Collection, display, history, and export only; no model code, settings page, or model host permissions |
 
-Local engine tools require the separate [0.11.0 source package](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.11.0/majsoul-ai-analysis-and-review-agent-source-0.11.0.zip). Neither extension ZIP bundles model weights, Python environments, or upstream native modules.
+Local engine tools require the separate [0.11.1 source package](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.11.1/majsoul-ai-analysis-and-review-agent-source-0.11.1.zip). Neither extension ZIP bundles model weights, Python environments, or upstream native modules.
 
 Enable only one profile on a game page. The collector works independently and can export records for offline review. The profiles have separate local storage and do not migrate data automatically. The source `extension/` directory is the full edition; `npm run build` generates both loadable directories.
 
