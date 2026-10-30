@@ -40,7 +40,7 @@ Pi 是当前实际运行依赖；DeepSeek Harness 是设计参考。mjai 专业�
 ## 可选 Magpie 接入（2026-10-30）
 
 - [yetone/magpie](https://github.com/yetone/magpie)：v0.11.0 提供可选预设、手动身份识别和模型目录，沿用通用 Chat Completions transport；不要求安装，不读取桌面设置或账号。
-- 协议参考固定 v0.1.2183、commit `0414bbeddbfc2028508b610fd1e7c194143454a0` 的 [接入规范](https://github.com/yetone/magpie/blob/0414bbeddbfc2028508b610fd1e7c194143454a0/docs/integrating.md) 和 gateway 路由。未完成真实 Magpie／模型端到端验收，不是全面兼容认证；工具诊断、别名、费用和思考参数限制见 [配置与诊断](MODEL_CONFIGURATION.md)。
+- 协议参考固定 v0.1.2183、commit `0414bbeddbfc2028508b610fd1e7c194143454a0` 的 [接入规范](https://github.com/yetone/magpie/blob/0414bbeddbfc2028508b610fd1e7c194143454a0/docs/integrating.md) 和 gateway 路由。后续使用真实官方 Windows v0.1.2204 与本地人工上游完成限定范围联调，见 [安装校验及实测记录](MAGPIE_VALIDATION.md)；未验证真实模型、牌局或 Chrome 授权 UI，不是全面兼容认证。工具诊断、别名、费用和思考参数限制见 [配置与诊断](MODEL_CONFIGURATION.md)。
 - 未提供 Magpie 插件或 Agents 注册。
 
 ## 可选实验 CC Switch 接入（2026-10-30）

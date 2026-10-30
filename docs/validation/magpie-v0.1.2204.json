@@ -1,0 +1,219 @@
+{
+  "version": "0.1.2204",
+  "sourceCommit": "cf9ea977ca77a4d21dbaef289e42cca725fd139c",
+  "projectCommit": "eb00d199852729479abf7573c76d0ba8f047b405",
+  "chain": [
+    "project model-diagnostics + actual fetch",
+    "official Windows Magpie serve",
+    "artificial local upstream"
+  ],
+  "permissions": "injected permissions.contains; Chrome UI not exercised",
+  "success": true,
+  "results": [
+    {
+      "type": "model:discover",
+      "action": "models",
+      "model": "integration/diagnostic-fast",
+      "result": {
+        "ok": true,
+        "requestId": "real-1",
+        "models": []
+      }
+    },
+    {
+      "type": "model:discover",
+      "action": "hello",
+      "model": "integration/diagnostic-fast",
+      "result": {
+        "ok": true,
+        "requestId": "real-2",
+        "hello": {
+          "service": "magpie",
+          "version": "0.1.2204"
+        }
+      }
+    },
+    {
+      "type": "model:discover",
+      "action": "models",
+      "model": "integration/diagnostic-fast",
+      "result": {
+        "ok": true,
+        "requestId": "real-3",
+        "models": [
+          {
+            "id": "integration/diagnostic-fast",
+            "name": "diagnostic-fast"
+          },
+          {
+            "id": "integration/second/model",
+            "name": "second/model"
+          },
+          {
+            "id": "integration/slow",
+            "name": "slow"
+          }
+        ]
+      }
+    },
+    {
+      "type": "model:diagnose",
+      "model": "integration/diagnostic-fast",
+      "result": {
+        "ok": true,
+        "requestId": "real-4",
+        "checks": {
+          "connection": true,
+          "tools": true,
+          "json": true
+        },
+        "elapsedMs": 22
+      }
+    },
+    {
+      "type": "model:diagnose",
+      "model": "integration/diagnostic-fast",
+      "result": {
+        "ok": true,
+        "requestId": "real-5",
+        "checks": {
+          "connection": true,
+          "tools": true,
+          "json": true
+        },
+        "elapsedMs": 5
+      }
+    },
+    {
+      "type": "model:diagnose",
+      "model": "integration/diagnostic-fast",
+      "result": {
+        "ok": true,
+        "requestId": "real-6",
+        "checks": {
+          "connection": true,
+          "tools": true,
+          "json": true
+        },
+        "elapsedMs": 6
+      }
+    },
+    {
+      "type": "model:diagnose",
+      "model": "integration/second/model",
+      "result": {
+        "ok": true,
+        "requestId": "real-7",
+        "checks": {
+          "connection": true,
+          "tools": true,
+          "json": true
+        },
+        "elapsedMs": 5
+      }
+    },
+    {
+      "type": "model:diagnose",
+      "model": "missing/model",
+      "result": {
+        "ok": false,
+        "requestId": "real-8",
+        "code": "MODEL",
+        "error": "接口拒绝模型、路径或请求参数；请检查模型 ID，以及服务是否支持 function tools。"
+      }
+    },
+    {
+      "test": "permission-denied",
+      "result": {
+        "ok": false,
+        "requestId": "deny",
+        "code": "PERMISSION",
+        "error": "接口访问权限未授予，请先授权该地址。"
+      }
+    },
+    {
+      "type": "model:diagnose",
+      "model": "integration/slow",
+      "result": {
+        "ok": false,
+        "requestId": "real-9",
+        "code": "CANCELLED",
+        "error": "请求已取消。"
+      }
+    },
+    {
+      "type": "model:diagnose",
+      "model": "integration/diagnostic-fast",
+      "result": {
+        "ok": true,
+        "requestId": "real-10",
+        "checks": {
+          "connection": true,
+          "tools": true,
+          "json": true
+        },
+        "elapsedMs": 34
+      }
+    },
+    {
+      "type": "model:diagnose",
+      "model": "integration/diagnostic-fast",
+      "result": {
+        "ok": false,
+        "requestId": "real-11",
+        "code": "AUTH",
+        "error": "接口鉴权失败，请检查 Bearer 标识、API Key 或服务授权。"
+      }
+    },
+    {
+      "type": "model:diagnose",
+      "model": "integration/diagnostic-fast",
+      "result": {
+        "ok": true,
+        "requestId": "real-12",
+        "checks": {
+          "connection": true,
+          "tools": true,
+          "json": true
+        },
+        "elapsedMs": 10
+      }
+    },
+    {
+      "type": "model:diagnose",
+      "model": "integration/diagnostic-fast",
+      "result": {
+        "ok": false,
+        "requestId": "real-13",
+        "code": "NETWORK",
+        "error": "无法连接模型接口，请检查地址、网络与服务状态。"
+      }
+    },
+    {
+      "type": "model:diagnose",
+      "model": "integration/diagnostic-fast",
+      "result": {
+        "ok": true,
+        "requestId": "real-14",
+        "checks": {
+          "connection": true,
+          "tools": true,
+          "json": true
+        },
+        "elapsedMs": 10
+      }
+    }
+  ],
+  "upstreamChecks": {
+    "chatRequests": 16,
+    "allConfiguredUpstreamBearer": true,
+    "allNonStreaming": true,
+    "upstreamModels": [
+      "diagnostic-fast",
+      "second/model",
+      "slow"
+    ],
+    "toolDefinitionsSeen": true,
+    "toolResultSeen": true
+  }
+}
