@@ -6,40 +6,29 @@ importScripts('model-diagnostics.js');
 importScripts('contracts/engine-result.js', 'engine-agent.js');
 importScripts('history.js', 'history-storage.js', 'decision-discussions.js');
 importScripts('user-memory.js', 'user-memory-agent.js', 'user-memory-worker.js');
-const pending = new Map();
+importScripts('model-analysis-worker.js');
+let analysisWorker;
 const modelDiagnostics = MJModelDiagnostics.create({ permissions: chrome.permissions, fetchModel: (...args) => fetch(...args) });
 chrome.permissions.onRemoved?.addListener(() => modelDiagnostics.cancel());
 const discussions = MJDecisionDiscussions.create({ storage: chrome.storage.local });
 const discussionReady = discussions.recover().catch(() => {});
 const memoryWorker = MJUserMemoryWorker.create({ storage: chrome.storage.local, permissions: chrome.permissions,
-  fetchModel: (...args) => fetch(...args), busy: () => pending.size > 0, runtime: MJPiRuntime, readJson });
+  fetchModel: (...args) => fetch(...args), busy: () => analysisWorker?.busy() || false, runtime: MJPiRuntime, readJson: MJModelAnalysisWorker.readJson });
 // Worker startup is a recovery opportunity, not a promise of background execution.
-memoryWorker.pump();
 const roundContexts = MJRoundContext.createStore({ storage: chrome.storage.local });
 const runStore = MJRunStore.create({ storage: chrome.storage.local });
-let revisionPromise = null;
-const newRevision = () => globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`;
-async function configRevision() {
-  if (!revisionPromise) revisionPromise = (async () => {
-    const saved = (await chrome.storage.local.get('agentConfigRevision')).agentConfigRevision;
-    const revision = typeof saved === 'string' ? saved : newRevision();
-    if (chrome.storage.local.set && revision !== saved) await chrome.storage.local.set({ agentConfigRevision: revision });
-    return revision;
-  })();
-  return revisionPromise;
-}
+analysisWorker = MJModelAnalysisWorker.create({ storage: chrome.storage.local, permissions: chrome.permissions,
+  fetchModel: (...args) => fetch(...args), runtime: MJPiRuntime, roundContexts, runStore, discussions, discussionReady, memoryWorker });
+memoryWorker.pump();
 async function clearAgentData(clearRuns = true) {
   modelDiagnostics.cancel();
-  for (const controller of pending.values()) controller.abort();
-  memoryWorker.cancel();
-  const revision = newRevision(); revisionPromise = Promise.resolve(revision);
-  await Promise.all([roundContexts.reset(), clearRuns ? Promise.all([runStore.clear(), discussions.clear()]) : Promise.resolve(), chrome.storage.local.set?.({ agentConfigRevision: revision })]);
+  await analysisWorker.invalidate(clearRuns);
 }
 chrome.storage.local.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' });
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'local' && (changes.modelConfig || changes.llmProfilesV1 || changes.analysisProviders)) modelDiagnostics.cancel();
   if (area !== 'local' || !changes.modelConfig) return;
-  for (const controller of pending.values()) controller.abort();
+  analysisWorker.cancelAll();
   // Content scripts cannot observe changes to TRUSTED_CONTEXTS storage.
   // Send only an invalidation signal; credentials stay in the worker.
   memoryWorker.cancel();
@@ -109,192 +98,12 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
   if (message?.type === 'model:status' && game) {
     chrome.storage.local.get(['modelConfig', 'analysisPreferences']).then(({ modelConfig: c, analysisPreferences }) => respond({ preferences: analysisPreferences, enabled: !!c?.enabled, model: c?.model || '', provider: c?.provider === 'mjai' ? 'mjai' : 'chat' })).catch(() => respond({ enabled: false, provider: 'chat' })); return true;
   }
-  if (message?.type === 'model:cancel' && game) { pending.get(sender.tab.id)?.abort(); respond({ ok: true }); return; }
+  if (message?.type === 'model:cancel' && game) { analysisWorker.cancel(sender.tab.id); respond({ ok: true }); return; }
   if (message?.type === 'model:prepare' && game) {
-    Promise.resolve().then(() => {
-      const payload = JSON.stringify(message.snapshot);
-      if (!payload || payload.length > 60000) throw new Error('局面数据无效或过大。');
-      if (message.provider === 'mjai') {
-        MJSnapshotContract.cleanSnapshot(message.snapshot);
-        return { ok: true, data: MJMjaiAdapter.validateRequest(message.engineRequest) };
-      }
-      return { ok: true, data: MJAnalysis.prepare(message.snapshot, message.task).data };
-    }).then(respond).catch(error => respond({ ok: false, error: error.message }));
+    analysisWorker.prepare(message).then(respond);
     return true;
   }
   if (message?.type !== 'model:analyze' || !game) return;
-  let rawModelResult = null, accounting = null;
-  (async () => {
-    const key = sender.tab.id;
-    if (pending.has(key)) {
-      if (message.discussionId) pending.get(key).abort();
-      else throw new Error('已有分析正在进行。');
-    }
-    // Reserve before the first await so cancellation and configuration changes
-    // cover storage/permission preflight as well as the eventual fetch.
-    memoryWorker.cancel();
-    const controller = new AbortController(); pending.set(key, controller);
-    let timer = setTimeout(() => controller.abort(), 25000);
-    const checkCancelled = () => {
-      if (controller.signal.aborted) { const error = new Error('Cancelled'); error.name = 'AbortError'; throw error; }
-    };
-    try {
-      if (message.discussionId) {
-        await discussionReady;
-        const saved = await discussions.get(message.discussionId);
-        const grant = message.selection;
-        if (!grant || (saved.snapshot.selfHand && grant.hand !== true) || (saved.snapshot.game && grant.game !== true)
-          || ((saved.snapshot.rivers || []).some(r => grant.rivers !== 'all' && !(grant.rivers === 'self' && r.seat === saved.snapshot.selfSeat)))) throw new Error('当前数据授权范围不含该历史快照，请恢复对应授权后再追问。');
-        if (!saved.chat.some(t => t.token === message.discussionToken && t.status === 'pending' && t.question === message.question)) throw new Error('追问状态已变化，请重新提问。');
-        message = { ...message, snapshot: saved.snapshot, context: saved.context, task: saved.type, lane: 'manual-review' };
-      }
-      const { modelConfig: c } = await chrome.storage.local.get('modelConfig');
-      checkCancelled();
-      if (!c?.enabled) throw new Error('请先在设置中开启模型分析。');
-      const engine = c.provider === 'mjai';
-      const requestedProvider = message.provider === undefined ? 'chat' : message.provider;
-      if (!['chat', 'mjai'].includes(requestedProvider) || requestedProvider !== (engine ? 'mjai' : 'chat')) throw new Error('分析服务已变化，请刷新设置状态后重新分析。');
-      const endpointAdapter = engine ? MJEngineEndpoint : MJModelEndpoint;
-      const url = endpointAdapter.endpoint(c.endpoint);
-      const permitted = await chrome.permissions.contains({ origins: [endpointAdapter.permissionOrigin(url.href)] });
-      checkCancelled();
-      if (!permitted) throw new Error('接口访问权限未授予，请重新保存设置。');
-      if (typeof c.model !== 'string' || !c.model.trim() || c.model.length > 200 || (c.apiKey && typeof c.apiKey !== 'string')) throw new Error('模型配置无效，请重新保存设置。');
-      const task = MJAnalysis.normalizeTask(message.task);
-      const payload = JSON.stringify(message.snapshot);
-      if (!payload || payload.length > 60000 || message.snapshot?.format !== 'mj-analysis-v1') throw new Error('局面数据无效或过大。');
-      if (engine && (typeof c.apiKey !== 'string' || !c.apiKey.trim() || c.apiKey.length > 4096)) throw new Error('请配置本地引擎 Token。');
-      if (engine && task !== 'combined') throw new Error('专业引擎仅支持综合决策，请选择综合攻守。');
-      const latest = (await chrome.storage.local.get('modelConfig')).modelConfig;
-      checkCancelled();
-      if (JSON.stringify(latest) !== JSON.stringify(c)) throw new Error('模型设置已变化，请重新发起分析。');
-      if (engine) {
-        const analysis = await MJEngineAgent.run({ snapshot: message.snapshot, request: message.engineRequest, signal: controller.signal,
-          infer: async (request, { signal }) => {
-            const response = await fetch(url.href, { method: 'POST', signal, credentials: 'omit', redirect: 'error',
-              headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + c.apiKey }, body: JSON.stringify(request) });
-            if (!response.ok) throw new Error('本地引擎返回 HTTP ' + response.status + '，请检查服务、Token 与支持的局面。');
-            return readJson(response);
-          } });
-        return { ok: true, ...analysis, model: 'mjai · 自选本地引擎', provider: 'mjai' };
-      }
-      const outputOptions = MJModelEndpoint.outputOptions(c);
-      if (outputOptions.thinking?.type === 'enabled') {
-        clearTimeout(timer); timer = setTimeout(() => controller.abort(), 120000);
-      }
-      const lane = message.lane === 'live' ? 'live' : 'manual-review';
-      const question = message.question === undefined ? '' : message.question;
-      if (typeof question !== 'string' || question.length > 4000) throw new Error('追问内容无效或过长。');
-      const contextMode = 'round';
-      let session = null, sessionContext = null;
-      if (message.discussionId) {
-        sessionContext = await discussions.context(message.discussionId);
-      } else {
-        const info = message.context || {}, identity = info.identity || {};
-        const revision = await configRevision(); checkCancelled();
-        const memory = lane === 'live' && message.snapshot.source === 'live' && typeof identity.roundStartId === 'string'
-          ? await memoryWorker.store.pin(`${key}:${identity.matchId}:${identity.roundStartId}`).catch(() => ({ version: 0, entries: [] })) : { version: 0, entries: [] };
-        checkCancelled();
-        session = await roundContexts.observe({ snapshot: message.snapshot, scope: String(key),
-          identity: { matchId: typeof identity.matchId === 'string' ? `${key}:${identity.matchId.slice(0, 160)}` : null,
-            roundStartId: identity.roundStartId, viewId: identity.viewId },
-          position: info.position, events: info.events, eventWindowStart: info.eventWindowStart, historyComplete: info.historyComplete,
-          lane, provider: url.href, model: c.model, task,
-          config: { revision, memoryVersion: memory.version, mode: contextMode, promptVersion: 5, maxTokens: c.maxTokens, selection: true } });
-        checkCancelled(); sessionContext = await roundContexts.getContext(session);
-        if (lane === 'live' && memory.entries.length) sessionContext.userMemory = memory;
-      }
-      const records = [], started = Date.now(), epoch = runStore.epoch(), runId = newRevision(); let status = 'failed', attempts = 0, outcome, sessionTurn;
-      const totals = () => {
-        const summary = MJModelUsage.summarize(records);
-        const usage = summary.requests ? summary.usage : MJModelUsage.normalizeUsage(null);
-        return { usage, cost: MJModelUsage.estimateCost(usage, c.pricing), calls: attempts, elapsedMs: Date.now() - started, contextMode };
-      };
-      try {
-        const analysis = await MJAgent.run({ snapshot: message.snapshot, task, signal: controller.signal,
-          runtime: MJPiRuntime, sessionContext, question, toolCalling: true,
-          contextPolicy: lane === 'live' && !question && !message.discussionId ? 'live-selective' : 'full',
-          maxTurns: lane === 'manual-review' ? 3 : 2,
-          timeoutMs: outputOptions.thinking?.type === 'enabled' ? 120000 : 25000,
-          transport: async request => {
-            checkCancelled(); attempts++;
-            // A failed or unreadable attempt may still have been billed. Its missing usage is unknown.
-            const record = { usage: MJModelUsage.normalizeUsage(null) }; records.push(record);
-            const response = await fetch(url.href, { method: 'POST', signal: request.signal, credentials: 'omit', redirect: 'error',
-              headers: { 'Content-Type': 'application/json', ...(c.apiKey ? { Authorization: 'Bearer ' + c.apiKey } : {}) },
-              body: JSON.stringify(MJModelSessionTransport.body(request, c, outputOptions)) });
-            if (!response.ok) throw new Error('模型接口返回 HTTP ' + response.status + '，请检查地址、密钥、模型及额度。');
-            const data = await readJson(response, '模型');
-            const usage = MJModelUsage.normalizeUsage(data);
-            record.usage = usage;
-            checkCancelled();
-            const choice = data?.choices?.[0], content = choice?.message?.content;
-            if (typeof content === 'string') rawModelResult = { content: content.slice(0, 32000), truncated: content.length > 32000,
-              model: c.model, capturedAt: new Date().toISOString(), finishReason: typeof choice?.finish_reason === 'string' ? choice.finish_reason.slice(0, 100) : null };
-            const result = MJModelSessionTransport.result(data, request.tools.length > 0);
-            return { ...result, usage: { input: usage.uncachedInputTokens ?? usage.inputTokens ?? 0, output: usage.outputTokens ?? 0,
-              cacheRead: usage.uncachedInputTokens === null ? 0 : usage.cacheReadTokens ?? 0, cacheWrite: usage.cacheWriteTokens ?? 0,
-              totalTokens: (usage.inputTokens || 0) + (usage.outputTokens || 0) } };
-          } });
-        checkCancelled();
-        if (session) {
-          if (!await roundContexts.isCurrent(session)) throw new Error('分析上下文已变化，请重新分析。');
-        }
-        checkCancelled(); status = 'completed'; accounting = totals();
-        const { sessionTurn: internalTurn, ...publicAnalysis } = analysis;
-        sessionTurn = internalTurn;
-        outcome = { ok: true, ...publicAnalysis, model: c.model, ...accounting, ...(session ? { session } : {}) };
-      } finally {
-        accounting = totals();
-        if (controller.signal.aborted) status = 'cancelled';
-        await runStore.append({ id: runId, ...accounting, status, mode: contextMode, lane }, epoch).catch(() => {});
-        if (controller.signal.aborted && status !== 'cancelled') await runStore.append({ id: runId, ...accounting, status: 'cancelled', mode: contextMode, lane }, epoch).catch(() => {});
-        checkCancelled();
-      }
-      if (session) {
-        const exchangeId = `${started}-${newRevision()}`;
-        try {
-          const committed = await roundContexts.appendExchange(session, { id: exchangeId, question: question || '分析当时局面',
-            automatic: lane === 'live' && !question, task, position: sessionContext.checkpoint.position,
-            answer: sessionTurn?.answer || JSON.stringify(outcome.result), ...(sessionTurn?.request ? { request: sessionTurn.request } : {}) }, { signal: controller.signal });
-          checkCancelled();
-          if (!committed) {
-            if (!await roundContexts.isCurrent(session)) throw new Error('分析上下文已变化，请重新分析。');
-            checkCancelled(); outcome.sessionSaved = false;
-          }
-        } catch (error) {
-          await roundContexts.removeExchange(session, exchangeId).catch(() => {});
-          await runStore.append({ id: runId, ...accounting, status: controller.signal.aborted ? 'cancelled' : 'failed', mode: contextMode, lane }, epoch).catch(() => {});
-          throw error;
-        }
-      }
-      return outcome;
-    } finally { clearTimeout(timer); if (pending.get(key) === controller) pending.delete(key); memoryWorker.pump(); }
-  })().catch(error => ({ ok: false, error: modelError(error), ...(error.validation ? { validation: error.validation } : {}), ...(accounting || {}), ...(rawModelResult && error.name !== 'AbortError' ? { rawModelResult } : {}) })).then(async outcome => {
-    if (message.discussionId) {
-      try { await discussions.answer(message.discussionId, message.discussionToken, outcome); }
-      catch (e) { outcome = { ok: false, error: e.message }; }
-    }
-    respond(outcome);
-  });
+  analysisWorker.analyze(message, sender.tab.id).then(respond);
   return true;
 });
-
-function modelError(error) {
-  if (error.name === 'AbortError' || ['ABORTED', 'TIME_BUDGET'].includes(error.code)) return '分析已取消或请求超时，请重试。';
-  if (error.name === 'TypeError') return '无法连接模型接口，请检查地址、网络与访问权限。';
-  const budget = { TURN_BUDGET: '已达到本次模型调用上限，未取得最终分析。', TOOL_BUDGET: '已达到本次工具调用上限，未取得最终分析。', TOKEN_BUDGET: '已达到本次 token 预算，未取得最终分析。' };
-  return budget[error.code] || error.message;
-}
-
-async function readJson(response, label = '引擎') {
-  const reader = response.body.getReader(); const chunks = []; let size = 0;
-  while (true) {
-    const { done, value } = await reader.read(); if (done) break; size += value.length;
-    if (size > 1024 * 1024) { await reader.cancel(); throw new Error(label + '响应过大。'); }
-    chunks.push(value);
-  }
-  const bytes = new Uint8Array(size); let offset = 0;
-  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
-  try { return JSON.parse(new TextDecoder().decode(bytes)); } catch (_) { throw new Error(label + '未返回有效 JSON。'); }
-}

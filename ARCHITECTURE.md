@@ -31,7 +31,9 @@
 | `extension/model-diagnostics.js` | 人工最小工具与 JSON 合同诊断、Magpie 身份与目录发现；只依赖 endpoint/transport，权限与请求通过端口注入 | 后台 / Node |
 | `extension/analysis-panel.js` | 数据范围与任务选择、发送预览、结构化牌面建议、本地效率表和过期提示 | ISOLATED 世界 |
 | `extension/analysis-panel.css` | 分析卡样式，通过扩展本地资源载入Shadow DOM | 扩展静态资源 |
-| `extension/background.js` | 身份校验、读取配置、验证授权、添加密钥、调用模型、取消与超时 | 扩展 Service Worker |
+| `extension/background.js` | 可信能力组合、消息来源校验与分发、配置失效通知 | 扩展 Service Worker |
+| `extension/model-config-store.js` | 注入 storage 的配置读取迁移、串行保存／关闭／清除 | 设置 / Node |
+| `extension/model-analysis-worker.js` | 分析请求、pending、配置 revision、会话与记账协调 | 后台 / Node |
 | `extension/agent.js` | 任务计划、已授权快照、本地分析和模型解释工具接线 | 后台 / Node |
 | `extension/adapters/mjai.js` | 授权事件前缀转 mjai、匿名化、对手暗牌遮蔽及协议白名单 | 纯输入适配 / Node |
 | `extension/contracts/engine-result.js` / `engine-agent.js` | 可选引擎输出白名单、快照与事件重放对照、合法动作验证和有界流程 | 后台 / Node |
@@ -139,3 +141,9 @@ LLM 分析与解释保持主要定位，默认 `chat` 且分析关闭。设置�
 `model-config-store.js` 通过注入的 storage 提供 `load/save/disable/clear`，统一迁移读取、命名配置与兼容槽位的一次写入、关闭和清除的串行顺序；`model-profiles.js` 继续只做纯转换。`modelConfig` 是唯一运行时生效配置，`llmProfilesV1` 是用户保存集合，`analysisProviders` 是兼容草稿槽位。额外配置字段及 mjai 凭据保留。
 
 设置页持有表单、命名草稿和目录身份，真实用户手势内先申请主机权限，再调用 store 保存；选择不写存储、不自动开启。关闭／清除会使尚未开始写入的保存失效，已开始写入则由队列中后续操作覆盖。清除仍通过注入回调取消后台及清理会话，只移除既有模型／会话键，不碰历史和记忆。队列与 generation 属于每个设置页实例，未提供跨窗口事务保证。
+
+## 后台分析编排边界
+
+`background.js` 保留可信组合入口及消息的扩展身份、URL、frame 检查与分发；`model-analysis-worker.js` 的 `create` 接收 storage、permissions、fetchModel、runtime 和同一份 roundContexts/runStore/discussions/memoryWorker 实例。`prepare/analyze` 承接授权 DTO 准备、配置校验、Pi 与 mjai 请求、timeout/abort、会话提交回滚与用量记账。`busy/cancel/cancelAll/invalidate` 公开生命周期控制；pending 与配置 revision 只在该服务各保留一份，记忆模块通过 busy 回调服从实时分析优先。
+
+诊断、记忆、历史和讨论保留各自模块；HTTP 与密钥仍仅在可信后台执行。服务不依赖 Chrome／DOM／采集器全局，只使用注入能力；固定 Pi bundle、提示词、工具预算、lane、冻结追问与用量未知语义保持不变。两项新模块登记静态依赖白名单、加载顺序和 Agent-only 资源闭包，Collector 不会分发它们。
