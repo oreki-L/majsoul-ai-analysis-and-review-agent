@@ -36,7 +36,22 @@ test('phase3 independent: seat is actual start_game id; invalid/duplicate starts
 });
 
 function request() { return { format:'majsoul-mjai-v1', seat:0, events:[{type:'start_game',id:0,names:[0,1,2,3].map(i=>'Player '+i)},{type:'start_kyoku',bakaze:'E',dora_marker:'1m',kyoku:1,honba:0,kyotaku:0,oya:0,scores:[25000,25000,25000,25000],tehais:[Array(13).fill('1m'),...Array.from({length:3},()=>Array(13).fill('?'))]},{type:'tsumo',actor:0,pai:'9p'}] }; }
-const exists = pid => { try { process.kill(pid, 0); return true; } catch { return false; } };
+const running = pid => {
+  try {
+    process.kill(pid, 0);
+    // Linux kill(pid, 0) also succeeds for a dead zombie awaiting its new
+    // parent's reap. SIGKILL has terminated it; it cannot execute or be waited
+    // for by this test, which is not its parent. Keep live descendants failing.
+    if (process.platform === 'linux') {
+      const stat = fs.readFileSync(`/proc/${pid}/stat`, 'utf8');
+      if (stat.slice(stat.lastIndexOf(')') + 2).split(' ')[0] === 'Z') return false;
+    }
+    return true;
+  } catch (error) {
+    if (['ESRCH', 'ENOENT'].includes(error.code)) return false;
+    throw error;
+  }
+};
 test('phase3 independent: actual runner terminates parent and child process after success and cancellation', { timeout: 15000 }, async t => {
   const dir = directory(t), bot = path.join(dir,'tree.cjs');
   fs.writeFileSync(bot, `const fs=require('node:fs'),{spawn}=require('node:child_process');const c=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{windowsHide:true,stdio:'ignore'});fs.writeFileSync(process.argv[2],JSON.stringify([process.pid,c.pid]));require('node:readline').createInterface({input:process.stdin}).once('line',()=>{if(process.argv[3]==='success')console.log('{"type":"none"}');setInterval(()=>{},1000);});`);
@@ -46,6 +61,6 @@ test('phase3 independent: actual runner terminates parent and child process afte
     for(let n=0;n<100&&!fs.existsSync(file);n++) await new Promise(resolve=>setTimeout(resolve,20));
     assert.ok(fs.existsSync(file),'child process started'); const pids=JSON.parse(fs.readFileSync(file,'utf8'));
     if(mode==='cancel') { controller.abort(); await assert.rejects(pending,{name:'AbortError'}); } else assert.deepEqual(await pending,{action:{type:'none'}});
-    assert.deepEqual(pids.filter(exists),[],'runner completion must follow process tree termination');
+    assert.deepEqual(pids.filter(running),[],'runner completion must follow process tree termination (terminated zombies are not running)');
   }
 });
