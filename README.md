@@ -1,5 +1,7 @@
 # Majsoul Agent
 
+**0.12.0：让模型先看清当前局面，再解释取舍。** 实时自动分析主动提供当前授权局面、座位与牌名导航、本地向听／进张及逐家危险依据，不再默认携带旧完整局面和旧自动建议。新结果等待、失败或取消时保留上一份完成建议，并标明旧时点；仍可回到原决策追问。该产品移植尚未做新版真实模型质量评测，历史实验不能作为本版正确率、速度或价格承诺。[实时上下文与预算](docs/NED_CONTEXT.md)
+
 可追问、能答疑的雀魂 AI 分析助手
 
 **看懂每一次取舍，随时追问为什么。**
@@ -8,11 +10,11 @@
 
 面向雀魂网页版的实时分析助手。使用你自己的 LLM API，在出牌决策点获取建议，再追问“为什么不打另一张？”“现在该进攻还是防守？”。每个决策保留独立的冻结局面和讨论，新建议到来后，仍能回到原来的问题继续聊。围绕具体局面理解牌效率与攻守取舍，帮助你逐步建立自己的判断。牌谱复盘与结算记录是辅助能力。
 
-[**下载 v0.11.1**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.11.1) · [接入大模型](#接入大模型) · [查看实测依据](docs/MODEL_BENCHMARK.md)
+[**下载 v0.12.0**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.12.0) · [接入大模型](#接入大模型) · [查看实测依据](docs/MODEL_BENCHMARK.md)
 
 | 你想做什么 | 助手提供什么 |
 | --- | --- |
-| **当场看懂建议** | 悬浮卡展示首选、候选与理由；本地向听、进张及危险证据供模型按需查询 |
+| **当场看懂建议** | 悬浮卡展示首选、候选与理由；实时主动提供本地向听、进张及逐家危险依据，缺项可按需查询 |
 | **针对一个决策追问** | 每个决策独立冻结局面与上下文，保留讨论，刷新后可恢复 |
 | **回到之前那一巡** | 选择已记录的巡目／决策点，查看当时手牌与原建议，继续讨论 |
 | **只需要记录牌局** | 独立获取器可单独安装，提供采集、展示、历史与导出 |
@@ -23,12 +25,12 @@
 | --- | ---: | ---: |
 | **DeepSeek-V4.1-Flash** | **约 ¥0.024（2.4 分）** | **约 5.6 秒** |
 
-**39 次分析，总估费约 ¥0.92。** 同一场牌谱的 39 点旧 B 方案、关闭思考；按高峰缓存价估费，非账单，不含追问。HTTP 累计耗时非端到端时间，不代表当前 v0.11.1 表现。
+**39 次分析，总估费约 ¥0.92。** 同一场牌谱的 39 点旧 B 方案、关闭思考；按高峰缓存价估费，非账单，不含追问。HTTP 累计耗时非端到端时间，不代表当前 v0.12.0 表现。
 
 <details>
 <summary>历史实测：39点 / MAKA首选41%，查看条件与局限</summary>
 
-**39 次分析，总估费约 ¥0.92。** 来自 2026-10-25 同一场牌谱的 39 个决策点、旧 B 上下文方案、关闭思考的真实 API 实验。费用按返回用量及高峰缓存价估算，含失败分析，非实付账单，不含追问；耗时不是从局面变化到界面显示的端到端时间。实验提示与上下文不同于当前 **v0.11.1**，不能视为当前版速度或价格承诺。[设置、公式与完整结果](docs/MODEL_BENCHMARK.md)
+**39 次分析，总估费约 ¥0.92。** 来自 2026-10-25 同一场牌谱的 39 个决策点、旧 B 上下文方案、关闭思考的真实 API 实验。费用按返回用量及高峰缓存价估算，含失败分析，非实付账单，不含追问；耗时不是从局面变化到界面显示的端到端时间。实验提示与上下文不同于当前 **v0.12.0**，不能视为当前版速度或价格承诺。[设置、公式与完整结果](docs/MODEL_BENCHMARK.md)
 
 **实测效果怎么看？** 该次实验的 MAKA 首选一致 **16/39（41%）**，结构有效 **38/39**；其中 16 个有效结果的核心理由为空，解释质量仍需改进。该统计使用当时未完成全量人工核验的标签快照，不是按后续更正标签重新评分；一致率不等于建议正确率或牌力。当前产品支持围绕原建议继续追问，该历史实验未评估追问效果。
 
@@ -69,16 +71,16 @@
 
 ## 安装
 
-[下载 v0.11.1、源码与 SHA256 校验文件](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.11.1)
+[下载 v0.12.0、源码与 SHA256 校验文件](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.12.0)
 
 ### 选择安装内容
 
 | 安装包 | 提供的能力 |
 | --- | --- |
-| [majsoul-ai-analysis-and-review-agent-0.11.1.zip](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.11.1/majsoul-ai-analysis-and-review-agent-0.11.1.zip) | 获取器、局面面板、结算历史、Agent、模型设置与harness运行记录 |
-| [majsoul-collector-0.11.1.zip](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.11.1/majsoul-collector-0.11.1.zip) | 仅采集、展示、历史与导出；不含模型代码、设置页或模型主机权限 |
+| [majsoul-ai-analysis-and-review-agent-0.12.0.zip](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.12.0/majsoul-ai-analysis-and-review-agent-0.12.0.zip) | 获取器、局面面板、结算历史、Agent、模型设置与harness运行记录 |
+| [majsoul-collector-0.12.0.zip](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.12.0/majsoul-collector-0.12.0.zip) | 仅采集、展示、历史与导出；不含模型代码、设置页或模型主机权限 |
 
-本地引擎工具需另下载 [0.11.1 源码包](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.11.1/majsoul-ai-analysis-and-review-agent-source-0.11.1.zip)；两个扩展安装包均不含模型权重、Python 环境或上游原生模块。
+本地引擎工具需另下载 [0.12.0 源码包](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.12.0/majsoul-ai-analysis-and-review-agent-source-0.12.0.zip)；两个扩展安装包均不含模型权重、Python 环境或上游原生模块。
 
 同一游戏页面只启用其中一个版本。获取器可以独立使用，导出记录再交给离线复盘工具；两种扩展的本地存储独立，不自动迁移。源码中的 `extension/` 为完整版；运行 `npm run build` 会生成两种可加载目录。
 

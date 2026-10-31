@@ -255,7 +255,9 @@
           context: typeof current.analysisContext === 'function' ? current.analysisContext() : undefined } : {};
       const capturedContext = external && extra.context ? clone(extra.context) : (typeof current.analysisContext === 'function' ? clone(current.analysisContext()) : { identity: context?.contextIdentity, position: context?.cursor ?? data.lastStep });
       const captured = fingerprint(), seatLabels = current.seatLabels.slice();
-      const capturedPosition = { round: data.game?.round, source: context?.mode, cursor: context?.cursor, selfSeat: data.selfSeat, hand: data.selfHand?.slice() || [] };
+      const capturedPosition = { round: data.game?.round, honba: data.game?.honba, lastStep: data.lastStep,
+        turn: data.game?.turnProgress?.status === 'known' ? data.game.turnProgress.bySeat[data.selfSeat] : null,
+        source: context?.mode, cursor: context?.cursor, selfSeat: data.selfSeat, hand: data.selfHand?.slice() || [] };
       pendingFingerprint = automatic ? captured : ''; pendingAutomatic = automatic; busy = true;
       if (automatic) failure = ''; else globalFailure = '';
       modelFailureExpanded[automatic ? 'automatic' : 'global'] = false;
@@ -497,6 +499,10 @@
     const focusSummary = focusTile ? `<div class="analysis-focus${focusExpanded ? ' is-expanded' : ''}" aria-label="候选牌解释"><small>${escape(MJSnapshotContract.label(focusTile))} · ${focusTile === r?.decision.tile ? '首选建议' : '候选解释'}</small><p id="model-focus-text">${escape(joinReasons([...focusedDanger, ...focusedEfficiency]) || '暂无该牌的额外解释，请展开详细分析查看完整依据。')}</p><button id="model-focus-toggle" aria-expanded="${focusExpanded}" aria-controls="model-focus-text" ${focusExpanded ? '' : 'hidden'}>${focusExpanded ? '收起' : '展开'}</button></div>` : '';
     const candidateHtml = focusTiles.length ? `<div class="analysis-candidates"><span class="muted">比较</span>${focusTiles.map((tile, index) => `<button id="model-candidate-${index}" data-candidate-tile="${escape(tile)}" aria-pressed="${tile === focusTile}" aria-label="查看${escape(MJSnapshotContract.label(tile))}的风险和效率理由">${face(tile)}</button>`).join('')}</div>${focusSummary}` : '';
     const roundLabel = current.round ? `${['东', '南', '西', '北'][current.round.wind] || '东'}${Number(current.round.index) + 1}局` : '等待开局';
+    const previousPosition = result?.position;
+    const previousLabel = previousPosition ? [previousPosition.round ? `${['东', '南', '西', '北'][previousPosition.round.wind] || '未知'}${previousPosition.round.index + 1}局` : '',
+      Number.isFinite(previousPosition.honba) ? `${previousPosition.honba}本场` : '', Number.isInteger(previousPosition.turn) ? `第${previousPosition.turn}巡` : '巡目未知',
+      Number.isInteger(previousPosition.lastStep) ? `事件 ${previousPosition.lastStep}` : ''].filter(Boolean).join(' · ') : '';
     const selfLabel = Number.isInteger(current.selfSeat) ? current.seatLabels[current.selfSeat] : '';
     const replay = context?.mode === 'replay', recordCount = current.recordCount || 0, cursor = context?.cursor || 0;
     const modeControls = typeof current.onMode === 'function' ? `<div class="analysis-modes" role="group" aria-label="分析模式"><button id="analysis-mode-live" aria-pressed="${context?.mode === 'live'}">实时对局</button><button id="analysis-mode-replay" aria-pressed="${replay}">牌谱复盘</button></div>` : '';
@@ -542,6 +548,7 @@
       ${busy ? `<p class="${live ? 'warn' : 'muted'}" role="status" aria-live="polite">${discussionBusy ? '正在回答该决策的追问，可继续对局。' : live ? '正在分析，请先不要出牌。' : '正在分析中…'}</p>` : ''}
       ${(current.riichiLabels || []).length ? `<p class="analysis-riichi">${replay ? '已立直' : '立直警戒'} · ${(current.riichiLabels || []).map(escape).join(' · ')}</p>` : ''}
       <div class="analysis-main" role="status" aria-live="polite">
+      ${stale && r ? `<p class="analysis-meta muted">上一份已完成建议 · ${escape(previousLabel)} · 旧结果，仅供回看</p>` : ''}
       ${stale && !busy ? '<p class="warn analysis-stale">局面或分析功能已变化，以下为旧结果，请重新分析。</p>' : ''}
       ${r ? `<div class="analysis-decision"><span>${decisionHeading(result)}</span>${r.decision.tile ? face(r.decision.tile) : ''}${engineActionHtml(result)}<p>${escape(r.decision.reasons?.[0] || '请结合当前局面判断。')}</p></div>${candidateHtml}` : busy || savedAutomatic ? '' : `<div class="analysis-empty"><strong>${!current.round ? '等待开局数据' : preferences.automatic ? '等待轮到你出牌' : '自动提示未开启'}</strong>${!hasFeatures() ? '<p class="muted">请至少开启一项辅助功能。</p>' : preferences.useModel && !enabled ? '<p class="muted">请在模型设置中接入并开启模型。</p>' : ''}</div>`}
       ${!replay && (current.phase === 'ended' || context?.mode === 'history') ? '<p class="muted">历史或结算局面 · 仅作复盘</p>' : ''}

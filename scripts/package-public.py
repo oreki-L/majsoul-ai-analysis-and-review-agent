@@ -14,7 +14,7 @@ ROOT_FILES = [
     '.gitignore', '.gitattributes', 'LICENSE', 'README.md', 'README.en.md', 'README.ja.md', 'CHANGELOG.md', 'CONTRIBUTING.md',
     'SECURITY.md', 'THIRD_PARTY_NOTICES.md', 'ARCHITECTURE.md', 'VALIDATION.md', 'package.json', 'package-lock.json'
 ]
-SOURCE_DIRS = ['extension', 'agent', 'tests', 'scripts', '.github', 'docs', 'licenses']
+SOURCE_DIRS = ['extension', 'agent', 'benchmark', 'tests', 'scripts', '.github', 'docs', 'licenses']
 SECRET_PATTERNS = [
     rb'-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----',
     rb'\b(?:sk-(?:proj-)?[A-Za-z0-9_-]{24,}|ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|AKIA[0-9A-Z]{16})\b'
@@ -76,7 +76,7 @@ def stable_snapshot(destination, ref, version='0.2.1'):
     """Keep committed runtime, build scripts and dependencies from the same ref."""
     def committed(path):
         return subprocess.check_output(['git', 'show', ref + ':' + path], cwd=ROOT)
-    paths = subprocess.check_output(['git', 'ls-tree', '-r', '-z', '--name-only', ref, '--', 'extension', 'tests', 'scripts', 'agent', '.github'], cwd=ROOT).decode().split('\0')
+    paths = subprocess.check_output(['git', 'ls-tree', '-r', '-z', '--name-only', ref, '--', 'extension', 'tests', 'scripts', 'agent', 'benchmark', '.github'], cwd=ROOT).decode().split('\0')
     for relative in filter(None, paths):
         if relative.startswith('extension/tiles/'):
             continue

@@ -109,7 +109,7 @@
                 roundStartId: identity.roundStartId, viewId: identity.viewId },
               position: info.position, events: info.events, eventWindowStart: info.eventWindowStart, historyComplete: info.historyComplete,
               lane, provider: url.href, model: c.model, task,
-              config: { revision, memoryVersion: memory.version, mode: contextMode, promptVersion: 5, maxTokens: c.maxTokens, selection: true } });
+              config: { revision, memoryVersion: memory.version, mode: contextMode, promptVersion: 6, maxTokens: c.maxTokens, selection: true } });
             checkCancelled(); sessionContext = await roundContexts.getContext(session);
             if (lane === 'live' && memory.entries.length) sessionContext.userMemory = memory;
           }
@@ -122,7 +122,7 @@
           try {
             const analysis = await root.MJAgent.run({ snapshot: message.snapshot, task, signal: controller.signal,
               runtime, sessionContext, question, toolCalling: true,
-              contextPolicy: lane === 'live' && !question && !message.discussionId ? 'live-selective' : 'full',
+              contextPolicy: lane === 'live' && !question && !message.discussionId ? 'live-ned' : 'full',
               maxTurns: lane === 'manual-review' ? 3 : 2,
               timeoutMs: outputOptions.thinking?.type === 'enabled' ? 120000 : 25000,
               transport: async request => {

@@ -1,5 +1,7 @@
 # Majsoul Agent
 
+**0.12.0: clearer facts before explaining trade-offs.** Automatic live analysis now receives the authorized current position, tile/seat navigation, local shanten and effective-tile calculations, and per-opponent danger evidence. Old full snapshots and automatic advice are omitted by default; local records and frozen decision discussions remain available. The last completed card stays visible while a new result is pending, fails, or is cancelled, with its old position identified. This production adaptation has not received a new real-model quality evaluation; historical results promise neither accuracy, latency, nor cost. [Context and budgets](docs/NED_CONTEXT.md) (Chinese).
+
 An interactive Mahjong Soul AI assistant for explanations and follow-up questions
 
 **Understand each trade-off. Ask why at any decision.**
@@ -8,11 +10,11 @@ An interactive Mahjong Soul AI assistant for explanations and follow-up question
 
 A live analysis assistant for the Mahjong Soul web client, centered on a pure LLM runtime using your own model API. Ask “Why not discard another tile?” or “Should I push or defend now?” Each decision keeps its own frozen position and discussion, so you can return to a question after new advice arrives. Explore tile efficiency and push/fold trade-offs in concrete positions to build your own judgment. Replay review and match records are supporting features.
 
-[**Download v0.11.1**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.11.1) · [LLM setup](#llm-setup) · [Test evidence](docs/MODEL_BENCHMARK.md)
+[**Download v0.12.0**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.12.0) · [LLM setup](#llm-setup) · [Test evidence](docs/MODEL_BENCHMARK.md)
 
 | What you want to do | What the assistant provides |
 | --- | --- |
-| **Understand advice during play** | A floating card with the first choice, alternatives, and reasons; local shanten, efficiency, and danger evidence available through tools |
+| **Understand advice during play** | A floating card with the first choice, alternatives, and reasons; local shanten, effective-tile and per-opponent danger evidence supplied proactively, with tools for missing detail |
 | **Question a specific decision** | A separate frozen position and context for each decision, with retained discussions restored after reload |
 | **Return to an earlier turn** | Select a recorded turn/decision, inspect the captured hand and original advice, and continue asking questions |
 | **Just record games** | A standalone collector for collection, display, history, and export |
@@ -23,12 +25,12 @@ A live analysis assistant for the Mahjong Soul web client, centered on a pure LL
 | --- | ---: | ---: |
 | **DeepSeek-V4.1-Flash** | **About CNY 0.024** | **About 5.6 s** |
 
-**39 analyses, about CNY 0.92 estimated total.** One replay, 39 points, older B context, thinking disabled. Peak cache-aware cost estimate, not an account bill; follow-ups excluded. Summed HTTP time is not end-to-end latency, and these are not current v0.11.1 results.
+**39 analyses, about CNY 0.92 estimated total.** One replay, 39 points, older B context, thinking disabled. Peak cache-aware cost estimate, not an account bill; follow-ups excluded. Summed HTTP time is not end-to-end latency, and these are not current v0.12.0 results.
 
 <details>
 <summary>Historical test: 39 points / 41% MAKA first-choice agreement — conditions and limits</summary>
 
-**39 analyses, about CNY 0.92 in estimated total cost.** Measured on 2026-10-25 across 39 decision points from one replay, using the older B context strategy with thinking disabled. Cost uses returned usage and peak cache-aware rates, includes failed analyses, and is not an account bill; it excludes follow-up questions. Time is not end-to-end UI latency. The research prompt and context differ from **v0.11.1**, so these figures do not promise current-version speed or cost. [Settings, formulas, and full results](docs/MODEL_BENCHMARK.md) (Chinese).
+**39 analyses, about CNY 0.92 in estimated total cost.** Measured on 2026-10-25 across 39 decision points from one replay, using the older B context strategy with thinking disabled. Cost uses returned usage and peak cache-aware rates, includes failed analyses, and is not an account bill; it excludes follow-up questions. Time is not end-to-end UI latency. The research prompt and context differ from **v0.12.0**, so these figures do not promise current-version speed or cost. [Settings, formulas, and full results](docs/MODEL_BENCHMARK.md) (Chinese).
 
 **What about advice quality?** MAKA first-choice agreement was **16/39 (41%)**, with **38/39** structurally valid outputs; 16 valid outputs had empty core reasons, leaving explanation quality to improve. These statistics use the experiment's label snapshot, which had not undergone complete manual verification; they have not been rescored against later corrected labels. Agreement is not recommendation accuracy or playing strength. The product supports follow-up questions about saved advice; that historical experiment did not evaluate follow-up quality.
 
@@ -69,14 +71,14 @@ Local history retains up to 20 matches and 100 hands per match, evicting the old
 
 ## Installation
 
-[Download v0.11.1, source, and SHA256 checksums](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.11.1)
+[Download v0.12.0, source, and SHA256 checksums](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.12.0)
 
 | Package | Capabilities |
 | --- | --- |
-| [majsoul-ai-analysis-and-review-agent-0.11.1.zip](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.11.1/majsoul-ai-analysis-and-review-agent-0.11.1.zip) | Collector, panel, match history, Agent, model settings, and harness traces |
-| [majsoul-collector-0.11.1.zip](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.11.1/majsoul-collector-0.11.1.zip) | Collection, display, history, and export only; no model code, settings page, or model host permissions |
+| [majsoul-ai-analysis-and-review-agent-0.12.0.zip](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.12.0/majsoul-ai-analysis-and-review-agent-0.12.0.zip) | Collector, panel, match history, Agent, model settings, and harness traces |
+| [majsoul-collector-0.12.0.zip](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.12.0/majsoul-collector-0.12.0.zip) | Collection, display, history, and export only; no model code, settings page, or model host permissions |
 
-Local engine tools require the separate [0.11.1 source package](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.11.1/majsoul-ai-analysis-and-review-agent-source-0.11.1.zip). Neither extension ZIP bundles model weights, Python environments, or upstream native modules.
+Local engine tools require the separate [0.12.0 source package](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.12.0/majsoul-ai-analysis-and-review-agent-source-0.12.0.zip). Neither extension ZIP bundles model weights, Python environments, or upstream native modules.
 
 Enable only one profile on a game page. The collector works independently and can export records for offline review. The profiles have separate local storage and do not migrate data automatically. The source `extension/` directory is the full edition; `npm run build` generates both loadable directories.
 

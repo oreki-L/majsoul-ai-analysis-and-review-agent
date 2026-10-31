@@ -247,6 +247,38 @@ test('hints only describe the matching live hand and never alter sending authori
   p.destroy(); assert.equal(p.hints.at(-1), null);
 });
 
+test('automatic pending and failed next-turn requests retain the completed card with its old position', async () => {
+  const p = automaticPanel(); await flush(); p.state.lastStep = 1;
+  const previous = modelResult(); previous.result.decision.reasons = ['previous-completed-advice'];
+  await automaticResult(p, previous);
+  for (const error of ['请求超时', '模型返回失败']) {
+    p.state.lastStep++; p.render(); p.fireTimer(); await flush();
+    assert.match(p.html(), /previous-completed-advice/);
+    assert.match(p.html(), /上一份已完成建议 · 东1局 · 0本场 · 巡目未知 · 事件 1 · 旧结果，仅供回看/);
+    assert.equal(p.hints.at(-1), null);
+    p.resolve({ ok: false, error }); await flush();
+    assert.match(p.html(), /previous-completed-advice/); assert.match(p.html(), new RegExp(error));
+  }
+  p.state.lastStep++; p.render(); p.fireTimer(); await flush();
+  const next = modelResult(); next.result.decision.reasons = ['new-completed-advice'];
+  p.resolve(next); await flush();
+  assert.match(p.html(), /new-completed-advice/); assert.doesNotMatch(p.html(), /previous-completed-advice|上一份已完成建议/);
+  p.destroy();
+});
+
+test('automatic cancellation and a late response never replace the previous completed advice', async () => {
+  const p = automaticPanel(); await flush();
+  const previous = modelResult(); previous.result.decision.reasons = ['previous-completed-advice'];
+  await automaticResult(p, previous);
+  p.state.lastStep++; p.render(); p.fireTimer(); await flush();
+  p.state.lastStep++; p.state.turn = (p.state.selfSeat + 1) % 4; p.render();
+  assert.match(p.html(), /previous-completed-advice/); assert.equal(p.hints.at(-1), null);
+  const late = modelResult(); late.result.decision.reasons = ['late-cancelled-advice'];
+  p.resolve(late); await flush();
+  assert.match(p.html(), /previous-completed-advice/); assert.doesNotMatch(p.html(), /late-cancelled-advice/);
+  p.destroy();
+});
+
 test('visible mode switch exposes replay navigation and preserves global analysis', async () => {
   const p = panel({ recordCount: 3 }); await flush();
   const pending = p.element('model-run').onclick({ isTrusted: true }); await flush(); p.resolve(modelResult()); await pending;

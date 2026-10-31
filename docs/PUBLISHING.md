@@ -23,7 +23,7 @@ python scripts/package-public.py
 
 打包器会先运行对应源码的检查和测试，再按明确白名单生成：
 
-- `dist/majsoul-ai-analysis-and-review-agent-source-<version>.zip`：以`majsoul-ai-analysis-and-review-agent/`为根的源码，含三语介绍、Agent、harness、获取器、测试和CI。
+- `dist/majsoul-ai-analysis-and-review-agent-source-<version>.zip`：以`majsoul-ai-analysis-and-review-agent/`为根的源码，含三语介绍、Agent、harness、获取器、公开benchmark与人工样例、测试和CI。
 - `dist/majsoul-ai-analysis-and-review-agent-<version>.zip`：完整版，解压后直接含`manifest.json`。
 - `dist/majsoul-collector-<version>.zip`：仅获取器，不含模型代码、设置页或模型主机权限。
 - `dist/SHA256SUMS-<version>.txt`：以上文件的SHA-256，版本以源码中的 manifest 与 package 为准。

@@ -22,7 +22,7 @@ test('public source allowlist and ZIP retain npm lock, runtime source and full l
   runPython(load + `
 files = packager.allowed_files()
 names = {path.relative_to(packager.ROOT).as_posix() for path in files}
-required = {'package.json', 'package-lock.json', 'licenses/pi-LICENSE.txt', 'licenses/typebox-LICENSE.txt', 'licenses/SOURCES.md', 'extension/pi-runtime.js', 'scripts/pi-runtime-entry.mjs', 'scripts/bundle-pi-runtime.mjs'}
+required = {'package.json', 'package-lock.json', 'licenses/pi-LICENSE.txt', 'licenses/typebox-LICENSE.txt', 'licenses/SOURCES.md', 'extension/pi-runtime.js', 'scripts/pi-runtime-entry.mjs', 'scripts/bundle-pi-runtime.mjs', 'benchmark/cli.cjs', 'benchmark/examples/suite.mock.json'}
 assert required <= names, required - names
 assert not any(part in {'.git', 'node_modules', 'dist', 'research'} for name in names for part in Path(name).parts)
 with tempfile.TemporaryDirectory(prefix='majsoul-source-test-') as directory:

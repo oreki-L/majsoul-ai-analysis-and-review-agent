@@ -437,7 +437,7 @@ test('configuration changes cancel pending analysis and clear sessions while pre
 });
 
 
-test('tenth automatic live payload has one snapshot, bounded dated excerpts, important events and complete rivers', async () => {
+test('tenth automatic live payload has one snapshot, NED evidence, no old advice and complete rivers', async () => {
   const responses = Array.from({ length: 10 }, (_, i) => {
     const value = reply('ADVICE_' + (i + 1));
     if (i < 5) { const result = JSON.parse(value.choices[0].message.content); result.decision.action = i % 2 ? 'fold' : 'defend'; value.choices[0].message.content = JSON.stringify(result); }
@@ -457,11 +457,14 @@ test('tenth automatic live payload has one snapshot, bounded dated excerpts, imp
   assert.equal((serialized.match(/\\"snapshot\\":/g) || []).length, 1);
   assert.doesNotMatch(serialized, /initialSnapshot|localAnalysis|tool_calls|OPPONENT_SECRET/);
   const history = JSON.parse(body.messages[1].content.split('\n')[1]);
-  assert.deepEqual(history.advice.map(a => a.position), [4, 5, 6, 7, 8, 9]);
-  assert.equal(new Set(history.advice.map(a => a.decisionId)).size, 6);
-  assert.ok(history.advice.every(a => a.excerpt === true));
+  assert.equal(history.policy, 'live-ned-v1');
+  assert.equal(history.advice, undefined);
+  assert.ok(history.efficiency.calculation); assert.ok(history.danger.calculation);
+  assert.equal(history.navigation.position, 10);
+  assert.doesNotMatch(serialized, /ADVICE_/);
+  assert.ok(w.requests.every(r => r.body.messages[0].content === body.messages[0].content));
   assert.deepEqual(history.importantEvents.map(e => e.position), [0, 3]);
-  assert.doesNotMatch(JSON.stringify(history), /selfHand|snapshot|efficiency|danger/);
+  assert.doesNotMatch(JSON.stringify(history.importantEvents), /selfHand|snapshot|hand/);
   const current = JSON.parse(body.messages.at(-1).content.split('\n')[1]);
   assert.equal(current.snapshot.rivers.length, 4);
   assert.ok(current.snapshot.rivers.every(r => r.discards.length === 10));
@@ -480,13 +483,14 @@ test('automatic projection retains events at failed analyses, clears cross-round
   const body = w.requests.at(-1).body;
   const tool = body.messages.find(m => m.role === 'tool');
   assert.deepEqual(JSON.parse(tool.content).events.map(e => e.position), [1, 2, 3]);
-  assert.equal(JSON.parse(body.messages[1].content.split('\n')[1]).advice.length, 1);
+  assert.equal(JSON.parse(body.messages[1].content.split('\n')[1]).advice, undefined);
+  assert.doesNotMatch(JSON.stringify(body.messages.slice(1)), /FIRST/);
   await w.analyze(4, { lane: 'live', question: '为什么？', context: ctx(4) });
   assert.match(JSON.stringify(w.requests.at(-1).body.messages), /initialSnapshot|FIRST/);
   await w.analyze(5, { lane: 'live', context: ctx(5, 'r2') });
-  assert.deepEqual(JSON.parse(w.requests.at(-1).body.messages[1].content.split('\n')[1]).advice, []);
+  assert.equal(JSON.parse(w.requests.at(-1).body.messages[1].content.split('\n')[1]).advice, undefined);
   const snapshot = position(6); delete snapshot.selfHand; delete snapshot.rivers;
   assert.equal((await w.analyze(6, { lane: 'live', snapshot, context: ctx(6, 'r2') })).ok, true);
-  assert.deepEqual(JSON.parse(w.requests.at(-1).body.messages[1].content.split('\n')[1]).advice, []);
+  assert.equal(JSON.parse(w.requests.at(-1).body.messages[1].content.split('\n')[1]).advice, undefined);
   assert.doesNotMatch(JSON.stringify(w.requests.at(-1).body.messages.slice(1)), /FIRST|THIRD|initialSnapshot|selfHand/);
 });
