@@ -4,7 +4,8 @@
 
 - 已公开的 `v0.12.0` tag 保持 `293936d`，其首次远端CI在 Ubuntu／Node22 的既有专业引擎进程树测试失败，其余矩阵被fail-fast取消；不能称原tag远端CI通过。
 - 该测试用 `kill(pid,0)` 判断子孙进程仍运行；Linux中已被SIGKILL终止、等待新父进程回收的僵尸进程也会让此探测成功。仅修正测试辨别 Linux `/proc/<pid>/stat` 的 `Z` 状态，继续拒绝真正存活的子孙进程；Windows合同不变。未修改NED、可选引擎运行器或发行资产，不改写tag。
-- 修正后的main将单独运行Windows／Ubuntu及Node22／24四组合CI，验收结果以对应提交的远端运行记录为准，不冒充v0.12.0原tag的结果。
+- 后续main CI已在Ubuntu／Node22、Ubuntu／Node24与Windows／Node24通过；Windows／Node22暴露另一个benchmark测试的160毫秒实际调度／fsync时序假设。该测试改用mock单调时钟，仍校验首答与H8复核共用同一截止时间、剩余预算递减及完整延迟，不依赖CI主机速度；不修改执行器运行代码或实验预算。
+- 两项测试修正后的main单独运行Windows／Ubuntu及Node22／24四组合CI，验收结果以对应提交的远端运行记录为准，不冒充v0.12.0原tag的结果。
 
 ## 0.12.0 NED 实时上下文发布验收（2026-10-31）
 

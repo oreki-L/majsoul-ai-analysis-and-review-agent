@@ -238,11 +238,14 @@ test('repair feedback preserves real tool exchanges and stops on provider failur
 
 
 test('H8 review cannot restart the initial logical deadline and total latency includes both phases', async t => {
+  // Exercise the shared deadline, not the CI host's scheduling/fsync speed.
+  let elapsed = 1000;
+  t.mock.method(require('node:perf_hooks').performance, 'now', () => elapsed);
   const suite = compileSuite(EXAMPLE), checkpoint = temp(t); suite.schemes = [{ ...suite.schemes[0], review: true }]; suite.dataset.rounds = [suite.dataset.rounds[0]];
   const node = suite.dataset.rounds[0].decisions[0]; node.followups = []; suite.dataset.rounds[0].decisions = [node]; suite.dataset.rounds[0].globalTasks = []; suite.execution.timeoutMs = 160;
   const calls = [];
   const state = await runSuite(suite, { checkpoint, transportFactory: options => {
-    const transport = createTransport(options), run = transport.runModel; transport.runModel = async args => { calls.push({ role: args.meta.role, timeoutMs: args.timeoutMs }); await new Promise(resolve => setTimeout(resolve, args.meta.role === 'review' ? 170 : 25)); return run(args); }; return transport;
+    const transport = createTransport(options), run = transport.runModel; transport.runModel = async args => { calls.push({ role: args.meta.role, timeoutMs: args.timeoutMs }); elapsed += args.meta.role === 'review' ? 170 : 25; return run(args); }; return transport;
   } });
   assert.equal(calls.length, 2); assert.ok(calls[1].timeoutMs < calls[0].timeoutMs - 20);
   assert.equal(state.results[0].status, 'failed'); assert.ok(state.results[0].latencyMs >= 190);
