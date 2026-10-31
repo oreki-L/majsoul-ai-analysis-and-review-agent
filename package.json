@@ -17,7 +17,9 @@
     "eval": "node agent/eval.cjs",
     "engine:serve": "node agent/engine-server.cjs",
     "engine:akagi": "node agent/akagi-local.cjs",
-    "engine:review": "node agent/engine-review.cjs"
+    "engine:review": "node agent/engine-review.cjs",
+    "benchmark:validate": "node benchmark/cli.cjs validate --suite benchmark/examples/suite.mock.json",
+    "benchmark:mock": "node benchmark/cli.cjs autonomous --suite benchmark/examples/suite.mock.json --mock --out research/evidence/benchmark/autonomous-demo"
   },
   "dependencies": {
     "@earendil-works/pi-agent-core": "1.4.0",

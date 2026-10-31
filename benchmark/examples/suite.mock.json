@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "synthetic-context-demo",
+  "dataset": "dataset.synthetic.json",
+  "labels": "labels.synthetic.json",
+  "models": {
+    "synthetic": {
+      "provider": "mock",
+      "model": "synthetic-only",
+      "maxTokens": 1024,
+      "rates": {"input": 0, "cachedInput": 0, "output": 0, "currency": "CNY"}
+    }
+  },
+  "schemes": [
+    {"id": "current-only", "modelId": "synthetic", "context": {"current": "full"}},
+    {"id": "raw-history", "modelId": "synthetic", "context": {"current": "compact", "events": "all", "snapshots": "raw", "advice": "raw"}},
+    {"id": "async-summary", "modelId": "synthetic", "context": {"events": "important", "advice": {"mode": "llm", "trigger": 1, "recent": 0}}, "review": true}
+  ],
+  "execution": {"seed": 13, "repetitions": 1, "concurrency": 2, "timeoutMs": 5000, "maxModelRequests": 100, "maxToolCalls": 0, "budget": {"cap": 0, "currency": "CNY"}}
+}

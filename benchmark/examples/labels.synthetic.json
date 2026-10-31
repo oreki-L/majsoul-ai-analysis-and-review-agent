@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "synthetic": true,
+  "labels": [
+    {"decisionId": "synthetic-d1", "maka": {"preferred": "1m", "candidates": [{"tile": "1m", "action": "discard", "weight": 35}, {"tile": "2m", "action": "discard", "weight": 0}]}, "gpt": {"candidates": [{"tile": "1m", "action": "discard", "weight": 70}, {"tile": "2m", "action": "discard", "weight": 30}]}},
+    {"decisionId": "synthetic-d2", "maka": {"preferred": "2m", "candidates": [{"tile": "1m", "action": "discard", "weight": 15}, {"tile": "2m", "action": "discard", "weight": 55}]}, "gpt": {"candidates": [{"tile": "1m", "action": "discard", "weight": 0}, {"tile": "2m", "action": "discard", "weight": 100}]}}
+  ]
+}
