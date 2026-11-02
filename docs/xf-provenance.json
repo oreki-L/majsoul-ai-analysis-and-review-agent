@@ -1,0 +1,25 @@
+{
+  "version": "xf-production-port/1",
+  "strategy": "X-S + phase3 compact facts; claims:false",
+  "frozenSourceSha256": {
+    "benchmark/holdout-validation.cjs": "96d233ea567c738472ef01d0cfafff8e48b2551e62458e49c1fa98b027ec6f4a",
+    "benchmark/next-stage-context.cjs": "99d255b9ee6104af0bf0953eb701e399fb6b2f19dd57db88e1baa2da5a5af900",
+    "benchmark/next-stage-legacy.cjs": "cf9e6b697a7a609631051faf2634499c937cbd780b05b65a618c36674ff9d706",
+    "benchmark/campaign-policies.cjs": "bea20dc9b58d35a1ee031a49d736416d8f64b921a637b42e2e4064895e47e451",
+    "benchmark/phase3-facts.cjs": "ed152778bc9af675c7d31390aab37184f862caa88df05ea99a9974ca740cd549",
+    "benchmark/fact-citations.cjs": "8225a6718616f10deaaa7c0f52b9b5f3effbcf35bd356dfe886933fbc0c9ac4a",
+    "benchmark/production-v010.cjs": "a86ce8729ad89bbccdc53020e350df04da67bb03734b342ce8fc7e35207161bb"
+  },
+  "reportSha256": {
+    "HOLDOUT45_REPORT.json": "c74b1f5557e17b72bcecc991cff611217c179325208083a6a1194901c267d385",
+    "TEST_REPORT.md": "0f541ae30dd24a7535efe66fe9708162a7001c126b8d8e79b4b51824c00193da",
+    "TEST_REPORT.html": "d117dcacede8978c317aa2105a7e763ddb57a543bf65b94339b0ba8d8b05f83e"
+  },
+  "offlineEquivalence": {
+    "logicalDecisions": 45,
+    "rounds": 4,
+    "matchedInitialSystemAndMessages": 45,
+    "realModelRerun": false
+  },
+  "scope": "one replay; correlated nodes; not production online quality validation"
+}

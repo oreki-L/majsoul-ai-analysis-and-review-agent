@@ -149,3 +149,7 @@ LLM 分析与解释保持主要定位，默认 `chat` 且分析关闭。设置�
 `background.js` 保留可信组合入口及消息的扩展身份、URL、frame 检查与分发；`model-analysis-worker.js` 的 `create` 接收 storage、permissions、fetchModel、runtime 和同一份 roundContexts/runStore/discussions/memoryWorker 实例。`prepare/analyze` 承接授权 DTO 准备、配置校验、Pi 与 mjai 请求、timeout/abort、会话提交回滚与用量记账。`busy/cancel/cancelAll/invalidate` 公开生命周期控制；pending 与配置 revision 只在该服务各保留一份，记忆模块通过 busy 回调服从实时分析优先。
 
 诊断、记忆、历史和讨论保留各自模块；HTTP 与密钥仍仅在可信后台执行。服务不依赖 Chrome／DOM／采集器全局，只使用注入能力；固定 Pi bundle、提示词、工具预算、lane、冻结追问与用量未知语义保持不变。两项新模块登记静态依赖白名单、加载顺序和 Agent-only 资源闭包，Collector 不会分发它们。
+
+## 实时事实投影（0.13.0）
+
+`xf-context.js` 是依赖 snapshot 合同与 analysis 的纯模块，按原冻结 X-S + 阶段三事实目录构造 X-F。`agent.js` 仅在完整四麻自动综合弃牌点使用它，其他任务回退原 NED；全局与追问继续走完整上下文。`round-context.js` 从已有基线/增量返回全部 capturedStates，界面的检查点导航仍有界。生成输入只压缩授权旧事实，不发送旧意见；原严格结果校验、工具、运行预算与 collector 能力边界保持。详见 [输入合同](docs/XF_CONTEXT.md)。

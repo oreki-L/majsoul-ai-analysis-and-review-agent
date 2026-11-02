@@ -6,7 +6,7 @@ export const providers = {
   __MJ_OBSERVER_PROTOCOL_V1__: 'protocol.js', __MJ_OBSERVER_CAPTURE_V1__: 'capture.js',
   __MJ_OBSERVER_STATE_V1__: 'state.js', MJHistory: 'history.js', MJMahjongAnalysis: 'mahjong-analysis.js',
   MJSnapshotContract: 'contracts/snapshot.js', MJCollectorSnapshot: 'collector/snapshot-adapter.js',
-  MJModelEndpoint: 'adapters/model-endpoint.js', MJAnalysis: 'analysis.js', MJHarness: 'harness.js', MJAgent: 'agent.js',
+  MJModelEndpoint: 'adapters/model-endpoint.js', MJAnalysis: 'analysis.js', MJHarness: 'harness.js', MJAgent: 'agent.js', MJXfContext: 'xf-context.js',
   MJPiRuntime: 'pi-runtime.js', MJRoundContext: 'round-context.js', MJModelUsage: 'model-usage.js',
   MJModelAnalysisWorker: 'model-analysis-worker.js', MJModelConfigStore: 'model-config-store.js', MJModelProfiles: 'model-profiles.js', MJModelDiagnostics: 'model-diagnostics.js', MJModelSessionTransport: 'model-session-transport.js', MJRunStore: 'agent-run-store.js', MJDecisionDiscussions: 'decision-discussions.js', MJPostgameReview: 'postgame-review.js',
   MJUserMemoryWorker: 'user-memory-worker.js', MJUserMemory: 'user-memory.js', MJUserMemoryAgent: 'user-memory-agent.js', MJUserMemoryCapture: 'user-memory-capture.js',
@@ -98,7 +98,7 @@ export function dependencies(file, source) {
   return [...result];
 }
 const browser = new Set(['document', 'window', 'chrome', 'localStorage', 'sessionStorage', 'indexedDB', 'caches', 'WebSocket', 'fetch', 'XMLHttpRequest', 'location', 'navigator']);
-export const agentOnlyModules = ['model-analysis-worker.js', 'model-config-store.js', 'model-profiles.js', 'model-diagnostics.js', 'pi-runtime.js', 'round-context.js', 'model-usage.js', 'model-session-transport.js', 'agent-run-store.js', 'decision-discussions.js', 'postgame-review.js', 'user-memory.js', 'user-memory-agent.js', 'user-memory-capture.js', 'user-memory-worker.js'];
+export const agentOnlyModules = ['xf-context.js', 'model-analysis-worker.js', 'model-config-store.js', 'model-profiles.js', 'model-diagnostics.js', 'pi-runtime.js', 'round-context.js', 'model-usage.js', 'model-session-transport.js', 'agent-run-store.js', 'decision-discussions.js', 'postgame-review.js', 'user-memory.js', 'user-memory-agent.js', 'user-memory-capture.js', 'user-memory-worker.js'];
 // Only this generated vendor artifact bypasses project-global resolution. It has
 // its own stricter capability check and is checked against a reproducible build.
 export function checkPiBundle(source) {
@@ -134,7 +134,8 @@ export function checkSourceBoundary(file, source) {
   else if (file === 'model-diagnostics.js') { allowed = new Set(['adapters/model-endpoint.js', 'model-session-transport.js']); pure = true; }
   else if (['model-profiles.js', 'model-usage.js', 'model-session-transport.js', 'agent-run-store.js'].includes(file)) { allowed = new Set(); pure = true; }
   else if (file === 'harness.js') { allowed = new Set(); pure = true; }
-  else if (file === 'agent.js') { allowed = new Set(['analysis.js', 'mahjong-analysis.js', 'harness.js', 'contracts/snapshot.js']); pure = true; }
+  else if (file === 'xf-context.js') { allowed = new Set(['contracts/snapshot.js', 'analysis.js']); pure = true; }
+  else if (file === 'agent.js') { allowed = new Set(['xf-context.js', 'analysis.js', 'mahjong-analysis.js', 'harness.js', 'contracts/snapshot.js']); pure = true; }
   else if (file === 'engine-agent.js') { allowed = new Set(['harness.js', 'contracts/snapshot.js', 'contracts/engine-result.js', 'mahjong-analysis.js', 'adapters/mjai.js']); pure = true; }
   else if (file === 'adapters/mjai.js' || file === 'adapters/naga-replay.js') { allowed = new Set(); pure = true; }
   else if (file === 'analysis.js' || file === 'mahjong-analysis.js') { allowed = new Set(['contracts/snapshot.js', 'mahjong-analysis.js']); pure = true; }

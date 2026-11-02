@@ -92,3 +92,23 @@ function worker(overrides = {}) {
     timers.delete(id); timer.fn();
   }, changed: (...args) => changed(...args), sender, accessLevel, get aborted() { return aborted; } };
 }
+
+test('X-F acceptance: actual background worker and Pi send the catalog and reconstruct scoped previous facts', async () => {
+  const w = worker(), s = require('../agent/eval.cjs').fixture('123m123p123s111z20p');
+  s.source = 'live'; s.lastStep = 5; s.selfDrawnTile = '0p';
+  const context = { identity: { matchId: 'xf-synthetic', roundStartId: 'r0', viewId: 'view0' } };
+  for (const position of [5, 6]) {
+    s.lastStep = position; s.game.remaining = 70 - position;
+    const response = await w.call({ type: 'model:analyze', task: 'combined', snapshot: s, lane: 'live', context: { ...context, position } });
+    assert.equal(response.ok, true, response.error);
+  }
+  assert.equal(w.requests.length, 2, 'no summary or correction-model request');
+  const body = JSON.parse(w.requests[1].options.body);
+  const parse = message => JSON.parse(message.content.slice(message.content.indexOf('\n') + 1));
+  const catalog = parse(body.messages.find(m => m.content.startsWith('当前确定性事实目录')));
+  const facts = parse(body.messages.find(m => m.content.startsWith('全部旧局面代码事实')));
+  assert.equal(catalog.binding.position, 6);
+  assert.deepEqual(facts.states.map(v => v.position), [5]);
+  assert.match(body.messages[0].content, /当前状态与同stateId的本地计算是事实来源/);
+  assert.doesNotMatch(JSON.stringify(body.messages), /factClaims|数据不足，无法建议弃牌/);
+});

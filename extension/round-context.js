@@ -280,7 +280,7 @@
       }
       checkpoints.at(-1).version = s.version;
       return clone({ ...handleFor(s), lane: s.lane, baseline: s.baseline, timeline: s.timeline,
-        checkpoint: { ...s.checkpoint, snapshot }, checkpoints: checkpoints.slice(-maxCheckpoints),
+        checkpoint: { ...s.checkpoint, snapshot }, checkpoints: checkpoints.slice(-maxCheckpoints), capturedStates: checkpoints.map(({position,snapshot}) => ({position,snapshot})),
         events: [...s.prefixEvents, ...s.timeline.filter(e => e.type === 'observation').flatMap(e => e.events)],
         exchanges: s.timeline.filter(e => e.type === 'exchange').map(({ type, ...e }) => e) });
     }); }
