@@ -28,8 +28,12 @@ function face(code) {
     art = number === 5 ? '<rect x="18" y="30" width="44" height="65" rx="3" fill="none" stroke="#526f8b" stroke-width="3"/>'
       : text(honors[number - 1], 40, 84, 48, number === 6 ? '#26764d' : number === 7 ? '#bc3038' : '#243e57');
   } else {
-    art = positions[number].map(([x, y], i) => {
-      const color = red ? '#bc3038' : suit === 's' ? '#26764d' : ['#355a81', '#bc3038', '#26764d'][i % 3];
+    const tilePositions = suit === 'p' && number === 7
+      ? [[20, 27], [40, 38], [60, 49], [25, 72], [55, 72], [25, 96], [55, 96]]
+      : positions[number];
+    art = tilePositions.map(([x, y], i) => {
+      const color = red ? '#bc3038' : suit === 's' ? '#26764d'
+        : number === 7 ? (i < 3 ? '#355a81' : '#bc3038') : ['#355a81', '#bc3038', '#26764d'][i % 3];
       if (suit === 'p') {
         const radius = number === 1 ? 19 : number === 9 ? 7 : 8;
         return `<circle cx="${x}" cy="${y}" r="${radius}" fill="none" stroke="${color}" stroke-width="3"/><circle cx="${x}" cy="${y}" r="${number === 1 ? 10 : 2}" fill="${color}"/>`;
