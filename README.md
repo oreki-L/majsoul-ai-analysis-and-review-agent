@@ -269,6 +269,8 @@ python -m http.server 8126 --bind 127.0.0.1
 
 | 资料 | 内容 |
 | --- | --- |
+| [docs/README.md](docs/README.md) | 文档分类与阅读路线 |
+| [docs/PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md) | 目录职责、修改入口与本地产物 |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | 模块职责、事件与模型数据流 |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | 本地开发、复现数据和 PR 要求 |
 | [SECURITY.md](SECURITY.md) | 权限、凭据、数据处理与漏洞报告 |

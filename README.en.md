@@ -255,6 +255,8 @@ Open `http://127.0.0.1:8126/tests/preview.html`. Tests and demos use synthetic p
 
 | Document | Contents |
 | --- | --- |
+| [docs/README.md](docs/README.md) | Documentation index and reading paths |
+| [docs/PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md) | Directory responsibilities, source entry points, and local outputs |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Module responsibilities, events, and model data flow |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Local development, reproduction data, and PR requirements |
 | [SECURITY.md](SECURITY.md) | Permissions, credentials, data handling, and vulnerability reports |

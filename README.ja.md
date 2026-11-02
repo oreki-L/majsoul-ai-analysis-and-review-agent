@@ -255,6 +255,8 @@ python -m http.server 8126 --bind 127.0.0.1
 
 | 資料 | 内容 |
 | --- | --- |
+| [docs/README.md](docs/README.md) | ドキュメントの分類と読み進め方 |
+| [docs/PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md) | ディレクトリの役割、変更箇所、ローカル生成物 |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | モジュールの役割、イベント、モデルへのデータフロー |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | 開発、再現データ、PR の要件 |
 | [SECURITY.md](SECURITY.md) | 権限、認証情報、データ処理、脆弱性の報告 |

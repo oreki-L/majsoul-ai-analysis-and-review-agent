@@ -34,7 +34,7 @@ python scripts/package-public.py
 
 白名单排除`.git`、`research/`、旧安装包、HAR、日志与浏览器配置，并扫描部分常见凭据格式。它不能替代人工审查。完整源码中的截图是离线模拟，牌面为37张原创SVG，不打包早期游戏截图。
 
-0.8.0 延续已提交的干净 Git 快照发布流程：先用 `git archive` 将选定提交解压至独立目录，在快照目录执行 `npm ci` 和 `python scripts/package-public.py`，并运行 `npm run eval`。不要直接打包带有未提交修改的工作区；白名单包含 `ARCHITECTURE.md`，因此本地未提交的架构草稿也必须由提交快照隔离。核对四个资产、三份 ZIP 的 SHA256，以及源码／manifest／profile／锁文件版本一致后，再上传 Release。发布后匿名下载全部资产核对字节与 SHA256，确认 tag 指向、latest 与远端提交。
+当前正式发布沿用自 v0.8.0 起的干净 Git 提交快照流程：先用 `git archive` 将选定提交解压至独立目录，在快照目录执行 `npm ci` 和 `python scripts/package-public.py`，并运行 `npm run eval`。不要直接打包带有未提交修改的工作区；白名单包含 `ARCHITECTURE.md`，因此本地未提交的架构草稿也必须由提交快照隔离。核对四个资产、三份 ZIP 的 SHA256，以及源码／manifest／profile／锁文件版本一致后，再上传 Release。发布后匿名下载全部资产核对字节与 SHA256，确认 tag 指向、latest 与远端提交。
 
 ## 后续维护
 
@@ -52,4 +52,4 @@ Topics建议：`mahjong`、`majsoul`、`agent`、`browser-extension`、`llm`、`
 
 ## 验证边界
 
-历史两种安装组合已在独立 Edge 和 Chrome 中通过人工牌局模拟验收。0.6.0 验证包括 321 项自动测试、Edge 真实扩展的模拟模型／工具链与 Chrome 离线 UI；本轮未完成 Chrome MV3 扩展加载验收，详情见[验证记录](../VALIDATION.md)。真实整场采集、断线续接、具体模型兼容性与建议质量仍待验证。内置3个人工向听样例仅用于回归，不代表实战能力。
+每次发布须核对所选提交的实际检查、测试、构建与浏览器验收，不能用旧版本成功记录替代本次验收。按版本维护的自动测试与浏览器范围见[验证记录](../VALIDATION.md)，X-F 输入移植见 [X-F 验证](XF_VALIDATION.md)，可选 Mortal 路径见[工作流验收](MORTAL_WORKFLOW_VALIDATION.md)。历史人工牌局与模拟上游验证不等于真实整场采集、断线续接、任意模型兼容或实战牌力。`npm run eval` 的人工样例仅用于本地计算回归。

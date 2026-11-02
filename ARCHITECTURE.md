@@ -1,6 +1,8 @@
 # 项目架构
 
-0.4.0以 **Majsoul AI Analysis & Review Agent** 为整体名称，提供完整版与独立牌局获取器。`extension/agent.js`复用0.3.0分析能力编排任务，`extension/harness.js`负责有界执行、取消和脱敏轨迹；`agent/`提供离线复盘与回归评测。完整说明见 [Agent与harness](docs/AGENT.md)。
+本文描述 v0.13.0 的组件关系与数据流。完整版以用户自配 LLM 的实时建议和冻结决策追问为核心，完整四麻自动综合分析使用 X-F；Mortal 决策与独立 LLM 教学为默认关闭的可选工作流。独立牌局获取器保持无模型依赖。`extension/agent.js` 编排分析任务，`extension/harness.js` 提供有界执行、取消和脱敏轨迹；`agent/` 提供离线复盘与本地引擎工具。
+
+文档分类见[文档导航](docs/README.md)，仓库与本地生成目录见[项目目录结构](docs/PROJECT_STRUCTURE.md)，有界执行细节见 [Agent 与 harness](docs/AGENT.md)。
 
 这是 Manifest V3 扩展，完整版捆绑经浏览器适配的固定 Pi 1.4.0 运行时；collector 不含模型依赖。`extension/` 可直接加载完整版；`npm run build` 根据显式profiles生成完整版和独立获取器。采集器、标准数据合同、Agent、UI和网络访问通过组合入口接线。
 
@@ -24,6 +26,7 @@
 | `extension/apps/collector-app.js` / `agent-app.js` | 创建端口、controller和UI；完整版注入快照适配及分析面板 | 组合入口 |
 | `extension/profiles/agent.json` / `collector.json` | 两种安装配置的脚本顺序、后台、权限和资源入口 | 构建输入 |
 | `extension/mahjong-analysis.js` | 向听、形状进张、已见牌计数和逐对手防守特征 | ISOLATED / 后台 / Node 测试 |
+| `extension/xf-context.js` | 当前授权事实、重要事件、代码压缩历史与确定性比较目录；门禁外回退 NED | 后台 / Node |
 | `extension/analysis.js` | 标准快照的任务准备、提示词、本地计算准备、JSON Schema和结果校验 | 后台 / 离线预览 / Node |
 | `extension/adapters/model-endpoint.js` | 模型地址校验与主机权限模式 | 后台 / 设置 / Node |
 | `extension/model-profiles.js` | 命名 chat 配置的无损迁移、校验与选择，纯转换，不读写存储 | 设置 / Node |
@@ -37,6 +40,8 @@
 | `extension/agent.js` | 任务计划、已授权快照、本地分析和模型解释工具接线 | 后台 / Node |
 | `extension/adapters/mjai.js` | 授权事件前缀转 mjai、匿名化、对手暗牌遮蔽及协议白名单 | 纯输入适配 / Node |
 | `extension/contracts/engine-result.js` / `engine-agent.js` | 可选引擎输出白名单、快照与事件重放对照、合法动作验证和有界流程 | 后台 / Node |
+| `extension/contracts/engine-explanation.js` | 引擎动作之后的独立教学解释合同，不允许解释覆盖动作 | 后台 / Node |
+| `extension/official-mortal-report.js` | 限定旧版报告的本地解析与动作匹配，不作官网当前版本通用解析器 | 后台 / Node |
 | `extension/adapters/naga-replay.js` | 完整 replay 到逐局 Tenhou URL 的纯转换、规则与动作校验、逐局拒绝 | 纯输入适配 / Node |
 | `extension/naga-panel.js` / `.css` | 默认关闭的规则确认、选局、预览、复制／下载及官方提交页链接 | Agent ISOLATED 世界 |
 | `extension/harness.js` | 工具注册、步数与时间预算、取消、无内容运行轨迹 | 后台 / Node |
@@ -98,7 +103,7 @@ LLM 分析与解释保持主要定位，默认 `chat` 且分析关闭。设置�
 
 扩展经带 Bearer Token 的本机 `/analyze` 调用 `engine-server.cjs`，后者由 `mjai-process.cjs` 启动用户配置的进程，写入一行完整事件数组，读取单行动作并清理进程。Python 包装器调用用户零参数 Bot 类的 `react(events_json)`，用户模块自行加载权重和依赖。命令不是沙箱；不捆绑上游运行环境或权重，上游许可另行适用。此服务默认不启动，不接受由页面指定执行命令。
 
-页面初版仅接受完整无副露四麻的合法 `dahai`、`reach` 意向及 `none`，自家14张开局记录和其他动作明确拒绝。无法确定立直弃牌时不输出具体牌；无可靠 Q 索引映射时候选为空，Q 值不作为放铳概率或危险牌依据。`engine:review` 从事件前缀重建快照，复用同一 Agent 的完整一致性与动作校验，输出 `engine/result/localAnalysis/trace`。HTTP 服务全局只运行一次推理，忙时429且不排队，断开后等待取消清理完成才释放。完整协议与命令见 [docs/MJAI.md](docs/MJAI.md)。固定 Akagi 弱 Mortal 示例已用四座位人工局面验证真实推理；官网4.1、连续整场及实战牌力未验证。
+页面接受连续可重放四麻中经验证的弃牌、立直、响应、鸣牌、杠与和牌动作；完整动作和资格边界见 [mjai 支持范围](docs/MJAI.md#当前支持范围与数据边界)。自家14张开局、抢杠等无法可靠证明的情况明确拒绝。无法确定立直弃牌时不输出具体牌；无可靠 Q 索引映射时候选为空，Q 值不作为放铳概率或危险牌依据。`engine:review` 从事件前缀重建快照，复用同一 Agent 的完整一致性与动作校验，输出 `engine/result/localAnalysis/trace`。HTTP 服务全局只运行一次推理，忙时429且不排队，断开后等待取消清理完成才释放。完整协议与命令见 [docs/MJAI.md](docs/MJAI.md)。固定 Akagi 弱 Mortal 示例已用四座位人工局面验证真实推理；官网4.1、连续整场及实战牌力未验证。
 
 ## 可选 NAGA 牌谱导出
 

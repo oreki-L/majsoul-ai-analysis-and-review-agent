@@ -2,6 +2,8 @@
 
 欢迎提交兼容性修复、状态机错误的最小复现、界面改进和文档完善。较大的功能请先在Issue中说明使用场景和验收方式。
 
+文档分类见[文档导航](docs/README.md)，源码与生成文件的归属见[项目目录结构](docs/PROJECT_STRUCTURE.md)，依赖关系见[项目架构](ARCHITECTURE.md)。
+
 ## 本地开发
 
 使用 Node.js 22.19 或更新版本，先运行 `npm ci` 安装锁定的 Pi 依赖与构建工具；无需安装 Python 或启动调试端口。仅加载已提交的 `extension/` 或已构建安装包无需 Node.js。
@@ -19,19 +21,19 @@ npm run build
 
 ## 修改与验证
 
-- 消息解析修改 `protocol.js`；采集兼容性修改 `capture.js`；状态规则修改 `state.js`，为真实规则错误补最小人工事件测试。
-- 模型输入字段在`contracts/snapshot.js`的DTO白名单中声明；获取器布局变化只改`collector/snapshot-adapter.js`。Agent和分析核心只消费DTO，不导入获取器state或controller。网络与密钥留在后台，endpoint规则在`adapters/model-endpoint.js`。保留手动分析、纯本地模式和模型数据授权；按功能自动整理数据，自动调用须受时机、去重和调用上限约束。
-- 状态、历史、游标与导出逻辑放在`collector/controller.js`，DOM展示在`overlay.js`；浏览器消息、存储和资源路径在`collector/browser-adapter.js`。端口可注入以便Node测试，视图和导出须保持复制隔离。
-- 组合关系放在`apps/collector-app.js`和`apps/agent-app.js`；分析面板只接收快照函数和展示输入，不读取采集器内部布局。
+- 消息解析修改 `extension/protocol.js`；采集兼容性修改 `extension/capture.js`；状态规则修改 `extension/state.js`，为真实规则错误补最小人工事件测试。
+- 模型输入字段在`extension/contracts/snapshot.js`的DTO白名单中声明；获取器布局变化只改`extension/collector/snapshot-adapter.js`。Agent和分析核心只消费DTO，不导入获取器state或controller。网络与密钥留在后台，endpoint规则在`extension/adapters/model-endpoint.js`。保留手动分析、纯本地模式和模型数据授权；按功能自动整理数据，自动调用须受时机、去重和调用上限约束。
+- 状态、历史、游标与导出逻辑放在`extension/collector/controller.js`，DOM展示在`extension/overlay.js`；浏览器消息、存储和资源路径在`extension/collector/browser-adapter.js`。端口可注入以便Node测试，视图和导出须保持复制隔离。
+- 组合关系放在`extension/apps/collector-app.js`和`extension/apps/agent-app.js`；分析面板只接收快照函数和展示输入，不读取采集器内部布局。
 - 界面变更核对桌面及窄窗口、拖动、收起和牌谱模式；不要用模拟页面宣称真实牌局已验证。
 - 运行 `npm run check` 与 `npm test`，在PR中说明问题、变化和验证范围。
 - 牌面由 `scripts/generate-tiles.mjs` 生成；修改生成器后运行 `npm run tiles`，不要加入游戏截图替代SVG。
 - Agent编排修改`extension/agent.js`，执行预算与轨迹修改`extension/harness.js`，复盘与回归入口在`agent/`。保持模型传输和密钥在后台，不放进获取器。
-- 分发变更修改`extension/profiles/agent.json`或`collector.json`，agent profile同步默认manifest。运行`npm run check`和`npm run build`，验证静态依赖、纯核心能力边界、资源闭包与加载顺序；获取器包不得包含分析/模型代码、设置页或模型权限。新增项目全局须同步`scripts/check-boundaries.mjs`，保持静态可追踪引用，不通过源码字符串替换生成安装变体。`npm run eval`只是人工向听回归，不替代真实牌谱或模型质量评估。
+- 分发变更修改`extension/profiles/agent.json`或`extension/profiles/collector.json`，agent profile同步默认manifest。运行`npm run check`和`npm run build`，验证静态依赖、纯核心能力边界、资源闭包与加载顺序；获取器包不得包含分析/模型代码、设置页或模型权限。新增项目全局须同步`scripts/check-boundaries.mjs`，保持静态可追踪引用，不通过源码字符串替换生成安装变体。`npm run eval`只是人工向听回归，不替代真实牌谱或模型质量评估。
 
 Pi worker loop 来自真实上游 `@earendil-works/pi-agent-core` / `pi-ai` 1.4.0。修改 MV3 适配时编辑 `scripts/pi-runtime-entry.mjs` 等构建源码，运行 `npm run pi:bundle` 更新已提交的 `extension/pi-runtime.js`，不要手改 bundle。网络、权限与密钥仍留在后台，不能把 Pi 上游支持的全部协议当作本扩展已接入能力。
 
-会话与用量改动应核对：默认 `snapshot` 无持久对话、`round` 授权历史隔离、牌谱回退及视角分支、worker 恢复、清理竞态、手动最多 3 次模型请求 / 4 次工具调用、实时最多 1 次模型请求。缺失用量及部分失败保持未知，数值运行记录与导出不得包含 prompt、牌局正文或密钥。详见[小局会话、工具与用量](docs/AGENT_SESSIONS.md)。测试不能证明真实模型质量、缓存命中率或省钱效果。
+会话与用量改动应核对：当前统一使用 `round` 小局会话，旧 snapshot／工具关闭设置不改变新请求流程；自动 Chat 请求按门禁使用 X-F 或 NED，手动全局与冻结决策追问分别保持原上下文。检查授权历史隔离、牌谱回退及视角分支、worker 恢复和清理竞态；手动最多 3 次、实时最多 2 次模型请求，每次运行最多 4 次只读工具调用。Mortal 教学须另核动作与解释隔离、仅解释重试和撤权取消。缺失用量及部分失败保持未知，数值运行记录与导出不得包含 prompt、牌局正文或密钥。详见[小局会话、工具与用量](docs/AGENT_SESSIONS.md)。测试不能证明真实模型质量、缓存命中率或省钱效果。
 
 ## 多语言介绍
 

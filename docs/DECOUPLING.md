@@ -1,4 +1,6 @@
-# 可执行的模块边界（0.4.0）
+# 可执行的模块边界
+
+本文维护当前代码的依赖与分发约束；两种 profile 的初始分层自 v0.4.0 引入。仓库文件位置见[项目目录结构](PROJECT_STRUCTURE.md)，组件数据流见[项目架构](../ARCHITECTURE.md)。
 
 `extension/profiles/agent.json` 与 `collector.json` 是两个独立、完整的 Chrome manifest。构建器直接读取各自入口，不从 Agent 文件清单删除模块生成 Collector。`extension/manifest.json` 保持可直接加载的 Agent 配置；检查会拒绝它与 Agent profile 的任何漂移。
 

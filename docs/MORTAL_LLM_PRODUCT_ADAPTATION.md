@@ -6,7 +6,7 @@
 
 ## 产品基线与结论
 
-初步研究先按公开的 [README.md](../README.md)、[AGENT.md](AGENT.md)、[AGENT_SESSIONS.md](AGENT_SESSIONS.md)、[USER_MEMORY.md](USER_MEMORY.md) 对照已实现能力。用户随后指定实际产品基线为 [PRODUCT_PRD.md](../research/evidence/context-optimization-20261026/PRODUCT_PRD.md)，本轮已更新为 1.3.0；该文件位于 ignored 的研究目录，描述目标产品行为，不等于当前实现。本研究的配置及接口建议应服从其旧卡保持、来源原子替换、冻结讨论、通道隔离和验收规则；公开架构中的早期描述不替代专项文档与实际实现。
+初步研究先按公开的 [README.md](../README.md)、[AGENT.md](AGENT.md)、[AGENT_SESSIONS.md](AGENT_SESSIONS.md)、[USER_MEMORY.md](USER_MEMORY.md) 对照已实现能力。用户随后指定实际产品基线为本地私有需求文档 `PRODUCT_PRD.md`（不随仓库或源码包分发），本轮已更新为 1.3.0；该文件位于 ignored 的研究目录，描述目标产品行为，不等于当前实现。本研究的配置及接口建议应服从其旧卡保持、来源原子替换、冻结讨论、通道隔离和验收规则；公开架构中的早期描述不替代专项文档与实际实现。
 
 用户已明确新方向：**Mortal 先给出动作答案，再调用 LLM 解释。** 建议将其做成一种可选“分析模式”，与现有 LLM 分析并存；首次建议在该模式下自动串联两阶段，不要求用户切换后端才能追问。
 
