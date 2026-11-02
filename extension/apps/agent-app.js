@@ -29,6 +29,27 @@
         const hand = S.handLayout(selfHand, drawnTile);
         const calibration = hints.getCalibrationState();
         const analysisView = {
+          importOfficialReport: async (html, rules) => {
+            const parsed = root.MJOfficialMortalReport.parse(html), observation = controller.exportData();
+            if (view.mode !== 'replay' || view.historical) throw new Error('仅可在本地牌谱复盘中导入官方报告。');
+            const converted = root.MJNagaReplay.fromObservation(observation, { rules });
+            const rounds = converted.rounds.map(r => ({ id: r.id, log: r.json.log[0] }));
+            const candidates = []; let roundId = null, frozen = S.initial('replay', parsed.player);
+            const records = observation.replayRecords;
+            for (let index = 0; index < records.length; index++) {
+              const event = records[index]; if (event.kind === 'NewRound') roundId = 'round-' + index;
+              frozen = S.apply(frozen, event);
+              if (event.kind !== 'DealTile' || event.seat !== parsed.player || frozen.players[parsed.player].melds.length) continue;
+              const next = records[index + 1];
+              if (next?.kind !== 'DiscardTile' || next.seat !== parsed.player || next.riichi) continue;
+              try { candidates.push({ roundId, cursor: index + 1, actualTile: next.tile,
+                snapshot: root.MJCollectorSnapshot.snapshot(frozen, { game: true, rivers: 'all', hand: true }),
+                context: { identity: view.contextIdentity, position: index + 1 } }); } catch (_) { /* Incomplete positions stay unmatched. */ }
+            }
+            const aligned = root.MJOfficialMortalReport.align(parsed, { rounds, candidates });
+            const hash = await root.crypto.subtle.digest('SHA-256', new TextEncoder().encode(html));
+            return { ...aligned, fingerprint: Array.from(new Uint8Array(hash), n => n.toString(16).padStart(2,'0')).join('') };
+          },
           snapshot: selection => root.MJCollectorSnapshot.snapshot(state, selection),
           analysisContext: () => {
             const observation = controller.exportData();

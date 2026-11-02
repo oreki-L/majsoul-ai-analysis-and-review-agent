@@ -40,6 +40,7 @@ function pricingFields() {
     ...Object.fromEntries(Object.entries(priceFields).map(([key, id]) => [key, $(id).value.trim() === '' ? null : Number($(id).value)])) };
 }
 function fields(provider) { return { provider, enabled: $('enabled').checked, endpoint: $('endpoint').value.trim(), model: provider === 'mjai' ? 'mjai' : $('model').value, apiKey: $('key').value.trim(),
+  ...(provider === 'mjai' ? { workflow: $('engineExplain').checked ? 'mortal-explain' : 'engine' } : {}),
   ...(provider === 'chat' ? { thinking: !$('thinking').disabled && $('thinking').checked, maxTokens: Number($('maxTokens').value),
     contextMode: 'round', toolCalling: true, pricing: pricingFields() } : {}) }; }
 function updateThinking() {
@@ -50,6 +51,7 @@ function updateThinking() {
 function show(provider) {
   const c = drafts[provider] || defaults(provider), engine = provider === 'mjai';
   currentProvider = provider;
+  $('engineExplain').disabled = !engine; $('engineExplain').checked = c.workflow === 'mortal-explain';
   $('profilesPanel').hidden = engine;
   $('engineSetup').hidden = !engine;
   $('engineGuide').href = 'https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/blob/main/docs/MJAI.md';
@@ -105,7 +107,14 @@ $('config').onsubmit = async event => {
     if (c.provider === 'mjai' && !c.apiKey) throw new Error('请填写本地桥接服务的 Bearer Token。');
     if (c.provider === 'chat') MJModelProfiles.validateName($('profileName').value);
     // Request inside the submit gesture, before any asynchronous storage work.
-    const allowed = await chrome.permissions.request({ origins: [adapter.permissionOrigin(url.href)] });
+    const origins = [adapter.permissionOrigin(url.href)];
+    if (c.workflow === 'mortal-explain') {
+      const llm = drafts.chat;
+      if (!llm?.endpoint || !llm?.model?.trim()) throw new Error('请先保存独立的 LLM 解释服务配置。');
+      MJModelEndpoint.outputOptions(llm);
+      origins.push(MJModelEndpoint.permissionOrigin(MJModelEndpoint.endpoint(llm.endpoint).href));
+    }
+    const allowed = await chrome.permissions.request({ origins });
     if (generation !== configStore.generation) return;
     if (!allowed) throw new Error('未授予接口访问权限，设置尚未保存。');
     c.endpoint = url.href;

@@ -8,7 +8,7 @@ const ChatEndpoint = require('../extension/adapters/model-endpoint.js');
 
 async function settings(initial = {}, { permission = true, beforeSet, clearResult = { ok: true }, usageResult, modelResult } = {}) {
   const data = structuredClone(initial), calls = [], elements = new Map(), downloads = [];
-  for (const id of ['profilesPanel', 'profile', 'profileName', 'newProfile', 'magpiePreset', 'ccSwitchPreset', 'loadCcSwitchModels', 'deleteProfile', 'discoveredModels', 'diagnosticStatus', 'diagnose', 'cancelDiagnostic', 'magpieHello', 'loadModels', 'status', 'provider', 'providerHint', 'engineSetup', 'engineGuide', 'enabled', 'endpoint', 'endpointHint', 'model', 'key', 'keyLabel', 'chatOptions', 'thinking', 'thinkingHint', 'maxTokens', 'priceCurrency', 'priceInput', 'priceOutput', 'priceCacheRead', 'priceCacheWrite', 'config', 'disable', 'clear', 'clearAgentData', 'exportUsage']) elements.set(id, { value: '', checked: false, textContent: '', children: [], replaceChildren() { this.children = []; }, appendChild(item) { this.children.push(item); } });
+  for (const id of ['engineExplain', 'profilesPanel', 'profile', 'profileName', 'newProfile', 'magpiePreset', 'ccSwitchPreset', 'loadCcSwitchModels', 'deleteProfile', 'discoveredModels', 'diagnosticStatus', 'diagnose', 'cancelDiagnostic', 'magpieHello', 'loadModels', 'status', 'provider', 'providerHint', 'engineSetup', 'engineGuide', 'enabled', 'endpoint', 'endpointHint', 'model', 'key', 'keyLabel', 'chatOptions', 'thinking', 'thinkingHint', 'maxTokens', 'priceCurrency', 'priceInput', 'priceOutput', 'priceCacheRead', 'priceCacheWrite', 'config', 'disable', 'clear', 'clearAgentData', 'exportUsage']) elements.set(id, { value: '', checked: false, textContent: '', children: [], replaceChildren() { this.children = []; }, appendChild(item) { this.children.push(item); } });
   const local = {
     get: async keys => { calls.push(['get']); return Object.fromEntries((Array.isArray(keys) ? keys : [keys]).filter(key => key in data).map(key => [key, structuredClone(data[key])])); },
     set: async value => { const copied = structuredClone(value); calls.push(['set']); if (beforeSet) await beforeSet(copied); Object.assign(data, copied); },
@@ -80,7 +80,7 @@ test('mjai token is required and permission runs before asynchronous storage', a
   assert.equal(page.calls[before][0], 'permission');
   assert.deepEqual(JSON.parse(JSON.stringify(page.calls[before][1])), { origins: ['http://127.0.0.1/*'] });
   await pending;
-  assert.deepEqual(page.data.modelConfig, { provider: 'mjai', enabled: true, endpoint: 'http://127.0.0.1:17341/analyze', model: 'mjai', apiKey: 'ENGINE_SECRET' });
+  assert.deepEqual(page.data.modelConfig, { provider: 'mjai', enabled: true, endpoint: 'http://127.0.0.1:17341/analyze', model: 'mjai', apiKey: 'ENGINE_SECRET', workflow: 'engine' });
   assert.equal(page.data.analysisProviders.mjai.apiKey, 'ENGINE_SECRET');
 });
 
@@ -199,7 +199,7 @@ test('chat context, tools and prices survive provider drafts, save and reload wh
   page.select('mjai');
   assert.equal(page.el('priceInput').disabled, true);
   page.el('key').value = 'ENGINE'; await page.submit();
-  assert.deepEqual(page.data.modelConfig, { provider: 'mjai', enabled: false, endpoint: 'http://127.0.0.1:17341/analyze', model: 'mjai', apiKey: 'ENGINE' });
+  assert.deepEqual(page.data.modelConfig, { provider: 'mjai', enabled: false, endpoint: 'http://127.0.0.1:17341/analyze', model: 'mjai', apiKey: 'ENGINE', workflow: 'engine' });
   const page2 = await settings(page.data); page2.select('chat');
   assert.equal(page2.el('priceInput').disabled, false); assert.equal(page2.el('priceInput').value, '2');
   await page2.submit();
@@ -437,4 +437,17 @@ test('late CC Switch directory results and cancellation cannot cross profiles', 
   pending.resolve({ ok: true, models: [{ id: 'ccs-old/model' }] }); await loading;
   assert.equal(page.el('discoveredModels').disabled, true); assert.equal(page.el('model').value, '');
   assert.equal(page.calls.some(c => c[0] === 'message' && c[1].type === 'model:cancel'), true);
+});
+
+
+test('hybrid mode is opt-in, saves separate services, requests both permissions and survives reload', async () => {
+  const p = await settings(savedChat()); p.select('mjai');
+  assert.equal(p.el('engineExplain').checked, false);
+  p.el('engineExplain').checked = true; p.el('key').value = 'ENGINE_ONLY'; p.el('enabled').checked = true;
+  await p.submit();
+  assert.equal(p.data.modelConfig.workflow, 'mortal-explain');
+  assert.notEqual(p.data.analysisProviders.chat.apiKey, 'ENGINE_ONLY');
+  assert.equal(p.calls.find(c => c[0] === 'permission')[1].origins.length, 2);
+  const loaded = await settings(p.data); assert.equal(loaded.el('engineExplain').checked, true);
+  loaded.el('engineExplain').checked = false; await loaded.submit(); assert.equal(loaded.data.modelConfig.workflow, 'engine');
 });

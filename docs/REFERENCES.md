@@ -6,7 +6,7 @@
 
 项目以**纯 LLM 运行时和可追问的实时建议**为重心，复盘为辅助，独立获取器保持独立。这里的“纯 LLM”不排斥本地向听、进张与危险证据工具，但不要求 Mortal 等专业引擎才能运行。
 
-Pi 是当前实际运行依赖；DeepSeek Harness 是设计参考。mjai 专业引擎和 NAGA 均为默认关闭的可选能力。当前每次分析在 `chat` 与 `mjai` 中二选一，尚无“专业引擎决策 + LLM 联合解释”的自动管线。已保存的引擎决策可切回 `chat` 后追问，不等于同时调用两个后端。
+Pi 是当前实际运行依赖；DeepSeek Harness 是设计参考。mjai 专业引擎和 NAGA 均为默认关闭的可选能力。v0.13.0 整合显式可选 `mortal-explain` 工作流：沿用独立本地 mjai 和 Chat 配置，先校验/保存引擎动作，再通过 Pi 自动解释；动作与解释合同分离，冻结追问及解释重试无需切换后端。默认配置不启用新模式。真实验证限于固定 Akagi 弱示例的四个座位人工局面，解释 HTTP 为 mock，未证明官网 4.1、本地整场兼容或教学质量。官网入口及报告导入另按版本限定，详见 [实现与验收记录](MORTAL_WORKFLOW_VALIDATION.md)。
 
 不能把框架开源等同于权重、在线 API 或服务额度开放；不能把本地人工局面验证等同于真实整场协议兼容或实战牌力；不能把与线上参考首选一致称为建议正确率。
 
@@ -16,7 +16,7 @@ Pi 是当前实际运行依赖；DeepSeek Harness 是设计参考。mjai 专业�
 | --- | --- | --- | --- |
 | [牌谱屋](https://amae-koromo.sapk.ch/) | 用户提供的雀魂牌谱／统计参考入口；可研究牌谱检索、样本组织与统计展示 | 未作为本项目采集器、数据源或运行依赖接入 | 未确认完整覆盖范围、批量获取接口、采集权限及再分发条件；不能据“公开可见”推定可批量采集或用于训练 |
 | [shinkuan/Akagi](https://github.com/shinkuan/Akagi) | 本地专业引擎与游戏协议桥接参考；借鉴运行准备、事件到 mjai 的边界和模型接入方式 | v0.10.0 提供固定 v2 弱 Mortal 示例的下载校验、真实推理检查和本地桥接起步路径 | 已测仅固定提交 [`91cc2993e4e3682248d33d73d93afe055040e700`](https://github.com/shinkuan/Akagi/tree/91cc2993e4e3682248d33d73d93afe055040e700)、Windows x64／Python 3.11 组合；不是线上 Mortal 4.1，不证明其他版本或牌力。上游程序与权重不随扩展分发；该提交为 AGPLv3 加 Commons Clause，具体文件及环境见 [MJAI.md](MJAI.md) |
-| [Equim-chan/mjai-reviewer](https://github.com/Equim-chan/mjai-reviewer) | mjai 牌谱分析与专业模型生态参考；可研究复盘输入、动作结果及报告组织 | 未作为依赖或在线后端接入；不提供其模型或权重 | 在线接口、当前模型可用性、调用授权、费用和权重取得条件未确认；不把其支持模型清单当作本项目兼容清单 |
+| [Equim-chan/mjai-reviewer](https://github.com/Equim-chan/mjai-reviewer) | mjai 牌谱分析与专业模型生态参考；可研究复盘输入、动作结果及报告组织 | 未作为依赖或在线后端接入；仅离线适配公开旧版英文 Classic 1.5.3 / Mortal 3 报告中的有限普通弃牌，不提供其模型或权重 | 在线接口、当前模型可用性、调用授权、费用和权重取得条件未确认；不把其支持模型清单当作本项目兼容清单 |
 | [Equim-chan/Mortal](https://github.com/Equim-chan/Mortal)；[issue #116](https://github.com/Equim-chan/Mortal/issues/116) | 专业日麻模型框架与上游讨论参考；用于厘清框架、权重与可用接口的区别 | 本项目的可选 mjai 合同可承接满足协议和合法性校验的用户引擎；限定真实验证使用 Akagi 的弱示例，不是任意 Mortal 权重 | 开源框架不等于可自由取得全部权重或公共 API。issue 是讨论线索，不当作永久服务承诺；其他权重、版本、运行环境及许可需分别确认 |
 | [tzp1021/mj_helper](https://github.com/tzp1021/mj_helper) | 采集、CDP／WebSocket、协议解析与状态机分层，以及开源仓库组织参考 | 本项目采用浏览器扩展采集与独立 Agent／collector 分层；未捆绑其 Python 决策引擎、训练数据或报告 | 未宣称与其客户端适配、决策实现或牌力等价；其代码许可不能被本项目 MIT 声明覆盖 |
 | 开源 Pi：[earendil-works/pi](https://github.com/earendil-works/pi)，固定 [v1.4.0](https://github.com/earendil-works/pi/tree/v1.4.0) | 轻量 Agent loop、工具声明、参数校验、工具执行与事件运行时 | 实际分发 `@earendil-works/pi-agent-core@1.4.0` 和 `@earendil-works/pi-ai@1.4.0` 的审计后浏览器代码；作 MV3／CSP 适配，collector 不含 Pi | 不等于接入 Pi 全部原生 provider SDK。当前 canonical 依据 npm 与许可证来源使用 earendil-works/pi；不将未经核对的旧 pi-mono 地址当唯一来源。固定来源与许可见 [licenses/SOURCES.md](../licenses/SOURCES.md)，实现见 [pi-runtime.md](pi-runtime.md) |

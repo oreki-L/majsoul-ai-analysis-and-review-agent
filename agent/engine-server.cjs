@@ -5,7 +5,7 @@ const crypto = require('node:crypto');
 const Mjai = require('../extension/adapters/mjai.js');
 const { createRunner } = require('./mjai-process.cjs');
 
-function createEngineServer({ runner, token = crypto.randomBytes(32).toString('hex'), maxBodyBytes = 2 * 1024 * 1024 } = {}) {
+function createEngineServer({ runner, token = crypto.randomBytes(32).toString('hex'), maxBodyBytes = 2 * 1024 * 1024, identity = null } = {}) {
   if (!runner || typeof runner.infer !== 'function' || typeof token !== 'string' || !token.trim() || /[\r\n]/.test(token)) throw new Error('Invalid server configuration');
   const secret = Buffer.from('Bearer ' + token);
   let busy = false;
@@ -44,7 +44,7 @@ function createEngineServer({ runner, token = crypto.randomBytes(32).toString('h
       busy = true;
       try {
         const result = await runner.infer(request, { signal: controller.signal });
-        reply(200, { action: result.action, ...(result.followUp ? { followUp: result.followUp } : {}) });
+        reply(200, { action: result.action, ...(result.followUp ? { followUp: result.followUp } : {}), ...(identity ? { identity } : {}) });
       } finally { busy = false; }
     } catch { reply(502, { error: 'Engine request failed' }); }
   });
@@ -53,9 +53,9 @@ function createEngineServer({ runner, token = crypto.randomBytes(32).toString('h
   return { server, token };
 }
 
-async function startEngineServer({ config, port = 17341, token } = {}) {
+async function startEngineServer({ config, port = 17341, token, identity } = {}) {
   if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error('Invalid port');
-  const result = createEngineServer({ runner: createRunner(config), token });
+  const result = createEngineServer({ runner: createRunner(config), token, identity });
   await new Promise((resolve, reject) => { result.server.once('error', reject); result.server.listen(port, '127.0.0.1', resolve); });
   return result;
 }

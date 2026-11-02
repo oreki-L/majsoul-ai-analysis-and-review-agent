@@ -13,6 +13,10 @@
   const clone = value => JSON.parse(JSON.stringify(value));
   function mergeDiscussion(record) {
     if (!record?.id) return;
+    record.analysis = { ...record.analysis,
+      seatLabels: record.analysis.seatLabels || Array.from({ length: record.snapshot.playerCount || 4 }, (_, seat) => '座位 ' + seat),
+      time: record.analysis.time || new Date(record.at).toLocaleTimeString('zh-CN'),
+      position: record.analysis.position || { round: record.snapshot.game?.round, source: record.snapshot.source, cursor: record.context?.position, selfSeat: record.snapshot.selfSeat, hand: record.snapshot.selfHand || [] } };
     const index = discussionRecords.findIndex(r => r.id === record.id);
     if (index < 0) discussionRecords.push(record); else if ((record.revision || 0) >= (discussionRecords[index].revision || 0)) discussionRecords[index] = record;
   }
@@ -40,6 +44,11 @@
   async function saveDecision(data, capturedContext, type, analysis, id, generation) {
     if (!available) return;
     try {
+      if (analysis.discussionRecord) {
+        const record = { ...analysis.discussionRecord, analysis: { ...analysis, discussionRecord: undefined } }; mergeDiscussion(record);
+        if (id === requestId && generation === lifecycle) currentDiscussionId = record.id;
+        return;
+      }
       const response = await discussionCall({ type: 'discussion:save', record: { snapshot: data, context: capturedContext || {}, type, analysis } });
       if (id === requestId && generation === lifecycle) currentDiscussionId = response.record?.id || currentDiscussionId;
     } catch (e) { discussionError = e.message; }
@@ -50,6 +59,7 @@
     if (busy && pendingAutomatic) cancelWork();
     if (busy) { discussionError = '请先完成或取消当前手动分析。'; repaint?.(); return; }
     const generation = lifecycle, token = `${Date.now()}-${Math.random()}`;
+    selectedDecisionId = record.id;
     discussionBusy = record.id; busy = true; pendingAutomatic = false; pendingFingerprint = ''; discussionError = '';
     repaint?.();
     try {
@@ -63,6 +73,24 @@
       if (!response?.ok) discussionError = response?.error || '追问失败，请重试。';
     } catch (e) { if (generation === lifecycle) discussionError = e.message; }
     finally { if (generation === lifecycle) { discussionBusy = null; busy = false; repaint?.(); } }
+  }
+  async function retryExplanation(record) {
+    if (busy || !enabled) return;
+    const generation = lifecycle; busy = true; discussionBusy = record.id; repaint?.();
+    try {
+      const response = await send({ type: 'model:analyze', provider: 'chat', discussionId: record.id, retryExplanation: true, selection: { ...selection } });
+      if (generation !== lifecycle) return;
+      if (!response?.ok) throw new Error(response?.error || '解释失败。');
+      if (response.discussionRecord) mergeDiscussion(response.discussionRecord);
+      if (result?.discussionRecord?.id === record.id) result = { ...result, explanation: response.explanation };
+    } catch (e) { if (generation === lifecycle) discussionError = e.message; }
+    finally { if (generation === lifecycle) { busy = false; discussionBusy = null; repaint?.(); } }
+  }
+  function explanationHtml(response) {
+    const value = response?.explanation;
+    if (!value) return '';
+    return value.status === 'completed' ? `<div class="engine-explanation"><strong>LLM 教学解读 · ${escape(value.model || '')}</strong><p>${escape(value.summary)}</p><p>${reasons(value.reasons)}</p><p class="muted">${reasons(value.limitations)} · 基于可见事实，不是引擎内部思考。</p></div>`
+      : `<p class="muted" role="status">${value.status === 'not-requested' ? '官方历史建议已导入；按需解释，不会自动逐手调用 LLM。' : value.status === 'pending' ? '建议已出，正在解释；可继续对局。' : '已有建议，解释未完成：' + (value.error || '请求中断，费用状态未知；不会自动重发。')}</p>`;
   }
   function discussionLabel(record, full = false) {
     const snap = record.snapshot, round = snap.game?.round, identity = record.context?.identity;
@@ -113,14 +141,15 @@
     const cards = [...(latest ? [latest] : []), ...discussionRecords.filter(r => r.panel && r.id !== latest?.id).reverse()];
     const cardHtml = (record, index) => {
       const a = record.analysis;
-      return `<article class="decision-discussion" aria-label="${index === 0 && record === latest ? '最新决策讨论' : '保留的决策讨论'}"><header><strong>${record === latest ? selectedDecisionId ? '历史决策 · ' : '最新分析 · ' : '保留讨论 · '}${escape(discussionLabel(record))}</strong></header>
+      return `<article class="decision-discussion" aria-label="${index === 0 && record === latest ? '最新决策讨论' : '保留的决策讨论'}"><header><strong>${record === latest ? selectedDecisionId ? '历史决策 · ' : '最新分析 · ' : '保留讨论 · '}${escape(discussionLabel(record))}</strong>${record.id === currentDiscussionId && result?.fingerprint && result.fingerprint !== fingerprint() ? '<small class="warn">上一份建议 · 非当前</small>' : ''}</header>
         <div class="analysis-actions"><button id="discussion-collapse-${index}">${record.collapsed ? '展开讨论' : '折叠讨论'}</button>${record.panel ? `<button id="discussion-remove-${index}">移出面板（保留历史）</button>` : ''}</div>
         ${record.collapsed ? '' : `<p class="analysis-meta muted">${escape(a.model)} · ${escape(a.time || '')} · 固定在该决策时点</p>
         ${selectedDecisionId === record.id ? `<p class="warn">正在复盘该历史决策；实时采集继续，牌面提示暂停。</p><div class="analysis-global-hand" aria-label="所选决策手牌">${(record.snapshot.selfHand || []).map(face).join('')}</div>` : ''}<div class="analysis-decision"><span>${decisionHeading(a)}</span>${a.result.decision.tile ? face(a.result.decision.tile) : ''}${engineActionHtml(a)}<p>${reasons(a.result.decision.reasons)}</p></div>
+        ${explanationHtml(a)}${['mortal-explain','official-mortal-review'].includes(a.workflow) && ['not-requested','failed','interrupted'].includes(a.explanation?.status) ? `<button id="explanation-retry-${index}" ${busy || !enabled ? 'disabled' : ''}>${a.explanation?.status === 'not-requested' ? '解释此决策（仅 LLM）' : '重试解释（仅 LLM）'}</button>` : ''}
         <details><summary>原分析与当时局面</summary><p class="muted">${escape(discussionLabel(record, true))}</p>${resultHtml(a)}<pre>${escape(JSON.stringify(record.snapshot, null, 2))}</pre></details>
         <div class="discussion-chat">${record.chat.map(t => `<div class="discussion-turn"><p><strong>你：</strong>${escape(t.question)}</p>${t.status === 'completed' ? resultHtml(t.response) : `<p class="muted">${escape(t.status === 'pending' ? '正在回答…' : t.error)}</p>`}</div>`).join('')}</div>
         <label for="discussion-question-${index}">追问该决策</label><textarea id="discussion-question-${index}" maxlength="4000" rows="2" placeholder="仅讨论该决策当时的局面">${escape(discussionDrafts.get(record.id) || '')}</textarea>
-        <button id="discussion-send-${index}" ${discussionBusy || !enabled || provider !== 'chat' ? 'disabled' : ''}>${discussionBusy === record.id ? '正在追问…' : '发送追问并保留讨论'}</button>${!enabled || provider !== 'chat' ? '<p class="muted">追问需在模型设置中开启 LLM 接口。</p>' : ''}`}</article>`;
+        <button id="discussion-send-${index}" ${discussionBusy || record.analysis.explanation?.status === 'pending' || !enabled || (provider !== 'chat' && workflow !== 'mortal-explain') ? 'disabled' : ''}>${discussionBusy === record.id ? '正在追问…' : '发送追问并保留讨论'}</button>${!enabled || (provider !== 'chat' && workflow !== 'mortal-explain') ? '<p class="muted">追问需在模型设置中开启 LLM 接口。</p>' : ''}`}</article>`;
     };
     const matches = discussionRecords.filter(r => (!historyAsked || r.chat.length) && discussionLabel(r, true).toLowerCase().includes(historyFilter.toLowerCase())).slice().reverse();
     return `<section class="decision-discussions" aria-label="决策讨论">${reviewHtml()}${decisionNavigatorHtml(latest)}${cards.map(cardHtml).join('')}${discussionError ? `<p class="warn">${escape(discussionError)}</p>` : ''}
@@ -136,6 +165,7 @@
       $('discussion-collapse-' + i).onclick = () => patch(record, { collapsed: !record.collapsed });
       if (record.panel) $('discussion-remove-' + i).onclick = () => { if (record.id === currentDiscussionId) currentDiscussionId = null; if (record.id === selectedDecisionId) selectedDecisionId = null; return patch(record, { panel: false }); };
       if (!record.collapsed) {
+        if ($('explanation-retry-' + i)) $('explanation-retry-' + i).onclick = e => { if (e.isTrusted) return retryExplanation(record); };
         $('discussion-question-' + i).oninput = e => discussionDrafts.set(record.id, String(e.target.value || '').slice(0,4000));
         $('discussion-send-' + i).onclick = e => { if (e.isTrusted) return askDiscussion(record); };
       }
@@ -147,6 +177,57 @@
       $('discussion-asked').onchange = e => { historyAsked = e.target.checked; render(); };
       discussionRecords.filter(r => (!historyAsked || r.chat.length) && discussionLabel(r, true).toLowerCase().includes(historyFilter.toLowerCase())).slice().reverse().forEach((r,i) => { $('discussion-open-' + i).onclick = () => patch(r, { panel: true, collapsed: false }); });
     }
+  }
+  function officialHtml() {
+    if (context?.mode !== 'replay') return '';
+    return `<details data-section="official" ${detailsState.official ? 'open' : ''}><summary>官方 Mortal 复盘</summary>
+      <p class="muted">官网仅支持四麻标准半庄。自行确认起始座位与模型、完成验证和提交；报告超过 15 天可能删除，请自行保存。</p>
+      <label>雀魂原生分享链接<input id="official-share" type="url" value="${escape(officialShare)}" placeholder="https://game.maj-soul.com/1/?paipu=..."></label><button id="official-open">前往官方复盘（预填链接）</button>
+      <p class="muted">此入口只打开官网；不会自动提交、读取或导入官方建议。</p>
+      <label><input id="official-red" type="checkbox" ${officialRed ? 'checked' : ''}> 本地牌谱为四麻喰断半庄、含赤五（取消表示无赤）</label>
+      <label>导入本地保存的英文 Classic 1.5.3 / Mortal 3 HTML<input id="official-file" type="file" accept=".html,.htm,text/html"></label>
+      <p class="muted">仅已验收旧版普通弃牌；当前 4.1 / KillerDucky / CLI JSON 未支持。文件只提取数据，不运行脚本或加载外部资源；未匹配条目不会猜游标。</p>
+      ${officialReport ? `<p>${escape(officialReport.model)} · 视角座位 ${officialReport.player} · ${officialReport.entries.length} 条：匹配 ${officialReport.coverage.matched} / 歧义 ${officialReport.coverage.ambiguous} / 未适配 ${officialReport.coverage.unsupported} / 未匹配 ${officialReport.coverage.unmatched}</p>${officialReport.entries.map((entry,i) => `<p>条目 ${i + 1} · ${escape(entry.status)}${entry.recordId ? ` <button id="official-entry-${i}">定位并解释历史决策</button>` : ` · ${escape(entry.reason || '')}`}</p>`).join('')}` : ''}
+      ${officialError ? `<p class="warn">${escape(officialError)}</p>` : ''}</details>`;
+  }
+  function wireOfficial($, render) {
+    if (context?.mode !== 'replay' || !$('official-open')) return;
+    $('official-share').oninput = e => { officialShare = String(e.target.value || '').slice(0,4096); };
+    $('official-red').onchange = e => { officialRed = !!e.target.checked; };
+    $('official-open').onclick = e => {
+      if (!e.isTrusted) return;
+      try { const url = MJOfficialMortalReport.officialUrl(officialShare); window.open(url, '_blank', 'noopener,noreferrer'); officialError = ''; }
+      catch (error) { officialError = error.message; } render();
+    };
+    $('official-file').onchange = async e => {
+      if (!e.isTrusted) return;
+      const file = e.target.files?.[0], generation = lifecycle;
+      if (!file) return;
+      try {
+        if (file.size > 5 * 1024 * 1024) throw new Error('报告超过 5 MB。');
+        if (typeof current.importOfficialReport !== 'function') throw new Error('此环境不支持报告对齐。');
+        const importer = current.importOfficialReport;
+        const report = await importer(await file.text(), { roundType: 'hanchan', redFives: officialRed, kuitan: true });
+        if (generation !== lifecycle) return;
+        officialReport = report; officialError = '';
+        for (const entry of report.entries) {
+          if (entry.status !== 'matched') continue;
+          const engine = { format: 'majsoul-engine-result-v1', phase: 'draw', action: { type: 'dahai', actor: report.player, pai: /^0[mps]$/.test(entry.expectedTile) ? '5' + entry.expectedTile[1] + 'r' : ({ '1z':'E','2z':'S','3z':'W','4z':'N','5z':'P','6z':'F','7z':'C' })[entry.expectedTile] || entry.expectedTile }, candidates: [], followUp: null, limitations: ['官方历史复盘，仅作冻结教学，不提供实时操作资格。'] };
+          const response = await discussionCall({ type: 'discussion:save', record: { snapshot: entry.snapshot, context: entry.context, type: 'combined', analysis: {
+            workflow: 'official-mortal-review', runId: report.fingerprint + ':' + entry.index, model: '官方报告 · ' + report.model, engine,
+            engineIdentity: { model: report.model, runtime: report.parserVersion, checkpoint: 'report-only' },
+            officialSource: { reportFingerprint: report.fingerprint, parserVersion: report.parserVersion, reviewerVersion: report.reviewerVersion, model: report.model, player: report.player, rules: report.rules, coverage: report.coverage, entry: entry.index, actualTile: entry.actualTile },
+            explanation: { status: 'not-requested' }, result: { task: 'combined', danger: [], efficiency: [], decision: { action: 'unknown', tile: entry.expectedTile, reasons: ['官方报告最终弃牌；实际玩家选择另存，不作为实时行为证据。'] }, limitations: ['旧版 Mortal 3 样本格式，不是当前官网 4.1。'] }
+          } } });
+          if (generation !== lifecycle) return;
+          entry.recordId = response.record.id;
+        }
+      } catch (error) { if (generation === lifecycle) { officialReport = null; officialError = error.message; } }
+      if (generation === lifecycle) render();
+    };
+    officialReport?.entries.forEach((entry,i) => {
+      if (entry.recordId && $('official-entry-' + i)) $('official-entry-' + i).onclick = () => { selectedDecisionId = entry.recordId; current.onCursor?.(entry.cursor); render(); };
+    });
   }
   function reviewGroups() { return typeof MJPostgameReview === 'undefined' ? [] : MJPostgameReview.groups(discussionRecords); }
   function reviewAvailable() { return context?.mode !== 'live' || current?.matchEnded === true || historyOpen || !!selectedDecisionId; }
@@ -220,6 +301,7 @@
   function usesModel(data) { return preferences.useModel && (preferences.modelFromTurn === 1 || (turnNumber(data) !== null && turnNumber(data) >= preferences.modelFromTurn)); }
   function cancelWork() {
     if (autoTimer !== null) clearTimeout(autoTimer); autoTimer = null;
+    if (pendingCapture?.recordId) { const r = discussionRecords.find(r => r.id === pendingCapture.recordId); if (r?.analysis.explanation?.status === 'pending') r.analysis.explanation = { status: 'interrupted', error: '请求已取消，费用状态可能未知；仅显式重试。' }; }
     requestId++;
     if (busy && available) send({ type: 'model:cancel' }).catch(() => {});
     busy = false; pendingFingerprint = '';
@@ -231,7 +313,7 @@
   }
   function changePreferences(patch) {
     if (!busy || pendingAutomatic || patch.useModel === false) cancelWork();
-    preferences = { ...preferences, ...patch }; task = selectedTask(); result = null; failure = ''; lastAutoKey = ''; preparationKey = ''; preparation = null;
+    preferences = { ...preferences, ...patch }; task = selectedTask(); if (patch.useModel === false) { lifecycle++; officialReport = null; officialError = ''; result = null; globalResult = null; discussionRecords = []; currentDiscussionId = null; selectedDecisionId = null; hooks.onHints?.(null); } failure = ''; lastAutoKey = ''; preparationKey = ''; preparation = null;
     savePreferences(); repaint?.();
   }
   function localResponse(data, requestedTask = task) {
@@ -250,7 +332,8 @@
       const data = snapshot(), external = automatic ? usesModel(data) : preferences.useModel;
       if (external && (!available || !enabled)) throw new Error('请先在模型设置中接入并开启模型。');
       const actualProvider = external ? provider : 'local', requestedTask = automatic ? task : 'combined';
-      const extra = external && provider === 'mjai' ? { engineRequest: engineRequest(requestedTask) }
+      const useEngine = external && provider === 'mjai' && (workflow !== 'mortal-explain' || !automatic || preferences.strategy);
+      const extra = useEngine ? { engineRequest: engineRequest(requestedTask) }
         : external ? { lane: automatic ? 'live' : 'manual-review', question: automatic ? '' : questionDraft,
           context: typeof current.analysisContext === 'function' ? current.analysisContext() : undefined } : {};
       const capturedContext = external && extra.context ? clone(extra.context) : (typeof current.analysisContext === 'function' ? clone(current.analysisContext()) : { identity: context?.contextIdentity, position: context?.cursor ?? data.lastStep });
@@ -258,13 +341,14 @@
       const capturedPosition = { round: data.game?.round, honba: data.game?.honba, lastStep: data.lastStep,
         turn: data.game?.turnProgress?.status === 'known' ? data.game.turnProgress.bySeat[data.selfSeat] : null,
         source: context?.mode, cursor: context?.cursor, selfSeat: data.selfSeat, hand: data.selfHand?.slice() || [] };
+      pendingCapture = { id, generation: lifecycle, captured, data, capturedContext, requestedTask, automatic, actualProvider, seatLabels, capturedPosition };
       pendingFingerprint = automatic ? captured : ''; pendingAutomatic = automatic; busy = true;
       if (automatic) failure = ''; else globalFailure = '';
       modelFailureExpanded[automatic ? 'automatic' : 'global'] = false;
       delete modelFailures[automatic ? 'automatic' : 'global'];
       if (automatic && external) { autoCalls++; lastModelAt = Date.now(); }
       repaint?.();
-      const response = external ? await send({ type: 'model:analyze', provider, task: requestedTask, snapshot: data, ...extra }) : localResponse(data, requestedTask);
+      const response = external ? await send({ type: 'model:analyze', provider, task: requestedTask, snapshot: data, ...extra, lane: automatic ? 'live' : 'manual-review', context: capturedContext, engineEnabled: useEngine, clientRunId: String(id) }) : localResponse(data, requestedTask);
       if (id !== requestId || (automatic && captured !== fingerprint())) return;
       if (!response?.ok) {
         if (typeof response?.rawModelResult?.content === 'string') {
@@ -297,6 +381,8 @@
     const delay = external ? Math.max(350, preferences.interval * 1000 - (Date.now() - lastModelAt)) : 100;
     autoTimer = setTimeout(() => { autoTimer = null; if (key !== fingerprint()) return; lastAutoKey = key; runAnalysis(true); }, delay);
   }
+  let officialReport = null, officialError = '', officialShare = '', officialRed = true;
+  let workflow = 'llm', pendingCapture = null;
   let task = 'combined', enabled = false, busy = false, result = null, failure = '', preview = false, provider = 'chat';
   let pendingAutomatic = false, globalResult = null, globalFailure = '', questionDraft = '';
   let modelFailures = {}, modelFailureExpanded = {};
@@ -341,7 +427,7 @@
   function resultHtml(response) {
     const r = response.result;
     if (!r) return '';
-    return `${r.danger.length ? '<h4>逐对手危险牌</h4>' + r.danger.map(d => `<div class="analysis-card">${face(d.tile)}${d.opponents.map(o => `<p>${escape(response.seatLabels?.[o.seat] || ('座位 ' + o.seat))} · ${escape(riskNames[o.level])}：${reasons(o.reasons)}</p>`).join('')}</div>`).join('') : ''}
+    return `${explanationHtml(response)}${r.danger.length ? '<h4>逐对手危险牌</h4>' + r.danger.map(d => `<div class="analysis-card">${face(d.tile)}${d.opponents.map(o => `<p>${escape(response.seatLabels?.[o.seat] || ('座位 ' + o.seat))} · ${escape(riskNames[o.level])}：${reasons(o.reasons)}</p>`).join('')}</div>`).join('') : ''}
       ${r.efficiency.length ? '<h4>牌效率解释</h4>' + r.efficiency.map(e => `<div class="analysis-card">${face(e.tile)} ${reasons(e.reasons)}</div>`).join('') : ''}
       <h4>建议</h4><p>${decisionHeading(response)} ${r.decision.tile ? face(r.decision.tile) : ''} ${reasons(r.decision.reasons)}</p>${engineActionHtml(response)}
       ${r.limitations.length ? `<p class="warn">${reasons(r.limitations)}</p>` : ''}
@@ -386,6 +472,7 @@
     const generation = lifecycle, id = ++statusRequestId;
     try { const status = await send({ type: 'model:status' });
       if (generation !== lifecycle || id !== statusRequestId) return;
+      workflow = status?.workflow || 'llm';
       const nextProvider = status?.provider === 'mjai' ? 'mjai' : 'chat';
       if (enabled !== !!status?.enabled || provider !== nextProvider) { result = null; preparationKey = ''; preparation = null; }
       if (!preferencesLoaded) { preferences = { ...defaults(), ...status?.preferences }; preferencesLoaded = true; task = selectedTask(); }
@@ -395,9 +482,20 @@
     repaint?.();
   }
   function configChanged(message, sender) {
+    if (message?.type === 'model:stage' && sender?.id === chrome.runtime.id && !sender.tab) {
+      const capture = pendingCapture;
+      if (!capture || message.clientRunId !== String(capture.id) || capture.id !== requestId || capture.generation !== lifecycle || (capture.automatic && capture.captured !== fingerprint()) || !enabled || !preferences.useModel) return;
+      const completed = { ...message.analysis, actualProvider: capture.actualProvider, seatLabels: capture.seatLabels, positionPhase: capture.data.phase,
+        fingerprint: capture.captured, time: new Date().toLocaleTimeString('zh-CN'), position: capture.capturedPosition, discussionRecord: message.record };
+      capture.recordId = message.record.id;
+      mergeDiscussion({ ...message.record, analysis: completed }); currentDiscussionId = message.record.id;
+      if (capture.automatic) result = completed; else globalResult = completed;
+      repaint?.(); return;
+    }
     if (message?.type !== 'model:config-changed' || sender?.id !== chrome.runtime.id || sender.tab) return;
-    cancelWork(); result = null; failure = ''; lastAutoKey = ''; preparationKey = ''; preparation = null; preparationError = ''; preparationBusy = false;
-    hooks.onHints?.(null);
+    lifecycle++; cancelWork(); result = null; failure = ''; lastAutoKey = ''; preparationKey = ''; preparation = null; preparationError = ''; preparationBusy = false;
+    officialReport = null; officialError = '';
+    hooks.onHints?.(null); globalResult = null; discussionRecords = []; currentDiscussionId = null; selectedDecisionId = null; discussionLoaded = false;
     // Block requests using the previous configuration while status is refreshed.
     enabled = false;
     refresh(); repaint?.();
@@ -414,7 +512,7 @@
     cancelWork(); preferences = defaults(); preferencesLoaded = false; lastPosition = ''; lastAutoKey = ''; roundKey = ''; previousDiscards = 0; autoCalls = 0; lastModelAt = 0;
     hooks.onHints?.(null); hooks = {}; detailsState = {}; focusTile = null;
     focusExpanded = false; focusResizeObserver?.disconnect(); focusResizeObserver = null;
-    lifecycle++; requestId++;
+    lifecycle++; requestId++; officialReport = null; officialError = ''; officialShare = '';
     if (available && connected) {
       chrome.runtime.onMessage.removeListener(configChanged);
       window.removeEventListener('focus', refresh);
@@ -449,7 +547,7 @@
     if (sourceChanged || cursorChanged) {
       if (!busy || pendingAutomatic) cancelWork();
       failure = ''; preparationKey = ''; preparation = null; preparationError = ''; preparationBusy = false;
-      if (sourceChanged) { result = null; focusTile = null; focusExpanded = false; }
+      if (sourceChanged) { if (result) result.liveEligible = false; focusTile = null; focusExpanded = false; }
     }
     if (position?.mode === 'live') {
       if (reviewWasEnded && analysisView.matchEnded !== true) {
@@ -468,7 +566,7 @@
     let selectedSnapshot = null;
     try { selectedSnapshot = snapshot(); } catch (_) {}
     const hintHand = current.selfHand || selectedSnapshot?.selfHand;
-    hooks.onHints?.(live && !selectedDecisionId && !stale && result?.result && Array.isArray(hintHand) && hintHand.length ? {
+    hooks.onHints?.(live && !selectedDecisionId && !stale && result?.liveEligible !== false && result?.result && Array.isArray(hintHand) && hintHand.length ? {
       hand: hintHand.slice(), drawnTile: current.drawnTile ?? selectedSnapshot?.selfDrawnTile ?? null, decision: result.result.decision,
       danger: result.result.danger, seatLabels: result.seatLabels.slice()
     } : null);
@@ -478,10 +576,10 @@
     const disclosure = (key, label, content) => `<details data-section="${key}" ${detailsState[key] ? 'open' : ''}><summary>${label}</summary>${content}</details>`;
     const savedAutomatic = !!result && discussionRecords.some(record => record.analysis.fingerprint === result.fingerprint);
     const savedGlobal = !!globalResult && discussionRecords.some(record => record.analysis.fingerprint === globalResult.fingerprint);
-    const r = savedAutomatic ? null : result?.result;
+    const r = savedAutomatic && (!selectedDecisionId || selectedDecisionId === currentDiscussionId) ? null : result?.result;
     const candidateTiles = [...new Set([...(r?.efficiency || []).map(e => e.tile), ...(r?.danger || []).map(d => d.tile)])].filter(t => t && t !== r?.decision?.tile).slice(0, 3);
     const hand = Array.isArray(current.selfHand) ? current.selfHand : [];
-    const activeResult = (live || context?.mode === 'replay') && !stale ? r : null;
+    const activeResult = live && !stale && !selectedDecisionId ? r : null;
     const kind = tile => String(tile).replace(/^0([mps])$/, '5$1');
     const drawnIndex = current.drawnTile ? hand.lastIndexOf(current.drawnTile) : -1;
     const handFace = (tile, index) => {
@@ -538,19 +636,20 @@
       ${failureHtml(globalFailure, 'global')}
       </section>`;
     const markup = `<section class="analysis" aria-label="模型分析">
-      ${modeControls}${replayControls}${discussionHtml()}
+      ${modeControls}${replayControls}${officialHtml()}${discussionHtml()}
       <div class="analysis-switches" role="group" aria-label="辅助功能">
       <label><input id="model-auto" type="checkbox" ${preferences.automatic ? 'checked' : ''}> 自动分析</label>
       <label><input id="model-use" type="checkbox" ${preferences.useModel ? 'checked' : ''}> 调用模型</label>
       ${[['danger', '危险牌提示'], ['efficiency', '手牌建议'], ['strategy', '攻守建议']].map(([key, label]) => `<label><input id="feature-${key}" type="checkbox" ${preferences[key] ? 'checked' : ''}> ${label}</label>`).join('')}
       <button id="model-preset">综合辅助</button></div>
-      <header class="analysis-heading"><strong>${escape(roundLabel)}${selfLabel ? ` · ${escape(selfLabel)}${replay ? '视角' : ''}` : ''}</strong><span class="analysis-state">${!preferences.useModel ? '仅本地分析' : preferences.automatic ? '自动分析' : '手动分析'}</span></header>
-      ${busy ? `<p class="${live ? 'warn' : 'muted'}" role="status" aria-live="polite">${discussionBusy ? '正在回答该决策的追问，可继续对局。' : live ? '正在分析，请先不要出牌。' : '正在分析中…'}</p>` : ''}
+      <header class="analysis-heading"><strong>${escape(result?.position?.round ? `${['东','南','西','北'][result.position.round.wind]}${result.position.round.index + 1}局 · 事件 ${result.discussionRecord?.context?.position ?? result.position.cursor ?? '未知'}` : roundLabel)}${selfLabel ? ` · ${escape(selfLabel)}${replay ? '视角' : ''}` : ''}</strong><span class="analysis-state">${!preferences.useModel ? '仅本地分析' : preferences.automatic ? '自动分析' : '手动分析'}</span></header>
+      ${busy ? `<p class="${live ? 'warn' : 'muted'}" role="status" aria-live="polite">${discussionBusy ? '正在回答该决策的追问，可继续对局。' : live ? '正在分析，可继续对局。' : '正在分析中…'}</p>` : ''}
       ${(current.riichiLabels || []).length ? `<p class="analysis-riichi">${replay ? '已立直' : '立直警戒'} · ${(current.riichiLabels || []).map(escape).join(' · ')}</p>` : ''}
       <div class="analysis-main" role="status" aria-live="polite">
-      ${stale && r ? `<p class="analysis-meta muted">上一份已完成建议 · ${escape(previousLabel)} · 旧结果，仅供回看</p>` : ''}
+      ${stale && r ? `<p class="analysis-meta muted">上一份已完成建议 · ${escape(previousLabel)} · 旧结果，仅供回看；暂无当前可用建议。</p>` : ''}
+      ${stale && !r ? '<p class="warn analysis-stale">暂无当前可用建议；上方为上一份建议（非当前）。</p>' : ''}
       ${stale && !busy ? '<p class="warn analysis-stale">局面或分析功能已变化，以下为旧结果，请重新分析。</p>' : ''}
-      ${r ? `<div class="analysis-decision"><span>${decisionHeading(result)}</span>${r.decision.tile ? face(r.decision.tile) : ''}${engineActionHtml(result)}<p>${escape(r.decision.reasons?.[0] || '请结合当前局面判断。')}</p></div>${candidateHtml}` : busy || savedAutomatic ? '' : `<div class="analysis-empty"><strong>${!current.round ? '等待开局数据' : preferences.automatic ? '等待轮到你出牌' : '自动提示未开启'}</strong>${!hasFeatures() ? '<p class="muted">请至少开启一项辅助功能。</p>' : preferences.useModel && !enabled ? '<p class="muted">请在模型设置中接入并开启模型。</p>' : ''}</div>`}
+      ${r ? `<div class="analysis-decision"><span>${decisionHeading(result)}</span>${r.decision.tile ? face(r.decision.tile) : ''}${engineActionHtml(result)}<p>${escape(r.decision.reasons?.[0] || '请结合当前局面判断。')}</p></div>${explanationHtml(result)}${candidateHtml}` : busy || savedAutomatic ? '' : `<div class="analysis-empty"><strong>${!current.round ? '等待开局数据' : preferences.automatic ? '等待轮到你出牌' : '自动提示未开启'}</strong>${!hasFeatures() ? '<p class="muted">请至少开启一项辅助功能。</p>' : preferences.useModel && !enabled ? '<p class="muted">请在模型设置中接入并开启模型。</p>' : ''}</div>`}
       ${!replay && (current.phase === 'ended' || context?.mode === 'history') ? '<p class="muted">历史或结算局面 · 仅作复盘</p>' : ''}
       ${failureHtml(failure, 'automatic')}
       </div>
@@ -564,6 +663,7 @@
     const renderKey = markup.replace(/(<details data-section="[^"]+")\s*(?:open)?\s*>/g, '$1>');
     if (rendered.get(container) !== renderKey) { container.innerHTML = markup; rendered.set(container, renderKey); }
     const $ = id => container.querySelector('#' + id);
+    wireOfficial($, render);
     wireDiscussions($, render);
     if (inputState) { const input = $(inputState.id); input?.focus?.({ preventScroll: true }); input?.setSelectionRange?.(inputState.start, inputState.end); }
     for (const [scope, message] of [['automatic', failure], ['global', globalFailure]]) {

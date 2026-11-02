@@ -398,7 +398,8 @@ test('usage export is restricted to trusted options and strips unsolicited store
   const w = worker({ responses: [reply()] });
   assert.equal((await w.analyze()).ok, true);
   const record = w.local.values.agentRunsV1[0];
-  Object.assign(record, { apiKey: 'INJECTED_SECRET', endpoint: 'https://private.example/', prompt: 'RAW_PRIVATE_PROMPT',
+  assert.equal(record.stage, 'llm'); assert.equal(record.workflow, 'llm'); assert.equal(record.toolCalls, 0);
+  Object.assign(record, { engineCalls: -1, engineMs: { private: 'SECRET' }, stage: 'SECRET_STAGE', workflow: 'SECRET_WORKFLOW', toolCalls: 'SECRET_TOOLS', apiKey: 'INJECTED_SECRET', endpoint: 'https://private.example/', prompt: 'RAW_PRIVATE_PROMPT',
     modelConfig: { apiKey: 'NESTED_SECRET' }, response: { content: 'RAW_PRIVATE_RESPONSE' } });
   record.usage.prompt = 'NESTED_PRIVATE_PROMPT'; record.cost.apiKey = 'COST_SECRET';
   for (const sender of [w.game, { ...w.options, id: 'foreign-extension' }, { ...w.options, url: 'chrome-extension://extension-id/other.html' }]) {
@@ -409,7 +410,8 @@ test('usage export is restricted to trusted options and strips unsolicited store
   const output = exported.records[0];
   assert.equal(output.usage.inputTokens, 100); assert.equal(output.usage.outputTokens, 20);
   assert.equal(output.mode, 'round'); assert.equal(output.status, 'completed'); assert.ok(output.cost.totalCost > 0);
-  assert.deepEqual(Object.keys(output).sort(), ['at','calls','cost','elapsedMs','lane','mode','status','usage']);
+  assert.deepEqual(Object.keys(output).sort(), ['at','calls','cost','elapsedMs','engineCalls','engineMs','lane','mode','stage','status','toolCalls','usage','workflow']);
+  assert.equal(output.engineCalls, null); assert.equal(output.engineMs, null); assert.equal(output.toolCalls, null); assert.equal(output.stage, 'llm'); assert.equal(output.workflow, 'llm');
   assert.deepEqual(Object.keys(output.usage).sort(), ['cacheReadTokens','cacheWriteTokens','inputTokens','outputTokens','reasoningTokens','uncachedInputTokens']);
   assert.doesNotMatch(JSON.stringify(exported), /SECRET|PRIVATE|private\.example|apiKey|prompt|endpoint|modelConfig|response/);
 });

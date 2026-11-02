@@ -21,7 +21,18 @@
       followUp: value.followUp?.type === 'dahai' ? action(value.followUp) : null,
       limitations: Array.isArray(value.limitations) ? value.limitations.filter(s => typeof s === 'string').slice(0, 8).map(s => s.slice(0, 500)) : [] };
   }
-  const analysisAnswer = value => JSON.stringify(value.engine ? { result: value.result, engine: engineContext(value.engine) } : value.result);
+  function explanationContext(value) {
+    if (value?.status !== 'completed') return null;
+    const texts = v => Array.isArray(v) ? v.filter(s => typeof s === 'string').slice(0,8).map(s => s.slice(0,1000)) : [];
+    return { status: 'completed', summary: typeof value.summary === 'string' ? value.summary.slice(0,1000) : '', reasons: texts(value.reasons), limitations: texts(value.limitations),
+      model: typeof value.model === 'string' ? value.model.slice(0,200) : 'unknown', promptVersion: Number.isInteger(value.promptVersion) ? value.promptVersion : null };
+  }
+  function provenance(value) {
+    const source = value.officialSource || value.engineIdentity;
+    if (!source) return null;
+    return Object.fromEntries(['model','runtime','checkpoint','parserVersion','reviewerVersion','reportFingerprint','player','rules','entry'].filter(k => typeof source[k] === 'string' || Number.isInteger(source[k])).map(k => [k, typeof source[k] === 'string' ? source[k].slice(0,200) : source[k]]));
+  }
+  const analysisAnswer = value => JSON.stringify(value.engine ? { result: value.result, engine: engineContext(value.engine), explanation: explanationContext(value.explanation), provenance: provenance(value) } : value.result);
   function identity(snapshot, context = {}, type = 'combined') {
     return JSON.stringify([context.identity || {}, snapshot.source, snapshot.game?.round, snapshot.game?.honba,
       context.position ?? snapshot.lastStep, snapshot.selfSeat, type]);
@@ -58,13 +69,36 @@
           const identity = Object.fromEntries(['matchId', 'roundStartId', 'viewId'].filter(k => typeof raw[k] === 'string').map(k => [k, raw[k].slice(0, 160)]));
           return { identity, position: Number.isInteger(info.position) ? info.position : snapshot.lastStep };
         })();
-        const id = identity(snapshot, context, input.type || 'combined');
+        const base = identity(snapshot, context, input.type || 'combined');
+        const id = ['mortal-explain','official-mortal-review'].includes(input.analysis?.workflow) ? base + ':' + (input.analysis.runId || globalThis.crypto?.randomUUID?.() || Date.now() + '-' + Math.random()) : base;
         const existing = records.find(r => r.id === id);
         if (existing) return existing; // Original recommendation stays immutable.
         if (!input.analysis?.result || bytes(input) > 1000000) throw new Error('决策记录无效或过大。');
         const record = { id, snapshot, context, type: input.type || 'combined', analysis: copy(input.analysis),
-          at: Date.now(), panel: false, collapsed: false, removed: false, chat: [], revision: 0 };
+          at: Date.now(), panel: false, collapsed: false, removed: false, chat: [], revision: 0,
+          explanationAttempt: typeof input.explanationAttempt === 'string' ? input.explanationAttempt.slice(0, 200) : null };
         records.push(record); return record;
+      })),
+      claimExplanation: (id, attempt) => serial(() => mutate(() => {
+        const record = find(id);
+        if (!record.analysis.engine || !['mortal-explain','official-mortal-review'].includes(record.analysis.workflow)) throw new Error('该决策不是引擎解释工作流。');
+        if (record.analysis.explanation?.status === 'pending') throw new Error('该决策的解释正在进行，请等待完成或取消，避免重复请求。');
+        if (typeof attempt !== 'string' || !attempt || attempt.length > 200) throw new Error('解释请求标识无效。');
+        record.explanationAttempt = attempt;
+        record.analysis.explanation = { status: 'pending', promptVersion: 1 };
+        record.revision++;
+        return record;
+      })),
+      explain: (id, explanation, accounting, attempt) => serial(() => mutate(() => {
+        const record = find(id);
+        if (!record.analysis.engine || !['mortal-explain','official-mortal-review'].includes(record.analysis.workflow)) throw new Error('该决策不是引擎解释工作流。');
+        // A serialized persistent claim owns this one transition. A cancelled or
+        // late attempt cannot overwrite a newer retry or an already settled result.
+        if ((record.explanationAttempt || attempt) && (record.explanationAttempt !== attempt || record.analysis.explanation?.status !== 'pending')) throw new Error('解释请求状态已变化，未覆盖当前结果。');
+        record.analysis.explanation = copy(explanation);
+        if (accounting) record.analysis.explanationAccounting = copy(accounting);
+        record.revision++;
+        return record;
       })),
       patch: (id, patch) => serial(() => mutate(() => {
         const record = find(id);
@@ -87,7 +121,7 @@
         r.revision++;
         return r; // Never re-pin a removed panel on late completion.
       })),
-      recover: () => serial(() => mutate(() => { for (const r of records) for (const t of r.chat) if (t.status === 'pending') { t.status = 'failed'; t.error = '扩展已重启，请重新提问。'; } return records; })),
+      recover: () => serial(() => mutate(() => { for (const r of records) if (r.analysis.explanation?.status === 'pending') { r.analysis.explanation = { status: 'interrupted', billing: 'unknown', error: '扩展重启，费用状态未知；不会自动重发。' }; r.revision++; } for (const r of records) for (const t of r.chat) if (t.status === 'pending') { t.status = 'failed'; t.error = '扩展已重启，请重新提问。'; } return records; })),
       context: id => serial(() => {
         const r = find(id), position = r.context.position ?? r.snapshot.lastStep;
         return copy({ baseline: { snapshot: r.snapshot, position, origin: 'checkpoint', reason: 'decision-discussion' }, checkpoint: { position },

@@ -1,6 +1,6 @@
 'use strict';
 importScripts('contracts/snapshot.js', 'adapters/model-endpoint.js', 'adapters/engine-endpoint.js', 'adapters/mjai.js', 'mahjong-analysis.js', 'analysis.js');
-importScripts('harness.js', 'xf-context.js', 'agent.js');
+importScripts('harness.js', 'contracts/engine-explanation.js', 'xf-context.js', 'agent.js');
 importScripts('pi-runtime.js', 'round-context.js', 'model-usage.js', 'model-session-transport.js', 'agent-run-store.js');
 importScripts('model-diagnostics.js');
 importScripts('contracts/engine-result.js', 'engine-agent.js');
@@ -9,7 +9,7 @@ importScripts('user-memory.js', 'user-memory-agent.js', 'user-memory-worker.js')
 importScripts('model-analysis-worker.js');
 let analysisWorker;
 const modelDiagnostics = MJModelDiagnostics.create({ permissions: chrome.permissions, fetchModel: (...args) => fetch(...args) });
-chrome.permissions.onRemoved?.addListener(() => modelDiagnostics.cancel());
+chrome.permissions.onRemoved?.addListener(() => { modelDiagnostics.cancel(); analysisWorker?.invalidate(false); notifyModelConfigChanged(); });
 const discussions = MJDecisionDiscussions.create({ storage: chrome.storage.local });
 const discussionReady = discussions.recover().catch(() => {});
 const memoryWorker = MJUserMemoryWorker.create({ storage: chrome.storage.local, permissions: chrome.permissions,
@@ -18,7 +18,7 @@ const memoryWorker = MJUserMemoryWorker.create({ storage: chrome.storage.local, 
 const roundContexts = MJRoundContext.createStore({ storage: chrome.storage.local });
 const runStore = MJRunStore.create({ storage: chrome.storage.local });
 analysisWorker = MJModelAnalysisWorker.create({ storage: chrome.storage.local, permissions: chrome.permissions,
-  fetchModel: (...args) => fetch(...args), runtime: MJPiRuntime, roundContexts, runStore, discussions, discussionReady, memoryWorker });
+  fetchModel: (...args) => fetch(...args), runtime: MJPiRuntime, roundContexts, runStore, discussions, discussionReady, memoryWorker, onStage: (key, stage) => chrome.tabs.sendMessage(key, { type: 'model:stage', ...stage }, { frameId: 0 }).catch(() => {}) });
 memoryWorker.pump();
 async function clearAgentData(clearRuns = true) {
   modelDiagnostics.cancel();
@@ -27,7 +27,7 @@ async function clearAgentData(clearRuns = true) {
 chrome.storage.local.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' });
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'local' && (changes.modelConfig || changes.llmProfilesV1 || changes.analysisProviders)) modelDiagnostics.cancel();
-  if (area !== 'local' || !changes.modelConfig) return;
+  if (area !== 'local' || !(changes.modelConfig || changes.analysisProviders || changes.llmProfilesV1)) return;
   analysisWorker.cancelAll();
   // Content scripts cannot observe changes to TRUSTED_CONTEXTS storage.
   // Send only an invalidation signal; credentials stay in the worker.
@@ -73,7 +73,7 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
     runStore.list().then(records => respond({ ok: true, records })).catch(() => respond({ ok: false, error: '读取用量记录失败。' })); return true;
   }
   if (message?.type === 'agent:clear-data' && !sender.tab?.url?.startsWith('https://game.maj-soul.com/') && sender.url === chrome.runtime.getURL?.('options.html')) {
-    clearAgentData().then(() => respond({ ok: true })).catch(() => respond({ ok: false, error: '清除本地记录失败，请重试。' })); return true;
+    clearAgentData().then(async () => { await notifyModelConfigChanged(); respond({ ok: true }); }).catch(() => respond({ ok: false, error: '清除本地记录失败，请重试。' })); return true;
   }
   if (message?.type?.startsWith('discussion:') && game) {
     (async () => {
@@ -96,7 +96,7 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
     return true;
   }
   if (message?.type === 'model:status' && game) {
-    chrome.storage.local.get(['modelConfig', 'analysisPreferences']).then(({ modelConfig: c, analysisPreferences }) => respond({ preferences: analysisPreferences, enabled: !!c?.enabled, model: c?.model || '', provider: c?.provider === 'mjai' ? 'mjai' : 'chat' })).catch(() => respond({ enabled: false, provider: 'chat' })); return true;
+    chrome.storage.local.get(['modelConfig', 'analysisPreferences']).then(({ modelConfig: c, analysisPreferences }) => respond({ preferences: analysisPreferences, enabled: !!c?.enabled, model: c?.model || '', provider: c?.provider === 'mjai' ? 'mjai' : 'chat', workflow: c?.workflow || 'llm' })).catch(() => respond({ enabled: false, provider: 'chat' })); return true;
   }
   if (message?.type === 'model:cancel' && game) { analysisWorker.cancel(sender.tab.id); respond({ ok: true }); return; }
   if (message?.type === 'model:prepare' && game) {

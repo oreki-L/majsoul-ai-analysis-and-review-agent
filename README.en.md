@@ -2,6 +2,8 @@
 
 **0.13.0: check the facts, then explain the trade-off.** Automatic combined analysis of complete four-player positions adds traceable compressed historical facts and a deterministic comparison catalog to the current authorized position and local efficiency / per-opponent danger evidence. No extra summary-model call is added. Freeze, revisit, and discuss each decision. [Inputs and supported scope](docs/XF_CONTEXT.md) (Chinese).
 
+An optional, disabled-by-default mode lets a local Mortal-compatible engine choose a validated action before an LLM explains it. Failed explanations can be retried independently. Bring your own local engine/model and separate Chat configuration; official Mortal 4.1 is not bundled. [Setup and limits](docs/MJAI.md) (Chinese).
+
 An interactive Mahjong Soul AI assistant for explanations and follow-up questions
 
 **Understand each trade-off. Ask why at any decision.**
@@ -22,6 +24,8 @@ Across the same 45 decisions in four rounds of one replay, the fact-enhanced str
 | Historical facts (X-S) | 23/45 (51.1%) | 3.10 (n=44) | 27/45 |
 | **Deterministic comparison catalog (X-F, selected)** | **31/45 (68.9%)** | **3.30 (n=45)** | **35/45** |
 | Background fact summaries (C-KM) | 21/45 (46.7%) | 2.99 (n=45) | 36/45 |
+
+These results cover Chat input strategies only, **not the optional Mortal teaching path**. No paid real-LLM evaluation of engine explanations was performed.
 
 **These are explanation and factual-quality gates, not win rates or playing strength.** Related points from one replay do not establish stable benefits across replays. Independent `gpt-6-sol/medium` review used `first-answer/1.0.1`. Of 180 opportunities, 179 delivered; one X-S failure remains in its pass-rate denominator, while means exclude missing delivery. Experiments allowed 180 seconds; the product allows two live model requests within 25 seconds (120 with thinking). The 68.9% result is not a production guarantee. This port has only offline equivalence and simulated validation, without a fresh real-model run. [Full public summary and limitations](docs/XF_VALIDATION.md) (Chinese).
 
@@ -166,6 +170,10 @@ The endpoint must support non-streaming `POST /chat/completions` with string con
 Advice may be wrong or late, calls may incur charges, and the configured provider processes the input. The small DeepSeek experiment does not establish other providers' compatibility or live advice quality. The API key stays in extension-local storage, is read only by the background component, and is excluded from game exports and the page bridge. See [SECURITY.md](SECURITY.md) for details.
 
 ## Optional local mjai engine
+
+**v0.13.0 adds optional action → explanation chaining.** Prepare your own local engine/model and runtime, save a separate OpenAI-compatible explanation service, then configure local mjai and enable “local Mortal decision + automatic LLM explanation.” Each service has separate credentials and permissions. The engine action appears first; teaching cannot change it, and retries/follow-ups do not rerun the engine. No model weights or Python environment are bundled. [Configuration and validation](docs/MJAI.md) (Chinese).
+
+Replay mode also opens the official review site for user submission and verification. Import is limited to saved English **Classic / mjai-reviewer 1.5.3 / Mortal 3** HTML and supported ordinary discards. Current official 4.1, KillerDucky and other formats are unsupported. The public sample's 130/205 parsing coverage is not 130 fully aligned local decisions. No automatic upload or full-report compatibility claim. [Detailed scope](docs/MORTAL_WORKFLOW_VALIDATION.md) (Chinese).
 
 Local mjai is an optional backend, disabled by default; LLM analysis remains the main workflow. **0.10.0 provides a beginner setup** using a pinned Akagi v2 small Mortal example model and Windows x64 runtime files. Install the Python 3.11 CPU dependencies, then download, check, and serve without writing a Bot or `runtime.json`. This is a weak example model, not Equim's online Mortal 4.1 or a model supplied by mjai-reviewer; no specialist playing-strength claim is made. These local commands are included in the 0.10.0 source package, not the browser-extension ZIPs.
 

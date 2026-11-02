@@ -32,12 +32,12 @@ function panel(options = {}) {
     }, onMessage: { addListener: fn => { configChanged = fn; }, removeListener: fn => { if (configChanged === fn) configChanged = null; } } } } };
   if (options.offline) delete context.chrome;
   vm.runInNewContext(fs.readFileSync(require.resolve('../extension/analysis-panel.js'), 'utf8'), context);
-  const render = () => context.MJAnalysisPanel.mount(container, { snapshot: selection => C.snapshot(state, selection), analysisContext: options.analysisContext, engineRequest: options.engineRequest, seatLabels: state.players.map((_, seat) => S.seatWind(state, seat) + '家 · 座位 ' + seat), phase: state.phase, matchEnded: state.result?.gameEnded === true, round: state.round, selfSeat: state.selfSeat, hintsReady: options.hintsReady !== false, hintsCalibrated: !!options.hintsCalibrated, selfHand: state.selfHand, drawnTile: state.drawnTiles[state.selfSeat], riichiLabels: options.riichiLabels || [], recordCount: options.recordCount || 0,
+  const render = () => context.MJAnalysisPanel.mount(container, { snapshot: selection => C.snapshot(state, selection), analysisContext: options.analysisContext, engineRequest: options.engineRequest, importOfficialReport: options.importOfficialReport, seatLabels: state.players.map((_, seat) => S.seatWind(state, seat) + '家 · 座位 ' + seat), phase: state.phase, matchEnded: state.result?.gameEnded === true, round: state.round, selfSeat: state.selfSeat, hintsReady: options.hintsReady !== false, hintsCalibrated: !!options.hintsCalibrated, selfHand: state.selfHand, drawnTile: state.drawnTiles[state.selfSeat], riichiLabels: options.riichiLabels || [], recordCount: options.recordCount || 0,
     onMode: mode => { position.mode = mode; position.cursor = mode === 'replay' ? 1 : null; render(); },
     onCursor: cursor => { position.cursor = cursor; render(); }, onSelfSeat: seat => { state.selfSeat = seat; render(); }, onRoundStart: () => roundStartCalls++,
     onCollector: () => collectorCalls++, onHistory: () => historyCalls++, onCalibrateHints: () => calibrateCalls++ }, position, render, { onHints: value => hints.push(value) });
   render();
-  return { timers, fireTimer: () => { const [id, timer] = timers.entries().next().value; timers.delete(id); return timer.fn(); }, render, state, messages, hints, position, details, section, calls: () => [collectorCalls, historyCalls, calibrateCalls], roundStartCalls: () => roundStartCalls, destroy: () => context.MJAnalysisPanel.destroy(), element: id => elements.get('#' + id), html: () => container.innerHTML.replace('<div data-analysis-content></div>', '<div data-analysis-content>' + content.innerHTML + '</div>'), configChanged: (sender = { id: 'fixture' }) => configChanged?.({ type: 'model:config-changed' }, sender), resolve: value => resolveAnalysis(value) };
+  return { timers, fireTimer: () => { const [id, timer] = timers.entries().next().value; timers.delete(id); return timer.fn(); }, render, state, messages, hints, position, details, section, calls: () => [collectorCalls, historyCalls, calibrateCalls], roundStartCalls: () => roundStartCalls, destroy: () => context.MJAnalysisPanel.destroy(), element: id => elements.get('#' + id), html: () => container.innerHTML.replace('<div data-analysis-content></div>', '<div data-analysis-content>' + content.innerHTML + '</div>'), stage: message => configChanged?.({ type: 'model:stage', ...message }, { id: 'fixture' }), configChanged: (sender = { id: 'fixture' }) => configChanged?.({ type: 'model:config-changed' }, sender), resolve: value => resolveAnalysis(value) };
 }
 test('global preview and request use combined data regardless of automatic features, and escape model text', async () => {
   const p = panel(); await flush();
@@ -80,11 +80,11 @@ test('panel cancellation discards delayed model results and synthetic clicks sen
   const p = panel(); await flush(); await p.element('model-run').onclick({ isTrusted: false });
   assert.equal(p.messages.some(m => m.type === 'model:analyze'), false);
   const pending = p.element('model-run').onclick({ isTrusted: true }); await flush();
-  assert.match(p.html(), /正在分析，请先不要出牌/);
+  assert.match(p.html(), /正在分析，可继续对局/);
   assert.equal((p.html().match(/正在分析/g) || []).length, 1);
   p.element('model-cancel').onclick({ isTrusted: true });
   p.resolve({ ok: true, model: 'late', result: { danger: [], efficiency: [], decision: { action: 'unknown', tile: null, reasons: ['late-result'] }, limitations: [] } });
-  await pending; assert.doesNotMatch(p.html(), /late-result|正在分析，请先不要出牌/); assert.match(p.html(), /已取消分析/);
+  await pending; assert.doesNotMatch(p.html(), /late-result|正在分析，可继续对局/); assert.match(p.html(), /已取消分析/);
 });
 
 test('configuration changes cancel pending global analysis', async () => {
@@ -445,7 +445,7 @@ test('enabling model calls needs no separate consent, including legacy consent=f
   p.resolve(modelResult()); await pending; p.destroy();
 });
 
-test('engine preview matches its input and provider switching retains the saved global result', async () => {
+test('engine preview matches its input and configuration invalidation hides saved display', async () => {
   const options = { provider: 'mjai', engineRequest: () => ({ format: 'majsoul-mjai-v1', seat: 0, events: [{ type: 'tsumo', actor: 0, pai: '9p' }] }) };
   const p = panel(options); await flush();
 
@@ -454,14 +454,14 @@ test('engine preview matches its input and provider switching retains the saved 
   assert.equal(p.messages.some(m => m.type === 'model:analyze'), false);
   const pending = p.element('model-run').onclick({ isTrusted: true }); await flush();
   const sent = p.messages.find(m => m.type === 'model:analyze');
-  assert.equal(sent.provider, 'mjai');
+  assert.equal(sent.provider, 'mjai'); assert.equal(sent.lane, 'manual-review');
   assert.deepEqual(sent.engineRequest, options.engineRequest());
   const response = modelResult(); response.engine = { action: { type: 'reach', actor: 0 } };
   response.result.decision = { action: 'unknown', tile: null, reasons: ['engine-reach'] };
   p.resolve(response); await pending;
   assert.match(globalSection(p), /立直意向/);
   options.provider = 'chat'; p.configChanged(); await flush();
-  assert.match(globalSection(p), /engine-reach/);
+  assert.doesNotMatch(globalSection(p), /engine-reach/);
   assert.equal(p.hints.at(-1), null);
 });
 
@@ -490,14 +490,14 @@ test('automatic decisions merge features once, do not repeat on repaint, and can
   const p = panel({ manualTimers: true, preferences: { automatic: true, useModel: true, consent: true } }); await flush();
   p.state.turn = p.state.selfSeat; p.state.lastStep = 1; p.render();
   assert.equal(p.timers.size, 1); p.fireTimer(); await flush();
-  assert.match(p.html(), /正在分析，请先不要出牌/);
+  assert.match(p.html(), /正在分析，可继续对局/);
   assert.equal((p.html().match(/正在分析/g) || []).length, 1);
   assert.equal(p.messages.filter(m => m.type === 'model:analyze').length, 1);
   assert.equal(p.messages.find(m => m.type === 'model:analyze').task, 'combined');
   p.resolve(modelResult()); await flush(); p.render(); assert.equal(p.timers.size, 0);
-  assert.doesNotMatch(p.html(), /正在分析，请先不要出牌/);
+  assert.doesNotMatch(p.html(), /正在分析，可继续对局/);
   p.state.lastStep = 2; p.render(); assert.ok([...p.timers.values()][0].delay > 7000); p.fireTimer(); await flush();
-  assert.match(p.html(), /正在分析，请先不要出牌/);
+  assert.match(p.html(), /正在分析，可继续对局/);
   assert.doesNotMatch(p.html(), /局面或分析功能已变化，以下为旧结果，请重新分析/);
   assert.equal((p.html().match(/正在分析/g) || []).length, 1);
   p.state.turn = (p.state.selfSeat + 1) % 4; p.state.lastStep = 3; p.render();
@@ -582,7 +582,7 @@ test('loss of turn confidence cancels pending threshold requests and discards de
   p.fireTimer(); await flush(); assert.equal(p.messages.filter(m => m.type === 'model:analyze').length, 1); p.destroy();
 });
 
-test('global result survives draws, new rounds, feature changes, configuration changes and automatic updates', async () => {
+test('global result survives play but configuration invalidation hides prior display', async () => {
   const p = automaticPanel(); await flush();
   const pending = p.element('model-run').onclick({ isTrusted: true }); await flush();
   const response = modelResult(); response.result.decision.reasons = ['保留的全局结论'];
@@ -599,11 +599,10 @@ test('global result survives draws, new rounds, feature changes, configuration c
   assert.deepEqual(savedHand.slice(0, 1), ['1m']);
   toggle(p, 'feature-efficiency', false);
   p.configChanged(); await flush();
-  assert.match(globalSection(p), /保留的全局结论/);
+  assert.doesNotMatch(globalSection(p), /保留的全局结论/);
   await automaticResult(p);
   assert.equal(p.hints.at(-1).decision.tile, '1m');
-  assert.match(globalSection(p), /保留的全局结论/);
-  assert.doesNotMatch(globalSection(p), /测试结论/);
+  assert.doesNotMatch(globalSection(p), /保留的全局结论|测试结论/);
   p.destroy();
 });
 
@@ -627,7 +626,7 @@ test('global analysis after discarding prioritizes in-progress status over stale
   const p = automaticPanel(); await flush(); await automaticResult(p);
   const pending = p.element('model-run').onclick({ isTrusted: true }); await flush();
   p.state.selfHand.pop(); p.state.turn = 2; p.state.lastStep = 2; p.render();
-  assert.match(p.html(), /正在分析，请先不要出牌/);
+  assert.match(p.html(), /正在分析，可继续对局/);
   assert.doesNotMatch(p.html(), /局面或分析功能已变化，以下为旧结果，请重新分析/);
   assert.equal(p.hints.at(-1), null);
   p.resolve(modelResult()); await pending;
@@ -699,4 +698,36 @@ test('engine melds, wins, phases and verified reach discard render with distinct
   const response = modelResult(); response.engine = { action: { type: 'reach', actor: 1 }, phase: 'draw', followUp: { type: 'dahai', actor: 1, pai: '1m', tsumogiri: false } };
   p.resolve(response); await pending;
   assert.match(globalSection(p), /已验证立直配套弃牌/); assert.match(globalSection(p), /建议打/); p.destroy();
+});
+
+
+test('hybrid stage publishes action, late stage cannot replace current and teaching preserves old card', async () => {
+  const p = panel({ discussions: true, provider: 'mjai', status: () => ({ enabled: true, provider: 'mjai', workflow: 'mortal-explain', preferences: { automatic: true, useModel: true } }), manualTimers: true, engineRequest: () => ({ format: 'majsoul-mjai-v1', seat: 1, events: [] }) });
+  await flush(); p.state.turn = 1; p.state.lastStep = 1; p.render(); p.fireTimer(); await flush();
+  const request = p.messages.find(m => m.type === 'model:analyze');
+  assert.equal(request.lane, 'live');
+  const a = { ...modelResult(), workflow: 'mortal-explain', engine: { action: { type: 'dahai', actor: 1, pai: '1m' } }, explanation: { status: 'pending' } };
+  const record = { id: 'hybrid-fixture', snapshot: request.snapshot, context: { position: 1 }, analysis: a, at: Date.now(), chat: [], revision: 0 };
+  p.stage({ clientRunId: request.clientRunId, analysis: a, record });
+  assert.match(p.html(), /建议已出，正在解释/); assert.equal(p.hints.at(-1).decision.tile, '1m');
+  p.state.lastStep = 2; p.state.selfHand[0] = '9p'; p.render();
+  assert.equal(p.hints.at(-1), null); assert.match(p.html(), /测试结论/); assert.match(p.html(), /暂无当前可用建议/);
+  p.stage({ clientRunId: request.clientRunId, analysis: { ...a, model: 'LATE_BAD_STAGE' }, record });
+  assert.doesNotMatch(p.html(), /LATE_BAD_STAGE/);
+  p.resolve({ ...a, explanation: { status: 'completed', summary: 'LATE_TEACHING' }, discussionRecord: record }); await flush();
+  assert.doesNotMatch(p.html(), /LATE_TEACHING/); assert.equal(p.hints.at(-1), null);
+  p.destroy();
+});
+
+
+test('clearing or configuration invalidation fences an already parsing official report before any record save', async () => {
+  let finish;
+  const p = panel({ discussions: true, importOfficialReport: () => new Promise(resolve => { finish = resolve; }) });
+  await flush(); p.position.mode = 'replay'; p.render();
+  const pending = p.element('official-file').onchange({ isTrusted: true, target: { files: [{ size: 1, text: async () => 'HTML' }] } });
+  await flush(); p.configChanged(); await flush();
+  finish({ model: 'LATE_IMPORTED_REPORT', entries: [], coverage: {} }); await pending;
+  assert.doesNotMatch(p.html(), /LATE_IMPORTED_REPORT/);
+  assert.equal(p.messages.some(m => m.type === 'discussion:save'), false);
+  p.destroy();
 });

@@ -149,3 +149,10 @@ test('known wall bounds reject impossible remaining counts before inference', as
     await assert.rejects(Agent.run({ ...c, infer: async () => discard() }), /剩余牌山/);
   }
 });
+
+
+test('bridge model provenance is a bounded whitelist and never includes command or upstream arbitrary metadata', async () => {
+  const result = await Agent.run({ ...context(), infer: async () => ({ ...discard(), identity: { model: 'akagi-v2-weak-mortal-windows-py311', runtime: 'windows-py311', checkpoint: 'a'.repeat(64), sourceCommit: 'b'.repeat(40), command: 'SECRET_COMMAND', apiKey: 'SECRET_KEY' } }) });
+  assert.equal(result.engine.identity.model, 'akagi-v2-weak-mortal-windows-py311'); assert.equal(result.engine.identity.checkpoint.length, 64);
+  assert.doesNotMatch(JSON.stringify(result), /SECRET/);
+});

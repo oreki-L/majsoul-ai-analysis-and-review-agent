@@ -100,7 +100,7 @@ async function main(argv) {
   await check(options);
   if (mode === 'serve') {
     let started;
-    try { started = await startEngineServer({ config: runtimeConfig(options), port: options.port, token: process.env.MJAI_ENGINE_TOKEN }); }
+    try { started = await startEngineServer({ config: runtimeConfig(options), port: options.port, token: process.env.MJAI_ENGINE_TOKEN, identity: { model: source.profile, runtime: 'windows-py311-torch2.7.0', checkpoint: source.files.find(f => f.name === 'mortal.pth').sha256, sourceCommit: source.commit } }); }
     catch (error) { throw new Error(error.code === 'EADDRINUSE' ? 'PORT_IN_USE: stop the other bridge or select --port' : 'SERVER_START_FAILED: check --port and MJAI_ENGINE_TOKEN'); }
     const { server, token } = started;
     console.log(`Engine bridge: http://127.0.0.1:${server.address().port}/analyze`);

@@ -60,7 +60,7 @@ test('acceptance: cancelled late worker answer preserves the original and does n
   assert.equal(loaded.analysis.result.decision.reasons[0], 'ORIGINAL_DECISION');
 });
 function worker(overrides = {}) {
-  let listener, changed, requests = [], accessLevel, aborted = false, nextTimer = 0;
+  let listener, changed, permissionRemoved, requests = [], accessLevel, aborted = false, nextTimer = 0;
   const timers = new Map();
   const notifications = [], tabQueries = [];
   const config = { enabled: true, model: 'mock-model', endpoint: 'https://provider.example/v1/chat/completions', apiKey: 'test-key', ...overrides.config };
@@ -73,7 +73,7 @@ function worker(overrides = {}) {
       set: async value => { Object.assign(storage, structuredClone(value)); } }, onChanged: { addListener: fn => { changed = fn; } } },
       tabs: { query: async query => { tabQueries.push(query); return [{ id: 7 }, { id: 8 }]; },
         sendMessage: async (...args) => { notifications.push(args); if (args[0] === 8) throw new Error('Tab closed'); } },
-      permissions: { contains: async () => overrides.permission !== false },
+      permissions: { contains: async () => overrides.permission !== false, onRemoved: { addListener: fn => { permissionRemoved = fn; } } },
       runtime: { id: 'extension-id', getURL: path => 'chrome-extension://extension-id/' + path, openOptionsPage() {}, onMessage: { addListener: fn => { listener = fn; } } } },
     fetch: async (url, options) => {
       requests.push({ url, options });
@@ -86,7 +86,7 @@ function worker(overrides = {}) {
   const sender = { id: 'extension-id', tab: { id: 7 }, frameId: 0, url: 'https://game.maj-soul.com/1/' };
   const call = (message, from = sender) => new Promise(resolve => { if (listener(message, from, value => resolve(structuredClone(value))) !== true) resolve(undefined); });
   const analyze = (task = 'both', selection = { game: true, hand: true, rivers: 'all' }) => call({ type: 'model:analyze', task, snapshot: C.snapshot(state('live'), selection) });
-  return { call, analyze, requests, notifications, tabQueries, expire: () => {
+  return { call, analyze, requests, notifications, tabQueries, removePermission: () => permissionRemoved({ origins: ['https://provider.example/*'] }), expire: () => {
     // Browser timers fire in deadline order, with registration order breaking ties.
     const [id, timer] = [...timers].sort((a, b) => a[1].delay - b[1].delay)[0];
     timers.delete(id); timer.fn();
@@ -111,4 +111,23 @@ test('X-F acceptance: actual background worker and Pi send the catalog and recon
   assert.deepEqual(facts.states.map(v => v.position), [5]);
   assert.match(body.messages[0].content, /当前状态与同stateId的本地计算是事实来源/);
   assert.doesNotMatch(JSON.stringify(body.messages), /factClaims|数据不足，无法建议弃牌/);
+});
+
+test('permission removal cancels active background work and preserves discussion history and accounting', async () => {
+  const options = {}, w = worker(options), saved = await save(w, 1);
+  assert.equal((await ask(w, saved, '保留这次问答', 'kept')).ok, true);
+  const history = await w.call({ type: 'discussion:list' });
+  const optionsSender = { id: 'extension-id', url: 'chrome-extension://extension-id/options.html' };
+  const runs = await w.call({ type: 'agent:usage' }, optionsSender);
+  assert.ok(runs.records.length > 0);
+  options.wait = true;
+  const pending = w.analyze();
+  while (w.requests.length < 2) await new Promise(resolve => setImmediate(resolve));
+  options.permission = false; w.removePermission();
+  assert.equal((await pending).ok, false); assert.equal(w.aborted, true);
+  const after = await w.call({ type: 'discussion:list' });
+  assert.deepEqual(after.records, history.records);
+  const accounted = await w.call({ type: 'agent:usage' }, optionsSender);
+  for (const record of runs.records) assert.ok(accounted.records.some(r => r.id === record.id));
+  assert.ok(w.notifications.some(([, message]) => message.type === 'model:config-changed'));
 });

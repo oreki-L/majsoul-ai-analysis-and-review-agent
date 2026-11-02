@@ -90,13 +90,15 @@ controller独立于DOM和浏览器API；存储、时钟、ID和hash通过端口�
 
 ## 可选引擎数据流
 
-LLM 分析与解释保持主要定位，默认 `chat` 且分析关闭。设置保留多份命名 `chat` 配置与可选 `mjai` 配置，一次只使用所选后端；切换不自动启用分析，也不会自动串联 LLM 和引擎。Mortal/mjai 是自备模型的可选适配，不增加独立获取器的依赖或权限。
+LLM 分析与解释保持主要定位，默认 `chat` 且分析关闭。设置保留多份命名 `chat` 配置与可选 `mjai` 配置；切换不自动启用分析。用户显式启用 `mortal-explain` 后，本地引擎先产生并保存校验动作，再以独立 Chat 配置经 Pi 补充教学解释。Mortal/mjai 是自备模型的可选适配，不增加独立获取器的依赖或权限。
+
+动作与解释使用独立合同，解释无动作覆盖权。教学走 `live-selective` 与原解释 prompt，纯 Chat 自动综合分析的 X-F 走 `live-xf`，工作流和引擎身份隔离。解释重试先原子持久领取 attempt，只有该 pending attempt 能落一次终态；失败、取消或迟到响应不能覆盖新重试。撤权取消在途并清当前展示，历史问答及用量保留。官网入口与旧报告的有限导入见 [Mortal 验收范围](docs/MORTAL_WORKFLOW_VALIDATION.md)。
 
 组合入口提供授权观察的本局连续事件，由 `adapters/mjai.js` 转换为 `majsoul-mjai-v1`：`start_game`、13张 `start_kyoku` 与游标前事件；玩家名匿名化，对手手牌/摸牌遮蔽。后台 `engine-agent.js` 执行 `request.validate → engine.infer → engine.validate`，只依赖净化 DTO，重放自家手牌并对照局数、点数、供托、宝牌、有序公开牌河及立直状态。原始获取器 state 不进入引擎 Agent。
 
 扩展经带 Bearer Token 的本机 `/analyze` 调用 `engine-server.cjs`，后者由 `mjai-process.cjs` 启动用户配置的进程，写入一行完整事件数组，读取单行动作并清理进程。Python 包装器调用用户零参数 Bot 类的 `react(events_json)`，用户模块自行加载权重和依赖。命令不是沙箱；不捆绑上游运行环境或权重，上游许可另行适用。此服务默认不启动，不接受由页面指定执行命令。
 
-页面初版仅接受完整无副露四麻的合法 `dahai`、`reach` 意向及 `none`，自家14张开局记录和其他动作明确拒绝。无法确定立直弃牌时不输出具体牌；无可靠 Q 索引映射时候选为空，Q 值不作为放铳概率或危险牌依据。`engine:review` 从事件前缀重建快照，复用同一 Agent 的完整一致性与动作校验，输出 `engine/result/localAnalysis/trace`。HTTP 服务全局只运行一次推理，忙时429且不排队，断开后等待取消清理完成才释放。完整协议与命令见 [docs/MJAI.md](docs/MJAI.md)。真实模型权重及牌力未验证。
+页面初版仅接受完整无副露四麻的合法 `dahai`、`reach` 意向及 `none`，自家14张开局记录和其他动作明确拒绝。无法确定立直弃牌时不输出具体牌；无可靠 Q 索引映射时候选为空，Q 值不作为放铳概率或危险牌依据。`engine:review` 从事件前缀重建快照，复用同一 Agent 的完整一致性与动作校验，输出 `engine/result/localAnalysis/trace`。HTTP 服务全局只运行一次推理，忙时429且不排队，断开后等待取消清理完成才释放。完整协议与命令见 [docs/MJAI.md](docs/MJAI.md)。固定 Akagi 弱 Mortal 示例已用四座位人工局面验证真实推理；官网4.1、连续整场及实战牌力未验证。
 
 ## 可选 NAGA 牌谱导出
 

@@ -43,6 +43,7 @@
         "mahjong-analysis.js",
         "analysis.js",
         "postgame-review.js",
+        "official-mortal-report.js",
         "analysis-panel.js",
         "panel-theme.js",
         "overlay.js",

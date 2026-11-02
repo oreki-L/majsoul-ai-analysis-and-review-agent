@@ -16,6 +16,7 @@
       const costs = ['inputCost', 'outputCost', 'cacheReadCost', 'cacheWriteCost', 'totalCost'];
       runs.push({ id, at: Date.now(), status: ['completed', 'failed', 'cancelled'].includes(record.status) ? record.status : 'failed',
         mode: record.mode === 'round' ? 'round' : 'snapshot', lane: record.lane === 'live' ? 'live' : 'manual-review',
+        workflow: ['mortal-explain','official-mortal-review','engine'].includes(record.workflow) ? record.workflow : 'llm', stage: ['engine','explanation'].includes(record.stage) ? record.stage : 'llm', engineCalls: number(record.engineCalls), engineMs: number(record.engineMs), toolCalls: number(record.toolCalls),
         elapsedMs: number(record.elapsedMs), calls: number(record.calls), usage,
         cost: { currency: typeof record.cost?.currency === 'string' ? record.cost.currency.slice(0, 12) : null, ...Object.fromEntries(costs.map(k => [k, number(record.cost?.[k])])) } });
       await storage.set({ [key]: runs });
@@ -29,6 +30,7 @@
         const cost = Object.fromEntries(['inputCost', 'outputCost', 'cacheReadCost', 'cacheWriteCost', 'totalCost'].map(k => [k, numeric(record.cost?.[k])]));
         return { at: numeric(record.at), status: ['completed', 'failed', 'cancelled'].includes(record.status) ? record.status : 'failed',
           mode: record.mode === 'round' ? 'round' : 'snapshot', lane: record.lane === 'live' ? 'live' : 'manual-review',
+          workflow: ['mortal-explain','official-mortal-review','engine'].includes(record.workflow) ? record.workflow : 'llm', stage: ['engine','explanation'].includes(record.stage) ? record.stage : 'llm', engineCalls: numeric(record.engineCalls), engineMs: numeric(record.engineMs), toolCalls: numeric(record.toolCalls),
           elapsedMs: numeric(record.elapsedMs), calls: numeric(record.calls), usage,
           cost: { ...cost, currency: typeof record.cost?.currency === 'string' ? record.cost.currency.slice(0, 12) : null } };
       });

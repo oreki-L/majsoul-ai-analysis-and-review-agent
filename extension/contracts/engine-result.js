@@ -118,9 +118,11 @@
     } else fail();
     // No implicit action-index mapping: different engines use different Q-vector layouts.
     if (a.meta?.q_values !== undefined || raw.meta?.q_values !== undefined) limitations.push('未提供可验证的动作索引映射，未展示 Q 值候选。');
+    const identity = raw.identity && typeof raw.identity === 'object' ? Object.fromEntries(['model', 'runtime', 'checkpoint', 'sourceCommit'].filter(k =>
+      typeof raw.identity[k] === 'string' && (['checkpoint','sourceCommit'].includes(k) ? /^[a-f0-9]{40}(?:[a-f0-9]{24})?$/.test(raw.identity[k]) : /^[a-zA-Z0-9._-]{1,160}$/.test(raw.identity[k]))).map(k => [k, raw.identity[k]])) : null;
     return {
-      result: { task: 'combined', danger: [], efficiency: [], decision: { action: tile ? 'attack' : 'unknown', tile, reasons }, limitations },
-      engine: { format: 'majsoul-engine-result-v1', phase: context.phase, action, followUp, candidates: [], limitations: limitations.slice() }
+      result: { task: 'combined', danger: [], efficiency: [], decision: { action: 'unknown', tile, reasons }, limitations },
+      engine: { format: 'majsoul-engine-result-v1', phase: context.phase, action, followUp, ...(identity && Object.keys(identity).length ? { identity } : {}), candidates: [], limitations: limitations.slice() }
     };
   }
   const api = { validateResult, fromMjai };

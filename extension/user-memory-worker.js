@@ -9,7 +9,9 @@
       if (busy()) return;
       pumping = true;
       try {
-        const { modelConfig: config } = await storage.get('modelConfig');
+        const settings = await storage.get(['modelConfig', 'analysisProviders']);
+        const source = settings.modelConfig;
+        const config = source?.workflow === 'mortal-explain' ? { ...settings.analysisProviders?.chat, enabled: source.enabled } : source;
         if (busy() || !config?.enabled || config.provider === 'mjai') return;
         const url = root.MJModelEndpoint.endpoint(config.endpoint);
         if (!await permissions.contains({ origins: [root.MJModelEndpoint.permissionOrigin(url.href)] }) || busy()) return;
@@ -23,7 +25,7 @@
             transport: async request => {
               if (busy() || controller.signal.aborted || calls) throw new Error('Memory request preempted');
               const { modelConfig: current } = await storage.get('modelConfig');
-              if (controller.signal.aborted || busy() || JSON.stringify(current) !== JSON.stringify(config)) throw new Error('Memory configuration changed');
+              if (controller.signal.aborted || busy() || JSON.stringify(current) !== JSON.stringify(source)) throw new Error('Memory configuration changed');
               calls++;
               const body = root.MJModelSessionTransport.body(request, config, { max_tokens: 2048,
                 ...(root.MJModelEndpoint.supportsThinking(config.endpoint, config.model) ? { thinking: { type: 'disabled' } } : {}) });

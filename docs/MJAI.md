@@ -175,3 +175,16 @@ npm run engine:review -- observation.json --config runtime.json --seat 0 --hand 
 - harness 只记录工具名、状态和耗时，不记录牌局载荷、原始输出或密钥。Token 保存在扩展本地存储，与聊天 API Key 一样不是加密保险箱。
 
 除人工事件、模拟进程与 HTTP 回归外，上述 Akagi v2 固定组合已完成真实示例权重推理与 HTTP → EngineAgent 验收；新增动作另以真实模型人工局面验证 profile → runner → Agent，不将其合称真实模型 HTTP 全链路。其他 Bot、权重与环境不据此视为已测，真实游戏整场兼容性与实战牌力仍待验证。上述能力纳入 0.10.0；本轮未做真实完整牌谱验证。模型可能在 Agent 尚不支持的动作中选出最优动作，此时明确失败，不擅自替换成另一个动作。运行与数据风险另见 [SECURITY.md](../SECURITY.md)，验证记录见 [VALIDATION.md](../VALIDATION.md)。
+
+
+## 可选 Mortal 决策 + LLM 解释（v0.13.0）
+
+先在设置的 OpenAI 兼容服务保存解释 LLM，再切到本地 mjai，填写独立 Token、勾选“Mortal 决策 + LLM 自动解释”并保存。两端分别授权；默认旧配置仍为原单服务模式。引擎动作先显示，解释失败保留动作，重试仅调用 LLM；冻结追问无需切后端。仅开启危险/效率专项时不要求运行综合引擎。关闭或撤销权限会取消请求并隐藏对应展示。
+
+本项目 `engine:akagi serve` 会报告固定弱示例的 profile、运行时、checkpoint SHA-256 和来源提交，卡片使用该桥接身份；其他自选服务缺失来源时显示身份未知。元数据为桥接报告，不是官网认证。当前未取得官网 4.1 权重或实时 API。四座位人工本地推理及 mock 教学合同检查命令：
+
+```powershell
+node scripts/validate-mortal-local.cjs ASSET_DIR PYTHON_EXE
+```
+
+无需下载新资产，不调用收费 LLM。完整范围见 [Mortal 工作流验收](MORTAL_WORKFLOW_VALIDATION.md)。

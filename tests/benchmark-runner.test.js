@@ -201,13 +201,16 @@ test('strict repair keeps every invalid draft and all paid attempts; main, H8 an
 });
 
 test('strict repair stops at one logical deadline and retains invalid evidence without freezing bad history', async t => {
+  // Keep repair progress independent of concurrent test scheduling and fsync.
+  let elapsed = 1000;
+  t.mock.method(require('node:perf_hooks').performance, 'now', () => elapsed);
   const suite = compileSuite(EXAMPLE), checkpoint = temp(t); suite.schemes = [suite.schemes[0]]; suite.dataset.rounds = [suite.dataset.rounds[0]];
   const node = suite.dataset.rounds[0].decisions[0]; node.followups = []; suite.dataset.rounds[0].decisions = [node]; suite.dataset.rounds[0].globalTasks = [];
   suite.execution.timeoutMs = 220; suite.execution.maxModelRequests = null; suite.execution.maxToolCalls = null;
   let rounds = 0; const budgets = [];
   const state = await runSuite(suite, { checkpoint, transportFactory: options => {
     const transport = createTransport(options), run = transport.runModel;
-    transport.runModel = async args => { rounds++; budgets.push(args.timeoutMs); await new Promise(resolve => setTimeout(resolve, 40)); args.mockText = JSON.stringify({ task: 'combined', danger: [], efficiency: [], decision: { action: 'unknown', tile: node.legalActions[0].tile, reasons: ['第' + rounds + '次无效草稿'], actionNote: null }, limitations: [] }); return run(args); }; return transport;
+    transport.runModel = async args => { rounds++; budgets.push(args.timeoutMs); elapsed += 40; args.mockText = JSON.stringify({ task: 'combined', danger: [], efficiency: [], decision: { action: 'unknown', tile: node.legalActions[0].tile, reasons: ['第' + rounds + '次无效草稿'], actionNote: null }, limitations: [] }); return run(args); }; return transport;
   } });
   assert.equal(state.results[0].status, 'failed'); assert.equal(Object.values(state.histories).flat().length, 0); assert.ok(rounds >= 2 && rounds < 8);
   const request = Object.values(state.requests)[0]; assert.ok(request.validationAttempts.length >= 2); assert.equal(request.validation.validated, false); assert.equal(request.validation.firstPassValid, false);
