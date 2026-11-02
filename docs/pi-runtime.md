@@ -26,4 +26,4 @@ collector profile 不应导入或打包 `pi-runtime.js`；仅 Agent worker 可�
 
 ## 小局集成
 
-当前未发布源码使用 promptVersion 2 的 baseline + timeline，并将内部 sessionTurn 在后台保存后剥离。按原始顺序追加 Pi 消息，工具中间消息仅保留在一次运行中；本地会话仍通过无状态 Chat Completions 重传。六个工具默认开启，实时最多2次、手动最多3次模型调用，每次最多4次工具调用。完整的隔离、覆盖缺口、预算轮换和缓存边界见 [AGENT_SESSIONS.md](AGENT_SESSIONS.md)。
+v0.13.0 使用 promptVersion 7 隔离小局会话策略。完整四麻自动综合分析把本地 baseline + timeline 重建为 X-F事实投影，其他任务回退 NED，手动和追问仍按完整上下文发送；内部 sessionTurn 在后台保存后剥离。工具中间消息仅保留在一次运行中，本地会话仍通过无状态 Chat Completions 重传。六个工具默认开启，实时最多2次、手动最多3次模型调用，每次最多4次工具调用。输入与适用范围见 [XF_CONTEXT.md](XF_CONTEXT.md)，隔离、覆盖缺口、预算与缓存边界见 [AGENT_SESSIONS.md](AGENT_SESSIONS.md)。
