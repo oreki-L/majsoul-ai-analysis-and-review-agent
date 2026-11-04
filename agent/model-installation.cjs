@@ -40,12 +40,28 @@ async function run(command, args, signal, timeoutMs = 240000) {
   }); } finally { clearTimeout(timer); signal?.removeEventListener('abort', abort); }
 }
 async function safeDirectory(root, target, allowMissing = false) {
-  const expected = path.resolve(target), base = await fs.realpath(root);
-  if (!expected.startsWith(base + path.sep)) throw fail('MANAGED_PATH_REFUSED');
+  const resolvedRoot = path.resolve(root), relative = path.relative(resolvedRoot, path.resolve(target));
+  if (!relative || relative === '..' || relative.startsWith('..' + path.sep) || path.isAbsolute(relative)) throw fail('MANAGED_PATH_REFUSED');
+  // Compare paths in the caller's namespace before canonicalizing. Windows realpath
+  // expands 8.3 aliases and normalizes casing, so string-prefix comparison with it
+  // rejects valid temporary directories. Reject links independently of spelling.
+  let ancestor = path.parse(resolvedRoot).root;
+  for (const part of path.relative(ancestor, resolvedRoot).split(path.sep).filter(Boolean)) {
+    ancestor = path.join(ancestor, part);
+    const stat = await fs.lstat(ancestor);
+    if (!stat.isDirectory() || stat.isSymbolicLink()) throw fail('MANAGED_PATH_REFUSED');
+  }
+  const base = await fs.realpath(resolvedRoot);
   let current = base;
-  for (const part of path.relative(base, expected).split(path.sep)) {
-    current = path.join(current, part);
-    try { const stat = await fs.lstat(current); if (!stat.isDirectory() || stat.isSymbolicLink() || await fs.realpath(current) !== current) throw fail('MANAGED_PATH_REFUSED'); }
+  for (const part of relative.split(path.sep)) {
+    const parent = current;
+    current = path.join(parent, part);
+    try {
+      const stat = await fs.lstat(current);
+      if (!stat.isDirectory() || stat.isSymbolicLink()) throw fail('MANAGED_PATH_REFUSED');
+      current = await fs.realpath(current);
+      if (path.relative(parent, path.dirname(current))) throw fail('MANAGED_PATH_REFUSED');
+    }
     catch (error) { if (allowMissing && error.code === 'ENOENT') return; throw error; }
   }
 }

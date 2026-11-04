@@ -6,7 +6,7 @@ const path = require('node:path');
 const os = require('node:os');
 const http = require('node:http');
 const { createManager } = require('../agent/model-manager.cjs');
-const { createInstallation, verifyOwned, inventory, sha256, run } = require('../agent/model-installation.cjs');
+const { createInstallation, verifyOwned, inventory, sha256, run, safeDirectory } = require('../agent/model-installation.cjs');
 function request(manager, method, url, { token = manager.token, body, headers = {} } = {}) {
   return new Promise((resolve, reject) => {
     const req = http.request({ host: '127.0.0.1', port: manager.server.address().port, method, path: url, headers: { Authorization: 'Bearer ' + token, ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}), ...headers } }, res => {
@@ -96,6 +96,42 @@ test('managed profile symlink cannot target an outside directory for deletion', 
   await fs.symlink(outside, path.join(managed, 'models', 'akagi-v2'), process.platform === 'win32' ? 'junction' : 'dir');
   await assert.rejects(createInstallation({ root: managed }).remove('akagi-v2'), /MANAGED_PATH_REFUSED/);
   assert.equal(await fs.readFile(path.join(outside, 'user-data.txt'), 'utf8'), 'keep');
+});
+test('managed path checks accept canonical expansion without accepting links or root escape', async t => {
+  const canonicalRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'model-canonical-'));
+  t.after(() => fs.rm(canonicalRoot, { recursive: true, force: true }));
+  await fs.mkdir(path.join(canonicalRoot, 'models', 'akagi-v2'), { recursive: true });
+  const aliasRoot = path.join(path.dirname(canonicalRoot), 'MODEL~1');
+  const actualLstat = fs.lstat.bind(fs), actualRealpath = fs.realpath.bind(fs);
+  // Model a filesystem-provided short-name alias, not a symbolic link. The
+  // canonical root has a genuinely different prefix, as on Windows CI's TEMP.
+  t.mock.method(fs, 'lstat', file => actualLstat(path.resolve(file) === aliasRoot ? canonicalRoot : file));
+  t.mock.method(fs, 'realpath', file => actualRealpath(path.resolve(file) === aliasRoot ? canonicalRoot : file));
+  await safeDirectory(aliasRoot, path.join(aliasRoot, 'models', 'akagi-v2'));
+  await safeDirectory(aliasRoot, path.join(aliasRoot, 'models', 'not-installed'), true);
+  await assert.rejects(safeDirectory(aliasRoot, path.join(aliasRoot, '..', 'outside'), true), /MANAGED_PATH_REFUSED/);
+  await assert.rejects(safeDirectory(aliasRoot, aliasRoot), /MANAGED_PATH_REFUSED/);
+  const outside = path.join(canonicalRoot, 'outside'); await fs.mkdir(outside);
+  await fs.symlink(outside, path.join(canonicalRoot, 'linked'), process.platform === 'win32' ? 'junction' : 'dir');
+  await assert.rejects(safeDirectory(aliasRoot, path.join(aliasRoot, 'linked', 'child'), true), /MANAGED_PATH_REFUSED/);
+  await assert.rejects(safeDirectory(path.join(canonicalRoot, 'linked'), path.join(canonicalRoot, 'linked', 'child'), true), /MANAGED_PATH_REFUSED/);
+});
+test('Windows real path spelling and short aliases preserve asset safety', { skip: process.platform !== 'win32' }, async t => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'Model Manager Alias ')); t.after(() => fs.rm(root, { recursive: true, force: true }));
+  await fs.mkdir(path.join(root, 'Models', 'akagi-v2'), { recursive: true });
+  const caseAlias = root.toUpperCase();
+  assert.notEqual(caseAlias, await fs.realpath(root));
+  await safeDirectory(caseAlias, path.join(caseAlias, 'models', 'akagi-v2'));
+  const { execFileSync } = require('node:child_process');
+  const quote = value => "'" + value.replaceAll("'", "''") + "'";
+  const shortAlias = execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', `(New-Object -ComObject Scripting.FileSystemObject).GetFolder(${quote(root)}).ShortPath`], { encoding: 'utf8', windowsHide: true, timeout: 15000 }).trim();
+  assert.ok(shortAlias);
+  await safeDirectory(shortAlias, path.join(shortAlias, 'Models', 'akagi-v2'));
+  await safeDirectory(shortAlias, path.join(shortAlias, 'models', 'new-model'), true);
+  const install = createInstallation({ root: shortAlias });
+  await fs.writeFile(path.join(root, 'Models', 'akagi-v2', 'user.txt'), 'keep');
+  await assert.rejects(install.remove('akagi-v2'), error => error.code === 'ENOENT');
+  assert.equal(await fs.readFile(path.join(root, 'Models', 'akagi-v2', 'user.txt'), 'utf8'), 'keep');
 });
 for (const mode of ['abort', 'timeout']) test('installer subprocess ' + mode + ' awaits child and grandchild cleanup', async t => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'model-process-')); t.after(() => fs.rm(root, { recursive: true, force: true }));
