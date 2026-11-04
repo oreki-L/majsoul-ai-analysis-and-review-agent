@@ -1,7 +1,7 @@
 {
   "name": "majsoul-ai-analysis-and-review-agent",
   "private": true,
-  "version": "0.13.0",
+  "version": "0.14.0",
   "description": "Mahjong Soul game observation, AI analysis and replay review with user-configured model APIs and optional mahjong engines.",
   "license": "MIT",
   "engines": {
@@ -17,6 +17,8 @@
     "eval": "node agent/eval.cjs",
     "engine:serve": "node agent/engine-server.cjs",
     "engine:akagi": "node agent/akagi-local.cjs",
+    "engine:mortal": "node agent/mortal-local.cjs",
+    "engine:manager": "node agent/model-manager.cjs",
     "engine:review": "node agent/engine-review.cjs",
     "benchmark:validate": "node benchmark/cli.cjs validate --suite benchmark/examples/suite.mock.json",
     "benchmark:mock": "node benchmark/cli.cjs autonomous --suite benchmark/examples/suite.mock.json --mock --out research/evidence/benchmark/autonomous-demo"

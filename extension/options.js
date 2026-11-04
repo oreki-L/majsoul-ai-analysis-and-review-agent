@@ -2,7 +2,7 @@
 const $ = id => document.getElementById(id);
 const status = text => { $('status').textContent = text; };
 const providerOf = c => c?.provider === 'mjai' ? 'mjai' : 'chat';
-let currentProvider = 'chat', drafts = {}, profiles;
+let currentProvider = 'chat', drafts = {}, profiles, engineProfiles;
 let diagnosticGeneration = 0, diagnosticRequestId = null;
 // This identity stays in page memory only: never persist or display credentials.
 let modelDirectoryIdentity = null;
@@ -40,7 +40,7 @@ function pricingFields() {
     ...Object.fromEntries(Object.entries(priceFields).map(([key, id]) => [key, $(id).value.trim() === '' ? null : Number($(id).value)])) };
 }
 function fields(provider) { return { provider, enabled: $('enabled').checked, endpoint: $('endpoint').value.trim(), model: provider === 'mjai' ? 'mjai' : $('model').value, apiKey: $('key').value.trim(),
-  ...(provider === 'mjai' ? { workflow: $('engineExplain').checked ? 'mortal-explain' : 'engine' } : {}),
+  ...(provider === 'mjai' ? { workflow: $('engineExplain').checked ? 'mortal-explain' : 'engine', engineProfile: engineProfiles?.activeId || 'custom' } : {}),
   ...(provider === 'chat' ? { thinking: !$('thinking').disabled && $('thinking').checked, maxTokens: Number($('maxTokens').value),
     contextMode: 'round', toolCalling: true, pricing: pricingFields() } : {}) }; }
 function updateThinking() {
@@ -54,7 +54,11 @@ function show(provider) {
   $('engineExplain').disabled = !engine; $('engineExplain').checked = c.workflow === 'mortal-explain';
   $('profilesPanel').hidden = engine;
   $('engineSetup').hidden = !engine;
+  const engineSelect = $('engineProfile'); engineSelect.replaceChildren();
+  for (const item of engineProfiles?.profiles || []) { const option = document.createElement('option'); option.value = item.id; option.textContent = item.name; engineSelect.appendChild(option); }
+  engineSelect.value = engineProfiles?.activeId || 'custom';
   $('engineGuide').href = 'https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/blob/main/docs/MJAI.md';
+  $('modelManager').href = 'http://127.0.0.1:17343/';
   $('provider').value = provider; $('enabled').checked = !!c.enabled;
   $('endpoint').value = c.endpoint || ''; $('endpoint').placeholder = engine ? 'http://127.0.0.1:17341/analyze' : 'https://api.openai.com/v1';
   $('endpointHint').textContent = engine ? '仅支持 localhost / 127.0.0.1 的 HTTP /analyze 接口。' : '自动补全 /chat/completions，也可填写完整接口地址。';
@@ -68,14 +72,14 @@ function show(provider) {
   updateThinking();
   $('key').value = c.apiKey || ''; $('key').required = engine;
   $('key').placeholder = engine ? '填写本地服务的 Token' : '填写密钥；无密钥的本地服务可留空';
-  $('keyLabel').textContent = engine ? 'Bearer Token' : 'API Key';
-  $('providerHint').textContent = engine ? '需手动启动桥接服务并自备模型，不捆绑权重。仅支持无副露四麻。' : '';
+  $('keyLabel').textContent = engine ? '分析 Bearer Token（不是管理 Token）' : 'API Key';
+  $('providerHint').textContent = engine ? '需手动启动桥接服务并自备模型，不捆绑权重。仅支持可验证的四麻局面与动作。关闭分析停止请求；关闭桥接终端退出模型进程。' : '';
   syncModelDirectory();
 }
 async function load(generation = configStore.generation) {
   const state = await configStore.load();
   if (generation !== configStore.generation) return;
-  ({ profiles, drafts } = state); renderProfiles(); show(state.provider);
+  ({ profiles, drafts, engineProfiles } = state); renderProfiles(); show(state.provider);
 }
 load().catch(() => status('读取设置失败，请重新打开设置页。'));
 $('provider').onchange = () => {
@@ -85,6 +89,17 @@ $('provider').onchange = () => {
     const next = $('provider').value === 'mjai' ? 'mjai' : 'chat';
     drafts[next] = { ...(drafts[next] || defaults(next)), enabled: false }; show(next); status('');
   } catch (error) { $('provider').value = currentProvider; status(error.message); }
+};
+$('engineProfile').onchange = () => {
+  cancelDiagnostic(); configStore.invalidate();
+  const next = $('engineProfile').value;
+  if (!engineProfiles.profiles.some(p => p.id === next)) { $('engineProfile').value = engineProfiles.activeId; return; }
+  const old = engineProfiles.profiles.find(p => p.id === engineProfiles.activeId);
+  old.config = fields('mjai');
+  engineProfiles.activeId = next;
+  const chosen = engineProfiles.profiles.find(p => p.id === next);
+  drafts.mjai = { ...chosen.config, enabled: false, engineProfile: next };
+  show('mjai'); status('已切换草稿，分析关闭；请保存后明确开启。');
 };
 for (const id of ['endpoint', 'model', 'key', 'maxTokens', 'thinking']) $(id).oninput = () => { cancelDiagnostic(); configStore.invalidate(); syncModelDirectory(); updateThinking(); };
 $('thinking').onchange = () => {
@@ -119,7 +134,7 @@ $('config').onsubmit = async event => {
     if (!allowed) throw new Error('未授予接口访问权限，设置尚未保存。');
     c.endpoint = url.href;
     if (c.provider === 'chat') profiles = MJModelProfiles.upsert(profiles, { id: profiles.activeId, name: $('profileName').value, config: { ...MJModelProfiles.active(profiles).config, ...c } });
-    const providers = await configStore.save({ config: c, profiles, drafts }, generation);
+    const providers = await configStore.save({ config: c, profiles, drafts, engineProfiles }, generation);
     if (providers && generation === configStore.generation) drafts = providers;
     if (generation === configStore.generation) {
       if (currentProvider === c.provider) $('endpoint').value = c.endpoint;
@@ -135,7 +150,8 @@ $('disable').onclick = async () => {
   for (const provider of ['chat', 'mjai']) if (drafts[provider]) drafts[provider].enabled = false;
   $('enabled').checked = false;
   try {
-    const pending = configStore.disable({ drafts, profiles }); generation = configStore.generation; await pending;
+    engineProfiles.profiles.forEach(p => { p.config.enabled = false; });
+    const pending = configStore.disable({ drafts, profiles, engineProfiles }); generation = configStore.generation; await pending;
     if (generation === configStore.generation) status('模型分析已关闭，正在进行的请求将取消。');
   } catch (_) { if (generation === configStore.generation) status('关闭失败，请重试。'); }
 };
@@ -143,7 +159,7 @@ $('clear').onclick = async () => {
   let generation;
   cancelDiagnostic();
   profiles = MJModelProfiles.migrate({}); renderProfiles();
-  drafts = {}; show('chat');
+  drafts = {}; engineProfiles = MJModelConfigStore.engineProfiles({}); show('chat');
   try {
     const pending = configStore.clear(); generation = configStore.generation; await pending;
     if (generation === configStore.generation) status('已清除所有服务配置、密钥、本地会话和运行用量。');

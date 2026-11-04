@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>本机模型管理</title><link rel="stylesheet" href="/style.css"></head>
+<body><main>
+<header><div class="mark" aria-hidden="true">雀</div><div><h1>本机模型管理</h1></div><span id="connection" class="badge">未连接</span></header>
+<section class="access" aria-labelledby="accessTitle"><h2 id="accessTitle">连接管理终端</h2><form id="connectForm"><label for="managementToken">管理 Token</label><div class="connect-row"><input id="managementToken" type="password" autocomplete="off" spellcheck="false" placeholder="粘贴终端显示的管理 Token" required maxlength="4096"><button type="submit" id="connect">连接</button><button type="button" id="disconnect" hidden>断开</button></div></form><p class="hint">先手动运行 <code>node agent/model-manager.cjs</code>。管理 Token 仅保留在本页内存，刷新后重新输入；不要填入扩展的分析设置。</p></section>
+<p id="message" role="status" aria-live="polite">未连接时不会查询目录、安装模型或启动推理。</p>
+<div id="workspace" hidden>
+<section class="running" aria-labelledby="runningTitle"><div><h2 id="runningTitle">当前分析服务</h2><p id="runningState">未运行</p></div><button id="stop" type="button" disabled>停止分析服务</button>
+<div id="analysisConfig" hidden><p>在扩展中选择对应模型，再手动填写以下配置并开启分析。</p><label for="analysisEndpoint">分析接口</label><div class="copy-row"><input id="analysisEndpoint" readonly><button type="button" id="copyEndpoint">复制接口</button></div><label for="analysisToken">分析 Bearer Token</label><div class="copy-row"><input id="analysisToken" type="password" readonly autocomplete="off"><button type="button" id="copyToken">复制分析 Token</button></div><p class="hint">这是分析服务凭据，与上方的管理 Token 不同。停止服务后不再显示。</p></div></section>
+<section aria-labelledby="directoryTitle"><div class="section-heading"><h2 id="directoryTitle">模型目录</h2><button id="refresh" type="button">刷新状态</button></div><p id="directorySummary" class="hint"></p><div id="models" class="models"></div></section>
+<details class="assets"><summary id="assetsTitle">安装目录与运行环境</summary><dl><dt>安装目录</dt><dd id="dataDirectory">未提供</dd></dl><p class="hint">按需安装所选模型；VoidShine 无需 Akagi。删除模型保留运行环境。</p><div id="runtimes"></div></details>
+</div><footer>模型、环境与推理均默认关闭。社区权重不等于官网 Mortal 4.1，也不代表牌力认证。</footer>
+</main><script src="/app.js"></script></body></html>

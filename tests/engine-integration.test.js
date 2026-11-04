@@ -36,6 +36,22 @@ function worker(config, fetcher = fetch, permission = true, schedule = {}) {
 }
 const configured = endpoint => ({ enabled: true, provider: 'mjai', model: 'mjai', endpoint, apiKey: 'test-engine-token' });
 
+test('v4 backend requires per-request manual hanchan declaration bound to exact snapshot/events before network', async()=>{
+  const config={...configured('http://127.0.0.1:17342/analyze'),engineProfile:'voidshine-298k'};
+  for(const kind of ['missing','automatic','changed']) {
+    const w=worker(config,()=>{throw new Error('must not fetch');}),m={...input(),lane:'manual-review'};
+    if(kind!=='missing')m.hanchanConfirmation={format:'mortal-hanchan-manual-v1',binding:JSON.stringify([m.snapshot,m.engineRequest])};
+    if(kind==='automatic')m.lane='live';
+    if(kind==='changed')m.snapshot.game.honba++;
+    const response=await w.call(m);assert.equal(response.ok,false);assert.match(response.error,/半庄/);assert.equal(w.requests.length,0);
+  }
+});
+test('v4 identity mismatch is rejected before decision storage or explanation',async()=>{
+  const w=worker({...configured('http://127.0.0.1:17342/analyze'),engineProfile:'voidshine-298k'},async()=>new Response(JSON.stringify({action:{type:'dahai',actor:0,pai:'9p',tsumogiri:true},identity:{model:'v2'}}),{status:200}));
+  const m={...input(),lane:'manual-review'};m.hanchanConfirmation={format:'mortal-hanchan-manual-v1',binding:JSON.stringify([m.snapshot,m.engineRequest])};
+  const response=await w.call(m);assert.equal(response.ok,false);assert.match(response.error,/身份/);assert.equal(w.requests.length,1);
+});
+
 test('extension worker -> authenticated loopback bridge -> actual child process -> validated engine advice', async t => {
   const { server } = await startEngineServer({ port: 0, token: 'test-engine-token', config: {
     command: process.execPath, args: [path.join(__dirname,'fixtures/mjai-bot.cjs')], timeoutMs: 3000

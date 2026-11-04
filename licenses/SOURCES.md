@@ -2,6 +2,8 @@
 
 Reviewed on 2026-10-24. The complete license files in this directory accompany the distributed extension archives.
 
+Optional native model toolkits are separate from the extension archives. Their pinned Mortal/model/Python/wheel sources and hashes are in [agent/mortal-source.json](../agent/mortal-source.json) and [agent/mortal-runtime-lock.json](../agent/mortal-runtime-lock.json); see [MORTAL_V4.md](../docs/MORTAL_V4.md) for corresponding source, crate vendor, build and notice packaging. Upstream AGPL/model/runtime licenses are retained under their own terms and are not re-licensed as project MIT.
+
 ## Pi 1.4.0
 
 - Packages: `@earendil-works/pi-agent-core@1.4.0`, `@earendil-works/pi-ai@1.4.0`.

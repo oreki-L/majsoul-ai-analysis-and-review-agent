@@ -30,7 +30,7 @@
   function provenance(value) {
     const source = value.officialSource || value.engineIdentity;
     if (!source) return null;
-    return Object.fromEntries(['model','runtime','checkpoint','parserVersion','reviewerVersion','reportFingerprint','player','rules','entry'].filter(k => typeof source[k] === 'string' || Number.isInteger(source[k])).map(k => [k, typeof source[k] === 'string' ? source[k].slice(0,200) : source[k]]));
+    return Object.fromEntries(['model','runtime','checkpoint','sourceCommit','modelRevision','parserVersion','reviewerVersion','reportFingerprint','player','rules','entry'].filter(k => typeof source[k] === 'string' || Number.isInteger(source[k])).map(k => [k, typeof source[k] === 'string' ? source[k].slice(0,200) : source[k]]));
   }
   const analysisAnswer = value => JSON.stringify(value.engine ? { result: value.result, engine: engineContext(value.engine), explanation: explanationContext(value.explanation), provenance: provenance(value) } : value.result);
   function identity(snapshot, context = {}, type = 'combined') {

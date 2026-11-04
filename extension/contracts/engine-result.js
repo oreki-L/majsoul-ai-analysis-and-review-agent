@@ -3,6 +3,16 @@
   'use strict';
   const canonical = tile => typeof tile === 'string' && /^0[mps]$/.test(tile) ? '5' + tile[1] : tile;
   const fail = () => { throw new Error('专业引擎结果无效或当前动作不受支持。'); };
+  function checkIdentity(raw, profile) {
+    if (!['voidshine-298k', 'yuchen-582500', 'akagi-v2'].includes(profile)) return;
+    const identity = raw?.identity;
+    const expected = profile === 'yuchen-582500'
+      ? { model: 'Yuchen1457-mortal-v4-582500', checkpoint: '738e0d6e3c0ce9671629554ad39abd147d2ffbac676e80b194c83f2acc0fea20', sourceCommit: '0cff2b52982be5b1163aa9a62fb01f03ce91e0d2', modelRevision: '7386c9f5c751a3ea75efea99737cef5a5ef950f1' }
+      : profile === 'voidshine-298k'
+      ? { model: 'VoidShine-mortal-v4-298k', checkpoint: 'bfb3a6c072aa0bfd4171a9cdc77cb6c02ae42cde920843f9e5784394f23447d8', sourceCommit: '0cff2b52982be5b1163aa9a62fb01f03ce91e0d2', modelRevision: 'dbbea7e3d34f99ec43fc4834ab7f2aaaed70b6ee' }
+      : { model: 'akagi-v2-weak-mortal-windows-py311', checkpoint: 'e94dc90bc3aaf412b0270d670660d7fe55c9d33b14419f97caf42fe77c01456f', sourceCommit: '91cc2993e4e3682248d33d73d93afe055040e700' };
+    if (!identity || Object.entries(expected).some(([k, v]) => identity[k] !== v) || typeof identity.runtime !== 'string' || !identity.runtime) throw new Error('本地引擎身份与所选配置不符，未保存建议或启动解释。');
+  }
   const fromMjai = value => {
     if (typeof value !== 'string') return null;
     if (/^[1-9][mps]$/.test(value)) return value;
@@ -118,14 +128,14 @@
     } else fail();
     // No implicit action-index mapping: different engines use different Q-vector layouts.
     if (a.meta?.q_values !== undefined || raw.meta?.q_values !== undefined) limitations.push('未提供可验证的动作索引映射，未展示 Q 值候选。');
-    const identity = raw.identity && typeof raw.identity === 'object' ? Object.fromEntries(['model', 'runtime', 'checkpoint', 'sourceCommit'].filter(k =>
-      typeof raw.identity[k] === 'string' && (['checkpoint','sourceCommit'].includes(k) ? /^[a-f0-9]{40}(?:[a-f0-9]{24})?$/.test(raw.identity[k]) : /^[a-zA-Z0-9._-]{1,160}$/.test(raw.identity[k]))).map(k => [k, raw.identity[k]])) : null;
+    const identity = raw.identity && typeof raw.identity === 'object' ? Object.fromEntries(['model', 'runtime', 'checkpoint', 'sourceCommit', 'modelRevision'].filter(k =>
+      typeof raw.identity[k] === 'string' && (['checkpoint','sourceCommit','modelRevision'].includes(k) ? /^[a-f0-9]{40}(?:[a-f0-9]{24})?$/.test(raw.identity[k]) : /^[a-zA-Z0-9._-]{1,160}$/.test(raw.identity[k]))).map(k => [k, raw.identity[k]])) : null;
     return {
       result: { task: 'combined', danger: [], efficiency: [], decision: { action: 'unknown', tile, reasons }, limitations },
       engine: { format: 'majsoul-engine-result-v1', phase: context.phase, action, followUp, ...(identity && Object.keys(identity).length ? { identity } : {}), candidates: [], limitations: limitations.slice() }
     };
   }
-  const api = { validateResult, fromMjai };
+  const api = { validateResult, fromMjai, checkIdentity };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.MJEngineResult = api;
 })(globalThis);

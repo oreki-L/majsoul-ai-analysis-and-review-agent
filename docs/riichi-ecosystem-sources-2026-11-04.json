@@ -1,0 +1,634 @@
+{
+  "checked_date": "2026-11-04",
+  "scope": "Public-page and selected-source research, not runtime validation; text hashes refer to local extracted snapshots, not Git blob hashes.",
+  "queries": [
+    {
+      "query": "majsoul AI",
+      "total_count": 34,
+      "incomplete_results": false
+    },
+    {
+      "query": "mahjong LLM",
+      "total_count": 18,
+      "incomplete_results": false
+    },
+    {
+      "query": "riichi mahjong AI",
+      "total_count": 50,
+      "incomplete_results": false
+    },
+    {
+      "query": "majsoul helper",
+      "total_count": 22,
+      "incomplete_results": false
+    },
+    {
+      "query": "mjai",
+      "total_count": 222,
+      "incomplete_results": false
+    },
+    {
+      "query": "riichi mahjong analysis",
+      "total_count": 11,
+      "incomplete_results": false
+    },
+    {
+      "query": "雀魂 插件",
+      "total_count": 19,
+      "incomplete_results": false
+    },
+    {
+      "query": "立直 麻将",
+      "total_count": 78,
+      "incomplete_results": false
+    },
+    {
+      "query": "riichi mahjong stars:>50",
+      "total_count": 22,
+      "incomplete_results": false
+    },
+    {
+      "query": "majsoul llm in:readme",
+      "total_count": 25,
+      "incomplete_results": false
+    },
+    {
+      "query": "mahjong coaching",
+      "total_count": 17,
+      "incomplete_results": false
+    },
+    {
+      "query": "majsoul parser",
+      "total_count": 2,
+      "incomplete_results": false
+    },
+    {
+      "query": "mahjong shanten",
+      "total_count": 38,
+      "incomplete_results": false
+    },
+    {
+      "query": "mahjong simulator riichi",
+      "total_count": 7,
+      "incomplete_results": false
+    },
+    {
+      "query": "mahjong soul statistics",
+      "total_count": 2,
+      "incomplete_results": false
+    },
+    {
+      "query": "mahjong in:name user:kobalab",
+      "total_count": 0,
+      "incomplete_results": false
+    },
+    {
+      "query": "amae koromo",
+      "total_count": 6,
+      "incomplete_results": false
+    },
+    {
+      "query": "majsoul api",
+      "total_count": 12,
+      "incomplete_results": false
+    },
+    {
+      "query": "riichi LLM explain",
+      "total_count": 1,
+      "incomplete_results": false
+    },
+    {
+      "query": "akochan",
+      "total_count": 15,
+      "incomplete_results": false
+    },
+    {
+      "query": "Suphx",
+      "total_count": 13,
+      "incomplete_results": false
+    }
+  ],
+  "returned_items": 191,
+  "unique_repository_candidates": 173,
+  "metadata_confirmed": 41,
+  "sources": [
+    {
+      "url": "https://github.com/shinkuan/Akagi",
+      "group": "core:data",
+      "status": "read",
+      "text_sha256": "ac63ce75e2c8782f256d21ed6c16218023ccb05a42f93979bcfcfb66ec524341",
+      "note": null
+    },
+    {
+      "url": "https://github.com/tzp1021/mj_helper",
+      "group": "core:data",
+      "status": "read",
+      "text_sha256": "fa7c437448907b205f06a5be11af72857092517d8a9e4c8b391e4cfa943fa7b8",
+      "note": null
+    },
+    {
+      "url": "https://github.com/Jimboom7/AlphaJong",
+      "group": "core:data",
+      "status": "read",
+      "text_sha256": "90c06d64c20a0e2d074950bbf784da8c80ff5d70d2ead91f26d993890bc9b3e1",
+      "note": null
+    },
+    {
+      "url": "https://github.com/EndlessCheng/mahjong-helper",
+      "group": "core:data",
+      "status": "read",
+      "text_sha256": "191cc96dd37acbf58fe70ed891dd3d2560f5da5ec3d558be5742bd40fe03f56d",
+      "note": null
+    },
+    {
+      "url": "https://github.com/smly/mjai.app",
+      "group": "core:data",
+      "status": "read",
+      "text_sha256": "9adced37f557d8ff30a5e744256122f4d943e42cbd41ab6fdf76c706b4dc93ba",
+      "note": null
+    },
+    {
+      "url": "https://github.com/smly/RiichiEnv",
+      "group": "core:data",
+      "status": "read",
+      "text_sha256": "b8e7717e0f1d7994a46580aa7e3111bc20e4db9b2c754da5f30670408ec05548",
+      "note": null
+    },
+    {
+      "url": "https://github.com/kobalab/majiang-core",
+      "group": "core:data",
+      "status": "read",
+      "text_sha256": "f949d78834cde1760f7c68915b98c0d7eb6a9fa281865a68d8a5a838beea415b",
+      "note": null
+    },
+    {
+      "url": "https://github.com/MahjongRepository/mahjong",
+      "group": "core:data",
+      "status": "read",
+      "text_sha256": "8a94db1c1dccfc7d517afd4099f8428e126bfa6be64343ebdaf9e5a6fd7f4339",
+      "note": null
+    },
+    {
+      "url": "https://github.com/AwakeFantasy/mahjong-paipu-assistant",
+      "group": "more:data",
+      "status": "read",
+      "text_sha256": "892865247ce8a1a849a01556564042fb078cf8f1d67fa116e1e13a258da33361",
+      "note": null
+    },
+    {
+      "url": "https://github.com/hongdp/LLM_Mahjong",
+      "group": "more:data",
+      "status": "read",
+      "text_sha256": "72b8ac358054dfa955b2dcaa5de4e16d120603127cd9f3ae2eeb7544cb3a3023",
+      "note": null
+    },
+    {
+      "url": "https://github.com/eitaar/driichi",
+      "group": "more:data",
+      "status": "read",
+      "text_sha256": "c15861723a4b27f9c87e3a885840dab04d2e35f157ab65d1d59f59713269863f",
+      "note": null
+    },
+    {
+      "url": "https://github.com/hamakyo/jev-mahjong-bench",
+      "group": "more:data",
+      "status": "read",
+      "text_sha256": "76c8e9f5316d960870eb7d1c3706cbe25897e47674bd0bac91a335ed44894bbc",
+      "note": null
+    },
+    {
+      "url": "https://github.com/Equim-chan/Mortal",
+      "group": "more:data",
+      "status": "read",
+      "text_sha256": "901339be5c87b8bf70c14f37b2a04eaf782f57271af8d60b68f20fe6ee43a23f",
+      "note": null
+    },
+    {
+      "url": "https://github.com/Equim-chan/mjai-reviewer",
+      "group": "more:data",
+      "status": "read",
+      "text_sha256": "7e9d9869d9cb35e603c56df6bab20881c47fb0e43c9cadcf5a3ebb996781f8c5",
+      "note": null
+    },
+    {
+      "url": "https://github.com/Cryolite/kanachan",
+      "group": "more:data",
+      "status": "read",
+      "text_sha256": "7c1ec6498fb1b47bb101f203ea239d64693d9b3e1eb591f732cd7d8bbbbb367e",
+      "note": null
+    },
+    {
+      "url": "https://github.com/critter-mj/akochan",
+      "group": "more:data",
+      "status": "read",
+      "text_sha256": "dd67079ce26de70dbc3fffb0f57dbaaf982b3d838d89f0bdd78ab5bdca0aa0f3",
+      "note": null
+    },
+    {
+      "url": "https://github.com/SAPikachu/amae-koromo",
+      "group": "external:data",
+      "status": "read",
+      "text_sha256": "45309d9f9a13d94b712eb6fa1200346ec6cd9387037390a7f1f6247be96c96d5",
+      "note": null
+    },
+    {
+      "url": "https://github.com/SAPikachu/amae-koromo-scripts",
+      "group": "external:data",
+      "status": "read",
+      "text_sha256": "5c89fa9bf57962f6f0b4d0dad6c73262a180c49e366354229bb4d6a710c3a20a",
+      "note": null
+    },
+    {
+      "url": "https://github.com/mjx-project/mjx",
+      "group": "external:data",
+      "status": "read",
+      "text_sha256": "196573db1defbcb1c3755f6561c45cdb1ea83492caa8806328c33f132cb9c51d",
+      "note": null
+    },
+    {
+      "url": "https://github.com/kobalab/majiang",
+      "group": "external:data",
+      "status": "read",
+      "text_sha256": "1f3ec09fd7d7382d6a1d45af6ef002f32e8ab8b24312f815f70d883e5ac906fc",
+      "note": null
+    },
+    {
+      "url": "https://github.com/ailab-pku/Mahjong-LLM",
+      "group": "external:data",
+      "status": "read",
+      "text_sha256": "e165ec2179c2fa530165fa5bb06c1efb3d66c1a2baf6cf96f70699afef44094f",
+      "note": null
+    },
+    {
+      "url": "https://github.com/THUDM/LLM4CardGame",
+      "group": "external:data",
+      "status": "read",
+      "text_sha256": "538c847bd622f7285e0404103abdbb3e5eb259da93c33417d32c7cdaa8036a66",
+      "note": null
+    },
+    {
+      "url": "https://mjai.app",
+      "group": "external:data",
+      "status": "error",
+      "text_sha256": null,
+      "note": "Error: page.goto: net::ERR_CONNECTION_CLOSED at https://mjai.app/\nCall log:\n\u001b[2m  - navigating to \"https://mjai.app/\", waiting until \"domcontentloaded\"\u001b[22m\n"
+    },
+    {
+      "url": "https://naga.dmv.nico/naga_report/order_form/",
+      "group": "external:data",
+      "status": "read",
+      "text_sha256": "18f0ee9e0e8fe37218d1c56d888374daea16897efb695f5c67fee1af7ff2ec47",
+      "note": null
+    },
+    {
+      "url": "https://www.google.com/search?q=riichi+mahjong+open+source+github+gitlab",
+      "group": "web:data",
+      "status": "read",
+      "text_sha256": "b275de98b5449a843105d76738caea9e492f8756f167937025f98837b3d82d8e",
+      "note": null
+    },
+    {
+      "url": "https://www.google.com/search?q=site%3Agitee.com+%E6%97%A5%E9%BA%BB+%E5%8A%A9%E6%89%8B",
+      "group": "web:data",
+      "status": "read",
+      "text_sha256": "27257e890794a2a9a31e9d9d282700979dbd84307c0e6299dec1171e608246a4",
+      "note": null
+    },
+    {
+      "url": "https://www.google.com/search?q=riichi+mahjong+LLM+assistant+github",
+      "group": "web:data",
+      "status": "read",
+      "text_sha256": "044f2f44b4b4a53970bdde6e304acc1abdfe29d3ce9d81b1b966f415cc7ba93f",
+      "note": null
+    },
+    {
+      "url": "https://mortal.ekyu.moe/",
+      "group": "web:data",
+      "status": "read",
+      "text_sha256": "e483ddfd74f584441b97a3079aa11382f238669366067e86d7c31a866e8fc42d",
+      "note": null
+    },
+    {
+      "url": "https://amae-koromo.sapk.ch/",
+      "group": "web:data",
+      "status": "read",
+      "text_sha256": "7c55645f99f818396084be8ba3327cc74b64831c5fa1463bcc464dce157fe892",
+      "note": null
+    },
+    {
+      "url": "https://mjcopilot.com/",
+      "group": "web:data",
+      "status": "read",
+      "text_sha256": "da1749723dae3be13cfee08ed1daec93a32ba0c43627597741e2839c2e7890ff",
+      "note": null
+    },
+    {
+      "url": "https://nashout.com/en",
+      "group": "web:data",
+      "status": "read",
+      "text_sha256": "5dab4eca27a5a0cc0ae16d2bc2c175ca994e9f70eccef806081c8dfcce69e191",
+      "note": null
+    },
+    {
+      "url": "https://raw.githubusercontent.com/shinkuan/Akagi/v3/LICENSE",
+      "group": "source:data",
+      "status": "not_found",
+      "text_sha256": "d5558cd419c8d46bdc958064cb97f963d1ea793866414c025906ec15033512ed",
+      "note": null
+    },
+    {
+      "url": "https://raw.githubusercontent.com/FlyA-official/FlyAgent/main/LICENSE",
+      "group": "source:data",
+      "status": "read",
+      "text_sha256": "ab9578c2c2392af257eedd406981972b01ff66c265291fdfe132dae133a3255e",
+      "note": null
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ponder-j/xMahjong/main/LICENSE",
+      "group": "source:data",
+      "status": "read",
+      "text_sha256": "a141c93403d64d780961e296b0264948bd4922613f63795b9e8a81dd84c6fcf6",
+      "note": null
+    },
+    {
+      "url": "https://raw.githubusercontent.com/critter-mj/akochan/master/LICENSE",
+      "group": "source:data",
+      "status": "error",
+      "text_sha256": null,
+      "note": "Error: page.goto: Download is starting\nCall log:\n\u001b[2m  - navigating to \"https://raw.githubusercontent.com/critter-mj/akochan/master/LICENSE\", waiting until \"domcontentloaded\"\u001b[22m\n"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/kobalab/majiang-core/master/package.json",
+      "group": "source:data",
+      "status": "read",
+      "text_sha256": "c85213f1531942437b4b524be9826160e6ca0a5779abf39c2ccfbe71e06d8aed",
+      "note": null
+    },
+    {
+      "url": "https://raw.githubusercontent.com/kobalab/majiang-core/master/lib/xiangting.js",
+      "group": "source:data",
+      "status": "read",
+      "text_sha256": "5bc7f5f1087d488503a4aae2ae5e2220f38e23db6ffbe6a45d68b41afdbf8860",
+      "note": null
+    },
+    {
+      "url": "https://raw.githubusercontent.com/penguinHH/mahjong-llm/main/mmj/policy_facts.py",
+      "group": "source:data",
+      "status": "read",
+      "text_sha256": "45ed8c63f7763066ebfa0156fb4a4705e0df40a16c0bd1705c26e89a5ac5d8ed",
+      "note": null
+    },
+    {
+      "url": "https://github.com/ponder-j/xMahjong/tree/main/backend/xmahjong",
+      "group": "trees:data",
+      "status": "read",
+      "text_sha256": "e5ad29a0351dd2c79401aff1d3b532f9546f22a10e57686890ac6477a320f3b4",
+      "note": null
+    },
+    {
+      "url": "https://github.com/hamakyo/jev-mahjong-bench/tree/main/src",
+      "group": "trees:data",
+      "status": "read",
+      "text_sha256": "5fa00b9eef6c9794047ed6bec82992f0630d411e210650845b4b6160e8f3251a",
+      "note": null
+    },
+    {
+      "url": "https://github.com/nanashi77777/xiaofeiyu-mahjong-llm/tree/main/src/majsoul_llm",
+      "group": "trees:data",
+      "status": "read",
+      "text_sha256": "43c3fa96508b5b6a6d87f3bdcdf37bc32d31af39ed7bebe01c0a324da6aebfd9",
+      "note": null
+    },
+    {
+      "url": "https://github.com/shinkuan/Akagi/tree/v3",
+      "group": "trees:data",
+      "status": "read",
+      "text_sha256": "5e13aced27cb2c2351cfb36be20e2ce0b32f67e20169c78cdd251c45491c8d92",
+      "note": null
+    },
+    {
+      "url": "https://github.com/critter-mj/akochan/blob/master/LICENSE",
+      "group": "trees:data",
+      "status": "read",
+      "text_sha256": "c921b5f96da2d776b2baeb937f4fde03ce4dc990657bfdd83cd24ac13bed13e6",
+      "note": null
+    },
+    {
+      "url": "https://riichi.dev/",
+      "group": "trees:data",
+      "status": "read",
+      "text_sha256": null,
+      "note": null
+    },
+    {
+      "url": "https://github.com/swordofkings-blip/MJsoulCoaching",
+      "group": "trees:data",
+      "status": "read",
+      "text_sha256": "8118cb41ecb7cbd68c7f6a3cac52a187aaebae6e8556a587a8994a11db476b53",
+      "note": null
+    },
+    {
+      "url": "https://github.com/SiyeW/riichi-analysis-engine",
+      "group": "trees:data",
+      "status": "read",
+      "text_sha256": "1765df41991c499fc9ac5681fc23763eb3a6bc9aa787eadef2cdca5e916ebc64",
+      "note": null
+    },
+    {
+      "url": "https://raw.githubusercontent.com/shinkuan/Akagi/v3/LICENSE.txt",
+      "group": "code:data",
+      "status": "read",
+      "text_sha256": "aa0e11e4740a0ae88ea797258500d9b066a68042be2f6036bfe49460b72405f0",
+      "note": null
+    },
+    {
+      "url": "https://raw.githubusercontent.com/shinkuan/Akagi/v3/NOTICE",
+      "group": "code:data",
+      "status": "read",
+      "text_sha256": "2ffcce0e8bae52171dfdacd28ff9637334a2cc21d250deb4f30e315e65a3c421",
+      "note": null
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ponder-j/xMahjong/main/backend/xmahjong/explainer.py",
+      "group": "code:data",
+      "status": "read",
+      "text_sha256": "dee63f3ba2bd05aa785c5275f9ce710f65b766c69e5e590303c13396b71039bd",
+      "note": null
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ponder-j/xMahjong/main/backend/xmahjong/evidence.py",
+      "group": "code:data",
+      "status": "read",
+      "text_sha256": "8cfcf6091f72ce049b22396a335ee636b1dac2f2a97f831505549d1ba39006ca",
+      "note": null
+    },
+    {
+      "url": "https://raw.githubusercontent.com/nanashi77777/xiaofeiyu-mahjong-llm/main/src/majsoul_llm/model.py",
+      "group": "code:data",
+      "status": "read",
+      "text_sha256": "4719130d749cb0e7509f1d12dbd3c0f8b7924bfef9cb99ca77d89aa7582c15eb",
+      "note": null
+    },
+    {
+      "url": "https://raw.githubusercontent.com/nanashi77777/xiaofeiyu-mahjong-llm/main/docs/design/model-wire-format.md",
+      "group": "code:data",
+      "status": "read",
+      "text_sha256": "4e0a879adce2546034ebbaee3924a4c83be635d90c694fae17413cde50b8d897",
+      "note": null
+    },
+    {
+      "url": "https://raw.githubusercontent.com/AwakeFantasy/mahjong-paipu-assistant/main/scripts/mortal-sidecar.mjs",
+      "group": "code:data",
+      "status": "read",
+      "text_sha256": "c399d91f87cbef0b412361ce015ca64863a86d5e57770edd038df9dd447edfda",
+      "note": null
+    },
+    {
+      "url": "https://raw.githubusercontent.com/hamakyo/jev-mahjong-bench/main/src/types.ts",
+      "group": "code:data",
+      "status": "read",
+      "text_sha256": "8094bf4703eedd3055496ec4674857c79e99c3facbbf1ee39886f741fc0fce3d",
+      "note": null
+    },
+    {
+      "url": "https://raw.githubusercontent.com/hamakyo/jev-mahjong-bench/main/LICENSE",
+      "group": "code:data",
+      "status": "read",
+      "text_sha256": "0e312e2e7c288b4f43c05805d585f155d845f66e7761b76b63bd0973f28e158e",
+      "note": null
+    },
+    {
+      "url": "https://raw.githubusercontent.com/swordofkings-blip/MJsoulCoaching/main/LICENSE",
+      "group": "code:data",
+      "status": "read",
+      "text_sha256": "07413e1ffcb85267f914d8f790899a176acd947eca8f4b88caf3ed34967d7cd3",
+      "note": null
+    },
+    {
+      "url": "https://raw.githubusercontent.com/tomohxx/shanten-number/main/README.md",
+      "group": "secondary:data",
+      "status": "read",
+      "text_sha256": "168f42b3c1ea8a81904ff4c98f8f1fb8b75f29cbe214e01c2244f4f6854d7074",
+      "note": null
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Cryolite/nyanten/main/README.md",
+      "group": "secondary:data",
+      "status": "read",
+      "text_sha256": "77f876d1e778cfad2e63e7d6a4b0d9d73aa3282dcd946e18a6e6033915c606bf",
+      "note": null
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Apricot-S/xiangting/main/README.md",
+      "group": "secondary:data",
+      "status": "read",
+      "text_sha256": "f0a0ed2292713f915376422bcbd22a698672d9f39536a4136253df54daeb89c5",
+      "note": null
+    },
+    {
+      "url": "https://raw.githubusercontent.com/gimite/mjai/master/README.md",
+      "group": "secondary:data",
+      "status": "not_found",
+      "text_sha256": "d5558cd419c8d46bdc958064cb97f963d1ea793866414c025906ec15033512ed",
+      "note": null
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Xerxes-2/mjai-batch-review/master/README.md",
+      "group": "secondary:data",
+      "status": "read",
+      "text_sha256": "e1ebd07c191f81c3175be8316311e034908c1776f6be13bc5919effb1c934082",
+      "note": null
+    },
+    {
+      "url": "https://raw.githubusercontent.com/honvl/Majsoul-to-NAGA/master/README.md",
+      "group": "secondary:data",
+      "status": "not_found",
+      "text_sha256": "d5558cd419c8d46bdc958064cb97f963d1ea793866414c025906ec15033512ed",
+      "note": null
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MahjongRepository/mahjong_soul_api/master/README.md",
+      "group": "secondary:data",
+      "status": "read",
+      "text_sha256": "e0a132268521feebe6023c587895bf2fc8c865cfac23d687c9bb1e3a3c77edc4",
+      "note": null
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Euophrys/Riichi-Trainer/develop/README.md",
+      "group": "secondary:data",
+      "status": "read",
+      "text_sha256": "a0154f5047e0f7dcece1c0dce0f05e171aac79e7d96b9bb4b7f7ae04958b6c92",
+      "note": null
+    },
+    {
+      "url": "https://raw.githubusercontent.com/FluffyStuff/riichi-mahjong-tiles/master/README.md",
+      "group": "secondary:data",
+      "status": "read",
+      "text_sha256": "0d3be776e1cde7f64e4df73dcfae63c3773bf1aaae8b76d159941f21f10f14b8",
+      "note": null
+    },
+    {
+      "url": "https://raw.githubusercontent.com/yf-dev/majsoul-record/master/README.md",
+      "group": "secondary:data",
+      "status": "not_found",
+      "text_sha256": "d5558cd419c8d46bdc958064cb97f963d1ea793866414c025906ec15033512ed",
+      "note": null
+    },
+    {
+      "url": "https://raw.githubusercontent.com/kobalab/majiang-ai/master/README.md",
+      "group": "secondary:data",
+      "status": "read",
+      "text_sha256": "9e8624bdbf3e7b9574f4e893d1e90265c33966f156397190fd1e152125d737d2",
+      "note": null
+    },
+    {
+      "url": "https://raw.githubusercontent.com/kobalab/majiang-ui/master/README.md",
+      "group": "secondary:data",
+      "status": "read",
+      "text_sha256": "7b75a284d1f0f2ff5b01494a11d7b35f323dcbdc9223f2a2830474c200656b7b",
+      "note": null
+    },
+    {
+      "url": "https://raw.githubusercontent.com/kobalab/tenhou-url-log/master/README.md",
+      "group": "secondary:data",
+      "status": "read",
+      "text_sha256": "a8c94f317fccc8692b41952f6875fe6efbdfc7737c9459057fedd5e9ed072e29",
+      "note": null
+    },
+    {
+      "url": "https://raw.githubusercontent.com/eric200203/mahgen/main/README.md",
+      "group": "secondary:data",
+      "status": "not_found",
+      "text_sha256": "d5558cd419c8d46bdc958064cb97f963d1ea793866414c025906ec15033512ed",
+      "note": null
+    },
+    {
+      "url": "https://api.github.com/repos/FlyA-official/FlyAgent/contents/README.md?ref=main",
+      "group": "FlyA-official/FlyAgent",
+      "status": "read",
+      "text_sha256": "4630f2ecff3a0a264922265190b3ecf39f42565316a5caf4be6bcf3866162825",
+      "note": null
+    },
+    {
+      "url": "https://api.github.com/repos/nanashi77777/xiaofeiyu-mahjong-llm/contents/README.md?ref=main",
+      "group": "nanashi77777/xiaofeiyu-mahjong-llm",
+      "status": "read",
+      "text_sha256": "81e0c78e58bfe31a4026e6c47b67c4e0fd5f8fd22c5427655bedfa1464b5a1cd",
+      "note": null
+    },
+    {
+      "url": "https://api.github.com/repos/ponder-j/xMahjong/contents/README.md?ref=main",
+      "group": "ponder-j/xMahjong",
+      "status": "read",
+      "text_sha256": "210bb8de7a5077ae8243ae8595d48f6ad035af925278710b49ba42e5be70cc39",
+      "note": null
+    },
+    {
+      "url": "https://api.github.com/repos/penguinHH/mahjong-llm/contents/README.md?ref=main",
+      "group": "penguinHH/mahjong-llm",
+      "status": "read",
+      "text_sha256": "d55aa6dad6376adc6b565c64f30b62997b8c70a2c7a98e7837b47a1d6cc761af",
+      "note": null
+    }
+  ]
+}

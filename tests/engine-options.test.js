@@ -8,12 +8,13 @@ const ChatEndpoint = require('../extension/adapters/model-endpoint.js');
 
 async function settings(initial = {}, { permission = true, beforeSet, clearResult = { ok: true }, usageResult, modelResult } = {}) {
   const data = structuredClone(initial), calls = [], elements = new Map(), downloads = [];
-  for (const id of ['engineExplain', 'profilesPanel', 'profile', 'profileName', 'newProfile', 'magpiePreset', 'ccSwitchPreset', 'loadCcSwitchModels', 'deleteProfile', 'discoveredModels', 'diagnosticStatus', 'diagnose', 'cancelDiagnostic', 'magpieHello', 'loadModels', 'status', 'provider', 'providerHint', 'engineSetup', 'engineGuide', 'enabled', 'endpoint', 'endpointHint', 'model', 'key', 'keyLabel', 'chatOptions', 'thinking', 'thinkingHint', 'maxTokens', 'priceCurrency', 'priceInput', 'priceOutput', 'priceCacheRead', 'priceCacheWrite', 'config', 'disable', 'clear', 'clearAgentData', 'exportUsage']) elements.set(id, { value: '', checked: false, textContent: '', children: [], replaceChildren() { this.children = []; }, appendChild(item) { this.children.push(item); } });
+  for (const id of ['engineProfile', 'engineExplain', 'profilesPanel', 'profile', 'profileName', 'newProfile', 'magpiePreset', 'ccSwitchPreset', 'loadCcSwitchModels', 'deleteProfile', 'discoveredModels', 'diagnosticStatus', 'diagnose', 'cancelDiagnostic', 'magpieHello', 'loadModels', 'status', 'provider', 'providerHint', 'engineSetup', 'engineGuide', 'enabled', 'endpoint', 'endpointHint', 'model', 'key', 'keyLabel', 'chatOptions', 'thinking', 'thinkingHint', 'maxTokens', 'priceCurrency', 'priceInput', 'priceOutput', 'priceCacheRead', 'priceCacheWrite', 'config', 'disable', 'clear', 'clearAgentData', 'exportUsage']) elements.set(id, { value: '', checked: false, textContent: '', children: [], replaceChildren() { this.children = []; }, appendChild(item) { this.children.push(item); } });
   const local = {
     get: async keys => { calls.push(['get']); return Object.fromEntries((Array.isArray(keys) ? keys : [keys]).filter(key => key in data).map(key => [key, structuredClone(data[key])])); },
     set: async value => { const copied = structuredClone(value); calls.push(['set']); if (beforeSet) await beforeSet(copied); Object.assign(data, copied); },
     remove: async keys => { calls.push(['remove']); for (const key of Array.isArray(keys) ? keys : [keys]) delete data[key]; }
   };
+  elements.set('modelManager', { href: '' });
   const context = vm.createContext({ Blob, setTimeout, structuredClone, URL: {
     createObjectURL(blob) { downloads.push({ blob }); return 'blob:usage-' + downloads.length; },
     revokeObjectURL(url) { calls.push(['revoke', url]); }
@@ -33,6 +34,46 @@ async function settings(initial = {}, { permission = true, beforeSet, clearResul
   return { data, calls, downloads, el, select(provider) { el('provider').value = provider; el('provider').onchange(); }, submit() { return el('config').onsubmit({ preventDefault() {} }); } };
 }
 
+test('v4, v2 and custom engine profiles keep separate tokens, disable on switch and clear all drafts', async () => {
+  const page = await settings(); page.select('mjai');
+  const choose = id => { page.el('engineProfile').value = id; page.el('engineProfile').onchange(); };
+  choose('voidshine-298k');
+  assert.equal(page.el('enabled').checked,false); assert.equal(page.el('endpoint').value,'http://127.0.0.1:17342/analyze');
+  page.el('key').value='V4_TOKEN'; page.el('enabled').checked=true; await page.submit();
+  choose('akagi-v2'); assert.equal(page.el('enabled').checked,false); assert.equal(page.el('key').value,'');
+  page.el('key').value='V2_TOKEN'; await page.submit();
+  choose('voidshine-298k'); assert.equal(page.el('key').value,'V4_TOKEN'); assert.equal(page.el('enabled').checked,false);
+  await page.submit();
+  const saved = page.data.mjaiEngineProfilesV1;
+  assert.equal(saved.profiles.find(p=>p.id==='akagi-v2').config.apiKey,'V2_TOKEN');
+  assert.equal(page.data.modelConfig.engineProfile,'voidshine-298k');
+  await page.el('disable').onclick(); assert.ok(page.data.mjaiEngineProfilesV1.profiles.every(p=>!p.config.enabled));
+  await page.el('clear').onclick(); assert.equal(page.data.mjaiEngineProfilesV1,undefined);
+  page.select('mjai'); choose('voidshine-298k'); assert.equal(page.el('key').value,'');
+});
+test('unknown existing local service migrates as legacy without guessing model from port',async()=>{
+  const config={provider:'mjai',enabled:true,endpoint:'http://127.0.0.1:17341/analyze',model:'mjai',apiKey:'OLD'};
+  const page=await settings({modelConfig:config});
+  assert.equal(page.el('engineProfile').value,'legacy'); assert.equal(page.el('enabled').checked,true);
+  assert.equal(page.data.mjaiEngineProfilesV1,undefined);
+  await page.submit(); assert.equal(page.data.modelConfig.engineProfile,'legacy'); assert.equal(page.data.modelConfig.apiKey,'OLD');
+});
+test('Yuchen profile is added to saved v4/v2 profiles without replacing credentials or enabling analysis', async () => {
+  const store = require('../extension/model-config-store.js');
+  const saved = { version: 1, activeId: 'voidshine-298k', profiles: [{ id: 'voidshine-298k', name: 'Saved v4', config: { provider: 'mjai', apiKey: 'KEEP_TOKEN', endpoint: 'http://127.0.0.1:17342/analyze', enabled: true } }] };
+  const migrated = store.engineProfiles({ mjaiEngineProfilesV1: saved });
+  assert.equal(migrated.activeId, 'voidshine-298k'); assert.equal(migrated.profiles[0].config.apiKey, 'KEEP_TOKEN');
+  assert.equal(migrated.profiles.find(p => p.id === 'yuchen-582500').config.enabled, false);
+  const page = await settings(); page.select('mjai');
+  page.el('engineProfile').value = 'yuchen-582500'; page.el('engineProfile').onchange();
+  assert.equal(page.el('endpoint').value, 'http://127.0.0.1:17344/analyze'); assert.equal(page.el('enabled').checked, false);
+  page.el('key').value = 'YUCHEN_TOKEN'; await page.submit();
+  page.el('engineProfile').value = 'voidshine-298k'; page.el('engineProfile').onchange();
+  assert.equal(page.el('key').value, '');
+  page.el('engineProfile').value = 'yuchen-582500'; page.el('engineProfile').onchange();
+  assert.equal(page.el('key').value, 'YUCHEN_TOKEN'); assert.equal(page.el('enabled').checked, false);
+});
+
 test('mjai endpoint is strictly local HTTP analyze and exposes host-only permissions', () => {
   for (const value of ['http://127.0.0.1:17341/analyze', 'http://localhost:8080/analyze']) {
     assert.equal(Endpoint.endpoint(value).href, value);
@@ -51,6 +92,7 @@ test('settings default to disabled chat and old configurations remain chat only'
   legacy.select('mjai');
   assert.equal(legacy.el('engineSetup').hidden, false);
   assert.equal(legacy.el('engineGuide').href, 'https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/blob/main/docs/MJAI.md');
+  assert.equal(legacy.el('modelManager').href, 'http://127.0.0.1:17343/');
   assert.equal(legacy.el('enabled').checked, false); assert.equal(legacy.el('key').value, '');
   assert.equal(legacy.el('endpoint').value, 'http://127.0.0.1:17341/analyze');
   assert.equal(legacy.el('model').value, 'mjai'); assert.equal(legacy.el('model').readOnly, true);
@@ -80,7 +122,7 @@ test('mjai token is required and permission runs before asynchronous storage', a
   assert.equal(page.calls[before][0], 'permission');
   assert.deepEqual(JSON.parse(JSON.stringify(page.calls[before][1])), { origins: ['http://127.0.0.1/*'] });
   await pending;
-  assert.deepEqual(page.data.modelConfig, { provider: 'mjai', enabled: true, endpoint: 'http://127.0.0.1:17341/analyze', model: 'mjai', apiKey: 'ENGINE_SECRET', workflow: 'engine' });
+  assert.deepEqual(page.data.modelConfig, { provider: 'mjai', enabled: true, endpoint: 'http://127.0.0.1:17341/analyze', model: 'mjai', apiKey: 'ENGINE_SECRET', workflow: 'engine', engineProfile: 'custom' });
   assert.equal(page.data.analysisProviders.mjai.apiKey, 'ENGINE_SECRET');
 });
 
@@ -199,7 +241,7 @@ test('chat context, tools and prices survive provider drafts, save and reload wh
   page.select('mjai');
   assert.equal(page.el('priceInput').disabled, true);
   page.el('key').value = 'ENGINE'; await page.submit();
-  assert.deepEqual(page.data.modelConfig, { provider: 'mjai', enabled: false, endpoint: 'http://127.0.0.1:17341/analyze', model: 'mjai', apiKey: 'ENGINE', workflow: 'engine' });
+  assert.deepEqual(page.data.modelConfig, { provider: 'mjai', enabled: false, endpoint: 'http://127.0.0.1:17341/analyze', model: 'mjai', apiKey: 'ENGINE', workflow: 'engine', engineProfile: 'custom' });
   const page2 = await settings(page.data); page2.select('chat');
   assert.equal(page2.el('priceInput').disabled, false); assert.equal(page2.el('priceInput').value, '2');
   await page2.submit();

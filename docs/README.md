@@ -1,6 +1,6 @@
 # 文档导航
 
-本文按用途整理当前 v0.13.0 的公开文档。首次使用从[项目介绍与安装](../README.md)开始；查文件位置看[项目目录结构](PROJECT_STRUCTURE.md)，查组件关系看[项目架构](../ARCHITECTURE.md)。补充技术文档目前以简体中文维护。
+本文按用途整理当前 v0.14.0 的公开文档。首次使用从[项目介绍与安装](../README.md)开始；查文件位置看[项目目录结构](PROJECT_STRUCTURE.md)，查组件关系看[项目架构](../ARCHITECTURE.md)。补充技术文档目前以简体中文维护。
 
 ## 使用与配置
 
@@ -12,6 +12,7 @@
 | [NED 回退输入](NED_CONTEXT.md) | 其他实时任务保留的导航、效率与防守输入 |
 | [整场记忆学习](USER_MEMORY.md) | 默认关闭的学习开关、可靠覆盖门槛与本机记忆 |
 | [可选 mjai 本地引擎](MJAI.md) | 自备引擎、Akagi 弱示例、HTTP 桥接和 Mortal 教学模式 |
+| [本机模型管理](MODEL_MANAGER.md) · [社区 Mortal v4](MORTAL_V4.md) | 默认零模型，三模型按需安装／删除、共享v4环境、单模型启停与独立Token；v4仅逐次手动四人半庄 |
 | [可选 NAGA 导出](NAGA-INTEGRATION.md) | 牌谱本地转换、规则确认与用户自行提交 |
 
 ## 开发与维护
@@ -30,6 +31,8 @@
 
 ## 基准测试与结果
 
+社区v4的真实权重、官方对照、性能、许可和未测范围见 [MORTAL_V4_VALIDATION.md](MORTAL_V4_VALIDATION.md)。
+
 | 文档 | 内容与适用范围 |
 | --- | --- |
 | [自主 benchmark](BENCHMARK_AUTONOMOUS.md) | 新实验的冻结、监督、持久化、预算与独立评审流程 |
@@ -45,6 +48,7 @@
 | 文档 | 已记录的验证 |
 | --- | --- |
 | [项目验证记录](../VALIDATION.md) | 按版本记录测试、浏览器与未验证范围 |
+| [社区 Mortal v4 真实验收](MORTAL_V4_VALIDATION.md) | v0.14.0固定权重、严格加载、人工HTTP／官方对照与三模型离线管理；在线下载全链路、真实整场及牌力未验证 |
 | [Mortal 工作流验收](MORTAL_WORKFLOW_VALIDATION.md) | v0.13.0 动作与解释分离、限定本地推理及旧报告导入 |
 | [Magpie 联调](MAGPIE_VALIDATION.md) · [机器可读记录](validation/magpie-v0.1.2204.json) | 固定官方程序与本地人工上游，未验证真实云模型质量 |
 | [CC Switch 联调](CC_SWITCH_VALIDATION.md) · [机器可读记录](validation/cc-switch-v4.0.22.json) | 固定版本的网关、目录与路由边界 |
@@ -54,8 +58,13 @@
 | 文档 | 阅读时的状态 |
 | --- | --- |
 | [参考项目与已确认边界](REFERENCES.md) | 第三方对标、兼容与模型选型的统一入口；研究线索不等于已接入 |
+| [雀魂与立直麻将生态调研](RIICHI_ECOSYSTEM_RESEARCH.md) | 2026-11-04 的同类助手、LLM 教学、规则库、引擎、模拟器与评测研究；附元数据和来源索引 |
+| [五个日麻助手的对标与差异化](RIICHI_FIVE_PROJECTS_COMPARISON.md) | 五个重点项目的能力、优势、可借鉴方向和本项目优先级 |
+| [追问与对话能力核查](RIICHI_CHAT_SUPPORT_RESEARCH.md) | 固定提交核对聊天 UI、问答接口、历史传递、QQ 教学与外部提示词导出 |
 | [网关接入研究](MODEL_GATEWAY_RESEARCH.md) | Magpie / CC Switch 的研究依据；实际配置见上方使用文档 |
 | [Mortal 后端研究](MORTAL_INTEGRATION_RESEARCH.md) | 保留调研时点结论，当前能力以工作流验收为准 |
+| [VoidShine Mortal v4 接入方案](VOIDSHINE_MORTAL_V4_IMPLEMENTATION_PLAN.md) | 历史设计与实施范围；已实现的两个社区v4及保留v2以当前使用文档和验收记录为准 |
+| [Akagi v3 模型接入方案](AKAGI_V3_MODEL_IMPLEMENTATION_PLAN.md) | 暂缓的历史设计；当前优先 VoidShine Mortal v4，尚未接入 v3 |
 | [Mortal + LLM 产品适配研究](MORTAL_LLM_PRODUCT_ADAPTATION.md) | 历史方案建议，不作为当前实现清单 |
 | [官网 Mortal 复盘研究](OFFICIAL_MORTAL_REPLAY_RESEARCH.md) | 官网入口与报告适配可行性；未验证范围保留 |
 | [版本变更](../CHANGELOG.md) | 逐版本功能变化 |

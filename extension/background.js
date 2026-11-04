@@ -96,7 +96,7 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
     return true;
   }
   if (message?.type === 'model:status' && game) {
-    chrome.storage.local.get(['modelConfig', 'analysisPreferences']).then(({ modelConfig: c, analysisPreferences }) => respond({ preferences: analysisPreferences, enabled: !!c?.enabled, model: c?.model || '', provider: c?.provider === 'mjai' ? 'mjai' : 'chat', workflow: c?.workflow || 'llm' })).catch(() => respond({ enabled: false, provider: 'chat' })); return true;
+    chrome.storage.local.get(['modelConfig', 'analysisPreferences']).then(({ modelConfig: c, analysisPreferences }) => respond({ preferences: analysisPreferences, enabled: !!c?.enabled, model: c?.model || '', provider: c?.provider === 'mjai' ? 'mjai' : 'chat', workflow: c?.workflow || 'llm', engineProfile: c?.engineProfile || 'legacy' })).catch(() => respond({ enabled: false, provider: 'chat' })); return true;
   }
   if (message?.type === 'model:cancel' && game) { analysisWorker.cancel(sender.tab.id); respond({ ok: true }); return; }
   if (message?.type === 'model:prepare' && game) {

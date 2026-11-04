@@ -15,9 +15,16 @@
 <p id="providerHint" class="hint"></p>
 <aside id="engineSetup" class="engine-setup" hidden aria-labelledby="engineSetupTitle">
 <h2 id="engineSetupTitle">第一次使用本地引擎</h2>
-<ol><li>按接入指南准备指定版本的第三方 Bot，完成本机检查并启动桥接服务。</li><li>将终端显示的 <code>/analyze</code> 地址和 Bearer Token 填入下方；保持桥接终端运行。</li><li>手动开启分析、保存并授予本机接口权限；在牌局面板授权信息与自家手牌，确认座位后选择“综合攻守”并手动分析。</li></ol>
+<label for="engineProfile">已保存的本地引擎配置</label><select id="engineProfile"></select>
+<p><a id="modelManager" target="_blank" rel="noopener noreferrer">打开本机模型管理</a></p>
+<p class="hint">先手动启动管理终端。此入口只打开网页。各模型的地址与分析 Token 独立保存；切换后分析关闭。</p>
+<details><summary>安装与使用说明</summary>
+<p class="hint">可以不安装任何模型。下载、删除和启停由本机管理页明确操作，切换保留已安装资产。管理 Token 用于管理页；分析 Bearer Token 用于下方接口。</p>
+<p class="hint">两个社区 v4 模型共用已验证的运行库，保守限制四人半庄；每次手动分析前须声明范围，自动调用暂不可用。限定人工局面验证不等于整场兼容、官网 4.1 或牌力认证。VoidShine 作者不推荐排位。</p>
+<ol><li>在本机管理页选择需要的模型，只下载该模型的权重与必要环境，再明确启动分析服务。</li><li>选择对应的本地引擎配置，将管理页显示的 <code>/analyze</code> 地址和分析 Bearer Token 填入下方；保持管理终端运行。</li><li>手动开启分析、保存并授予本机接口权限；在牌局面板授权信息与自家手牌，确认座位后选择“综合攻守”并手动分析。</li></ol>
 <a id="engineGuide" target="_blank" rel="noopener noreferrer">打开下载、检查与启动指南</a>
 <p class="hint">LLM 分析仍是主要用途；本地引擎默认关闭。指南链接只打开文档，不自动下载或上传牌局。</p>
+</details>
 </aside>
 <label for="endpoint">API 请求地址</label><input id="endpoint" type="url" placeholder="https://api.openai.com/v1" required>
 <p id="endpointHint" class="hint">自动补全 /chat/completions，也可填写完整接口地址。</p>

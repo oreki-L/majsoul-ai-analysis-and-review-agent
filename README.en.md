@@ -1,240 +1,78 @@
 # Majsoul Agent
 
-**0.13.0: check the facts, then explain the trade-off.** Automatic combined analysis of complete four-player positions adds traceable compressed historical facts and a deterministic comparison catalog to the current authorized position and local efficiency / per-opponent danger evidence. No extra summary-model call is added. Freeze, revisit, and discuss each decision. [Inputs and supported scope](docs/XF_CONTEXT.md) (Chinese).
+**Understand each trade-off. Keep asking about the same decision.**
 
-An optional, disabled-by-default mode lets a local Mortal-compatible engine choose a validated action before an LLM explains it. Failed explanations can be retried independently. Bring your own local engine/model and separate Chat configuration; official Mortal 4.1 is not bundled. [Setup and limits](docs/MJAI.md) (Chinese).
-
-An interactive Mahjong Soul AI assistant for explanations and follow-up questions
-
-**Understand each trade-off. Ask why at any decision.**
+Current version: **0.14.0**
 
 [简体中文](README.md) | **English** | [日本語](README.ja.md)
 
-A live analysis assistant for the Mahjong Soul web client, centered on a pure LLM runtime using your own model API. Ask “Why not discard another tile?” or “Should I push or defend now?” Each decision keeps its own frozen position and discussion, so you can return to a question after new advice arrives. Explore tile efficiency and push/fold trade-offs in concrete positions to build your own judgment. Replay review and match records are supporting features.
+An AI analysis assistant for the Mahjong Soul web client. Connect your own LLM API, review a recommendation and its alternatives, then ask “Why not discard another tile?” or “Should I slow down here?” Each decision keeps its frozen position and separate discussion, so you can return to it after new advice arrives.
 
-[**Download v0.13.0**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.13.0) · [LLM setup](#llm-setup) · [Test evidence](docs/MODEL_BENCHMARK.md)
+[**Download v0.14.0**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.14.0) · [Quick start](#quick-start) · [Local model manager](docs/MODEL_MANAGER.md)
 
-## Evidence for this update
+![Floating analysis card with a synthetic position and simulated model response](docs/images/agent-floating-preview.png)
 
-Across the same 45 decisions in four rounds of one replay, the fact-enhanced strategy selected for this release passed **31/45 (68.9%)**, with a **3.30/4** mean quality score. Compared with the historical-facts control, this is **17.8 percentage points** higher; initially valid structure rose from 27/45 to 35/45.
-
-| Concurrent strategy | Quality passes | Mean / 4 | Initially valid structure |
-| --- | --- | --- | --- |
-| Current facts and calculations (EV-0) | 26/45 (57.8%) | 3.14 (n=45) | 23/45 |
-| Historical facts (X-S) | 23/45 (51.1%) | 3.10 (n=44) | 27/45 |
-| **Deterministic comparison catalog (X-F, selected)** | **31/45 (68.9%)** | **3.30 (n=45)** | **35/45** |
-| Background fact summaries (C-KM) | 21/45 (46.7%) | 2.99 (n=45) | 36/45 |
-
-These results cover Chat input strategies only, **not the optional Mortal teaching path**. No paid real-LLM evaluation of engine explanations was performed.
-
-**These are explanation and factual-quality gates, not win rates or playing strength.** Related points from one replay do not establish stable benefits across replays. Independent `gpt-6-sol/medium` review used `first-answer/1.0.1`. Of 180 opportunities, 179 delivered; one X-S failure remains in its pass-rate denominator, while means exclude missing delivery. Experiments allowed 180 seconds; the product allows two live model requests within 25 seconds (120 with thinking). The 68.9% result is not a production guarantee. This port has only offline equivalence and simulated validation, without a fresh real-model run. [Full public summary and limitations](docs/XF_VALIDATION.md) (Chinese).
+## Learn from a specific position
 
 | What you want to do | What the assistant provides |
 | --- | --- |
-| **Understand advice during play** | A floating card with the first choice, alternatives, and reasons; local shanten, effective-tile and per-opponent danger evidence supplied proactively, with tools for missing detail |
-| **Question a specific decision** | A separate frozen position and context for each decision, with retained discussions restored after reload |
-| **Return to an earlier turn** | Select a recorded turn/decision, inspect the captured hand and original advice, and continue asking questions |
-| **Just record games** | A standalone collector for collection, display, history, and export |
+| Understand the current choice | A recommendation, alternatives and explanations grounded in local shanten, tile-efficiency and per-opponent danger evidence |
+| Ask follow-up questions | The hand, table and original advice stay frozen in a separate discussion that can survive a page refresh |
+| Revisit an earlier turn | Open a recorded decision and continue its discussion without mixing in the new live position |
+| Let an engine choose first | An optional local engine supplies a validated action; an LLM explains it, with independent explanation retries |
+| Record without model calls | A standalone Collector for observation, display, settlement history and export |
 
-**Choose your own model and API.** Set the endpoint, model ID, and API key for an **OpenAI Chat Completions-compatible API with tools support**: a cloud model, third-party gateway, or local service. Requests go directly to your configured service. [LLM setup](#llm-setup)
+**The normal LLM workflow runs independently: no Mortal download, Python or native toolkit is required.** The browser extension collects game data directly, without configuring CDP, remote debugging or a system proxy. Model calls and automatic analysis are off by default; local calculations work without an API. The project does not play automatically.
 
-| Model tested with the real API | Estimated mean cost per analysis | Median summed HTTP time per analysis |
-| --- | ---: | ---: |
-| **DeepSeek-V4.1-Flash** | **About CNY 0.024** | **About 5.6 s** |
+## Quick start
 
-**39 analyses, about CNY 0.92 estimated total.** One replay, 39 points, older B context, thinking disabled. Peak cache-aware cost estimate, not an account bill; follow-ups excluded. Summed HTTP time is not end-to-end latency, and these are not current v0.13.0 results.
+1. Download and extract the [full Agent](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.14.0/majsoul-ai-analysis-and-review-agent-0.14.0.zip). Enable Developer mode at `edge://extensions` or `chrome://extensions`, then load the extracted folder containing `manifest.json`.
+2. Refresh `https://game.maj-soul.com/` so the extension loads before the game connection, then enter a game. Open the analysis card’s settings and model configuration.
+3. Enter an **OpenAI Chat Completions compatible endpoint with tools support**, a model ID and your API key. Enable model analysis, save and grant the endpoint permission. Example: `https://api.openai.com/v1/chat/completions`.
+4. Confirm your seat and data authorization in the game panel, enable model calls, and analyze the current position manually. Enable automatic analysis separately if needed. Send a follow-up question to retain that decision’s discussion.
 
-<details>
-<summary>Historical test: 39 points / 41% MAKA first-choice agreement — conditions and limits</summary>
+Use a cloud API, compatible gateway or local Chat Completions service of your choice. Magpie and CC Switch are optional integrations. See [model configuration](docs/MODEL_CONFIGURATION.md) for settings, thinking parameters, costs and connection diagnostics. Calls may incur charges, and inputs are sent to your configured service.
 
-**39 analyses, about CNY 0.92 in estimated total cost.** Measured on 2026-10-25 across 39 decision points from one replay, using the older B context strategy with thinking disabled. Cost uses returned usage and peak cache-aware rates, includes failed analyses, and is not an account bill; it excludes follow-up questions. Time is not end-to-end UI latency. The research prompt and context differ from **v0.13.0**, so these figures do not promise current-version speed or cost. [Settings, formulas, and full results](docs/MODEL_BENCHMARK.md) (Chinese).
+Only `game.maj-soul.com` is currently supported, and the extension UI is Simplified Chinese. Other regional domains, Firefox, Safari and the Steam desktop client are not adapted. Translated READMEs do not imply support for other game regions. Enable either Agent or Collector on the same game page, not both.
 
-**What about advice quality?** MAKA first-choice agreement was **16/39 (41%)**, with **38/39** structurally valid outputs; 16 valid outputs had empty core reasons, leaving explanation quality to improve. These statistics use the experiment's label snapshot, which had not undergone complete manual verification; they have not been rescored against later corrected labels. Agreement is not recommendation accuracy or playing strength. The product supports follow-up questions about saved advice; that historical experiment did not evaluate follow-up quality.
+## Downloads
 
-</details>
-
-The pure LLM path needs no specialist decision engine such as Mortal. Local shanten, tile-efficiency calculations, and danger evidence support validation and explanation. Specialist engines are optional backends, disabled by default. No claim is made that pure LLM playing strength matches MAKA, Mortal, or other specialist engines.
-
-- **Full Agent:** live analysis, follow-up questions, hand hints, model settings, and traces, including collection and review features.
-- **Standalone collector:** collection, display, history, and export only; no model code or model host permissions.
-- **Opt in:** model calls and automatic analysis start disabled. Local calculations work without an API. Built with Manifest V3, a bundled MV3-adapted Pi Agent, and no telemetry.
-
-Full live protocol coverage, reconnection recovery, and real-game advice quality remain unverified. Local mjai checks cover only a specific Akagi v2 example and Windows CPU environment. See [VALIDATION.md](VALIDATION.md) for synthetic-position, simulated-response, and offline UI validation scope.
-
-**0.11.1: optional experimental CC Switch and clearer configuration/background boundaries.** Direct API access and optional Magpie remain available. The CC Switch preset explicitly loads the Codex catalog, shares Codex providers, switching and usage classification, and keeps manual model IDs when the catalog is empty. Dedicated store/worker modules handle configuration persistence and analysis lifecycle; switching still does not enable models automatically. Official CC Switch v4.0.22 and Windows Magpie v0.1.2204 were tested against artificial local upstreams, not the complete MV3 path, real cloud models, costs or playing strength. [Setup and limitations](docs/MODEL_CONFIGURATION.md) (Chinese).
-
-Language links switch documentation only. The extension UI is currently Simplified Chinese; English and Japanese pages do not imply support for other regional game domains.
-
-![Floating analysis card with synthetic game data and model output](docs/images/agent-floating-preview.png)
-
-**New in 0.10.0: optional local-model setup and decision phases.** The source package provides commands to download a pinned Akagi v2 weak Mortal example, verify SHA-256 hashes, run real inference checks, and start a local bridge. The full extension validates calls/kans, post-call discards, passes, riichi follow-up discards, and ron/tsumo with current live eligibility. Action tiles are distinct from discard hints, and discussions retain actions. LLM analysis remains the main workflow; local engines start disabled. No automatic play or real complete-replay validation. [Setup and limits](docs/MJAI.md) (Chinese).
-
-## Features
-
-**New in 0.9.0: decision discussions.** The current result stays at the top as `最新分析`. `发送追问并保留讨论` sends a question and automatically retains that decision when new advice arrives. Each decision uses its own frozen position, original advice, and chat context, separate from the live round's main session. Collapse it, remove it from the panel while keeping history, or use `查询决策历史` to filter by match, round, turn, or event, show only discussions with questions, and reopen one. Questions require a configured and enabled `chat` LLM. This feature is included in the 0.9.0 packages.
-
-Discussions and panel state are stored locally in the extension and restored after reload. An interrupted question is marked failed on restart and can be retried. There is no preset question-count limit, but request budgets, API costs, and local limits of **6 MB / 400 decisions** apply. Only old analyses without questions or retention are evicted; writes fail when space cannot safely be freed. Clearing local sessions and usage also clears discussions. There is no cloud sync or permanent-storage guarantee. Configure per-million-token prices and export the latest 100 numeric usage records; missing usage stays unknown.
-
-**Review and question earlier turns:** `切换已记录分析` provides a `巡目 / 决策点` selector. Before the whole live match ends, it lists analyzed decisions from the current round only and hides match/round selectors, including during round settlement. Those selectors appear only after an explicit whole-match end signal or in history/replay modes. Selecting a decision displays its captured hand and original advice at the top as `历史决策`; ask further questions and retain the discussion. Collection continues while hand annotations pause; `回到当前` returns to the current position. Only retained analysis records are available, including those without questions. Unanalyzed, uncollected, or evicted turns cannot be recovered automatically. Unreliable turn numbers show as unknown, distinguished by event identifiers. Reloading restores retained discussions without treating an old decision as the latest current analysis; old analyses without questions remain accessible through the selector or history.
-
-- **Bring your own model API:** customize the endpoint, model ID, and API key. Data is prepared for danger, hand, and push/fold analysis; enable model calls to request advice manually or automatically by turn. With model calls disabled, analysis stays local.
-- **Floating analysis card:** a separate, persistent result card with a draggable title and saved position. Click candidate tiles to compare explanations; hand details, local efficiency tables, and traces stay folded. The collector starts collapsed and opens independently for discards, dora, and history.
-- **Hand annotations:** after manual calibration, recommendations and high-risk tiles appear over the current live hand, including matching copies. Normal annotations let game clicks pass through. A changed state clears old markers immediately; delayed results cannot annotate a newer state.
-- **Dora display:** indicators and corresponding dora shown side by side, including honor-tile cycles, red fives, and three-player manzu rules. Hidden ura-dora is not inferred.
-- **Match history:** browse wins, draws, final hand scores, and score changes by match, hand, and honba. Collection continues while viewing an older hand.
-- **Replay inspection:** parse an already downloaded replay and inspect it with an independent event cursor, including all four hands when present in the replay.
-
-Local history retains up to 20 matches and 100 hands per match, evicting the oldest matches at roughly 4 MiB total. Records are end-of-hand snapshots, not event-by-event replays. Refreshes or disconnects may split a match into separate records. Tiles are sorted by suit; manually rearranging tiles in the game is not mirrored.
-
-## Installation
-
-[Download v0.13.0, source, and SHA256 checksums](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.13.0)
-
-| Package | Capabilities |
+| Package | Use it for |
 | --- | --- |
-| [majsoul-ai-analysis-and-review-agent-0.13.0.zip](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.13.0/majsoul-ai-analysis-and-review-agent-0.13.0.zip) | Collector, panel, match history, Agent, model settings, and harness traces |
-| [majsoul-collector-0.13.0.zip](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.13.0/majsoul-collector-0.13.0.zip) | Collection, display, history, and export only; no model code, settings page, or model host permissions |
+| [Full Agent · v0.14.0](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.14.0/majsoul-ai-analysis-and-review-agent-0.14.0.zip) | Analysis, follow-up questions, hand hints and model settings; includes collection |
+| [Standalone Collector · v0.14.0](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.14.0/majsoul-collector-0.14.0.zip) | Observation, display, history and export only; no model code or model-host permissions |
+| [Local model manager · Windows x64 · v0.14.0](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.14.0/majsoul-model-manager-windows-x64-0.14.0.zip) | Optional local mahjong engines; unnecessary for the normal LLM workflow |
+| [Source · v0.14.0](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.14.0/majsoul-ai-analysis-and-review-agent-source-0.14.0.zip) | Development, checks, builds and offline review |
 
-Local engine tools require the separate [0.13.0 source package](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.13.0/majsoul-ai-analysis-and-review-agent-source-0.13.0.zip). Neither extension ZIP bundles model weights, Python environments, or upstream native modules.
+[Release page and SHA-256 checksums](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.14.0). Neither extension package includes weights, Python or native model libraries. Collector and Agent use separate local storage with no automatic migration.
 
-Enable only one profile on a game page. The collector works independently and can export records for offline review. The profiles have separate local storage and do not migrate data automatically. The source `extension/` directory is the full edition; `npm run build` generates both loadable directories.
+## v0.14.0: install local models when you need them
 
-The independent `extension/profiles/agent.json` and `collector.json` profiles select `apps/agent-app.js` and `apps/collector-app.js` as composition entries. Building follows each profile's dependency closure to produce `dist/majsoul-ai-analysis-and-review-agent-<version>/` and `dist/majsoul-collector-<version>/`; load either directory directly. The collector package contains only the files needed for collection, display, history, and export.
+The optional local engines now have a separate management page: install on demand, explicitly start or stop, keep installed models for switching, and delete unwanted weights. **Zero installed models is a valid setup. Installation does not start inference; only one model runs at a time.** An installed model can be switched to and started in one action.
 
-1. Download and extract the source ZIP, or clone the repository. For a source checkout, use the **`extension/` directory**.
-2. Open `edge://extensions` in Edge or `chrome://extensions` in Chrome, and enable Developer mode.
-3. Choose **Load unpacked** and select that directory. For the dedicated extension ZIP, select the extracted directory that directly contains `manifest.json`.
-4. Refresh the Mahjong Soul page so the collector loads before the game connection is established, then enter a game or reopen a replay.
-5. The full edition shows a separate `Majsoul Agent` card on the right and a collapsed `牌局` collector entry on the left. The collector-only edition shows the left entry. Drag either title to move it; positions are saved independently. Recent events and collection status start collapsed.
-
-After updating, reload the extension in the browser’s extension manager, then refresh the game. Refreshing resets your replay position. Existing connections and previously downloaded replay data cannot be read retroactively.
-
-Only **`https://game.maj-soul.com/*`** is currently matched. Other regional domains, Firefox, Safari, and the Steam desktop client are not supported. Architectural compatibility with Chrome or Brave is not a substitute for testing.
-
-## Agent and harness
-
-The collector controller owns table state, replay cursors, history, and exports; the UI interacts through views and commands. A separate adapter maps the user's selection to the standard `mj-analysis-v1` DTO. The Agent depends on the pure data contract without reading collector state layouts, so another collector can supply the same DTO. The analysis panel receives only a snapshot function and display inputs. Composition entries connect these components; see [decoupling design](docs/DECOUPLING.md) and [architecture](ARCHITECTURE.md) (Chinese).
-
-The worker runs the real upstream `@earendil-works/pi-agent-core` / `pi-ai` 1.4.0 lightweight Agent loop, adapted and bundled for MV3. Networking still uses the existing OpenAI-compatible transport; this does not add all providers' native SDKs. The harness retains snapshot validation, local preparation, model execution, strict result validation, cancellation, and traces. The API must support tools. Manual reviews allow at most 3 model requests, live analysis at most 2, with up to 4 tool calls each. DeepSeek Harness is a design reference, not a dependency. See [round sessions and usage](docs/AGENT_SESSIONS.md) (Chinese).
-
-Review a collector `mj-observer-v1` JSON export locally with Node.js 22.19+:
-
-```sh
-npm run review -- observation.json --seat 0 --hand --cursor 12
-npm run eval
-```
-
-`--seat` is a protocol seat ID from 0 to 3. `--hand` explicitly includes your own hand, which is excluded by default. For replays, `--cursor` applies only the first N events and never uses future states. Omit it for live exports, which use the exported snapshot. The CLI performs local analysis without a model request. The built-in evaluation contains three synthetic shanten regressions; it does not measure model quality or playing strength. See [Agent and harness](docs/AGENT.md) (Chinese).
-
-## LLM setup
-
-Suggested starting configuration: model ID **`deepseek-flash`**, endpoint **`https://api.deepseek.com/chat/completions`**, and your own API key. Entering just `https://api.deepseek.com` also works; settings append the path. As checked on 2026-10-26, the official version is **DeepSeek-V4.1-Flash-1017**. Disable thinking to approach the reported test conditions; the experiment capped each HTTP output at 2048 tokens, so its timing and cost do not describe default settings. See [setup and benchmark notes](docs/MODEL_BENCHMARK.md) for peak/off-peak CNY prices and full sample results, and the [official pricing page](https://api-docs.deepseek.com/quick_start/pricing/) for current prices.
-
-The per-analysis model-request budget includes the final answer and is a limit, not a required call count. The conditional memory tool `get_user_memory` does not increase the total tool-call budget.
-
-Every analysis proactively sends the full frozen authorized snapshot: your current hand, drawn tile, public table, and discards. Current facts override old answers. Automatic live requests use excerpts from the latest 4 recommendations, at most 2 earlier defensive/fold recommendations, and important events, without accumulating old full snapshots. Manual global analysis and frozen decision discussions retain their respective complete contexts. `round` locally retains captured authorized events and successful exchanges within the current round, branch, and discussion group; mid-round starts and coverage gaps are explicit. Six default read-only tools expose your hand, public table, selected players' discards, round events, local discard comparisons, and danger evidence, reading only frozen authorized input. Local safety limits fail explicitly and preserve history without silent cropping. Chat Completions still retransmits history; cache hits and cost savings are not promised. Missing usage remains unknown. See [authorization and caching](docs/AGENT_SESSIONS.md) (Chinese).
-
-The full edition accepts your own model API; no project-specific service or account is required. LLM analysis and explanation remain the main use. The default provider is `chat`, with analysis disabled. Save multiple named `chat` configurations and switch manually, retaining direct connections and optional `mjai`; only the selected provider runs per request. Switching does not enable analysis automatically.
-
-Settings include an optional **Magpie** preset, manual service identification, model discovery, and an artificial connection diagnostic that may incur charges. The editable default is `http://127.0.0.1:3425/v1`; Bearer `magpie-majsoul-agent` identifies this local app, rather than providing an upstream key or credits. Prefer a fixed model. A model listing does not establish tools support, aliases do not identify the actual upstream, and routed costs may remain unknown. Diagnostics check a fixed tool round trip and a minimal final JSON contract; they do not certify live gateway compatibility or mahjong advice quality. Confirm thinking parameters in your gateway. The official Magpie v0.1.2204 binary was verified against an artificial local upstream for identity, catalogs, non-streaming tools/JSON, errors, cancellation and restart recovery. Real cloud models, costs and the complete MV3 path remain untested. See [configuration and diagnostics](docs/MODEL_CONFIGURATION.md) and [real gateway validation](docs/MAGPIE_VALIDATION.md) (Chinese).
-
-An optional experimental **CC Switch** preset and explicit Codex catalog loader are also available (editable default `http://127.0.0.1:15721/v1`). Enable Codex routing yourself with a third-party upstream supporting Chat Completions. It shares Codex providers, switching and usage classification; the catalog may be empty and manual model IDs remain available. The official v4.0.22 binary was tested against artificial local upstreams for catalog discovery, non-streaming tools/JSON, aggregate routing and Codex usage classification; no real cloud or paid model was called. This is not official integration or full compatibility certification. See [conditions and verification limits](docs/MODEL_CONFIGURATION.md) (Chinese).
-
-| Service type | How to connect |
+| Model | Scope in this release |
 | --- | --- |
-| Cloud model or compatible third-party gateway | Enter the full HTTPS Chat Completions endpoint, model ID, and your API key |
-| Local model service | Enable its Chat Completions-compatible API and enter a localhost or 127.0.0.1 address with its port; leave the key empty if authentication is not required |
-| Service offering only another native protocol | Use a gateway that exposes a Chat Completions-compatible API, then configure the gateway endpoint |
+| Akagi v2 weak Mortal example | Existing starter and regression path |
+| [VoidShine/mortal-298k](https://huggingface.co/VoidShine/mortal-298k) | Experimental community Mortal v4 for four-player hanchan; its author advises against ranked play |
+| [Yuchen1457/mortal-582500](https://huggingface.co/Yuchen1457/mortal-582500) | Experimental community Mortal v4, conservatively limited to four-player hanchan |
 
-Local analysis is available without an API. The card offers danger, hand-efficiency and offense/defense switches, with a combined preset. Model calls and automatic analysis are both off by default.
+For local engines, download the separate manager toolkit, install Node.js 22.19+, run its `start.cmd`, and open the local address shown in the terminal. Enter the management token, install your chosen model and explicitly start it. Copy the resulting analysis endpoint and **analysis token** into the matching extension profile. Management and analysis tokens serve different purposes. [Complete steps](docs/MODEL_MANAGER.md)
 
-The manual analysis button ignores automatic feature and turn thresholds while respecting the model-call switch. Successful results appear as `最新分析`; decisions with questions are retained separately. Failures and cancellation keep the previous result. Each discussion identifies its captured position and supports further questions about that decision. Only automatic results annotate live tiles.
+The default toolkit contains neither weights nor a full Python environment. Only clicking Install prepares the selected weights and required runtime. VoidShine does not require Akagi; the two v4 models share a validated CPU runtime. Switching extension profiles disables analysis while retaining installed assets. The extension cannot launch native programs directly and does not configure automatic startup.
 
-1. To use a model, open `分析设置`, configure your service in `模型设置`, and grant its host permission.
-2. The configuration page explains data sharing and possible fees. Enable `调用模型` to send public table information and your own hand. Your seat must be known; opponents' hidden tiles and account credentials are excluded.
-3. For `自动分析`, choose every turn or from turn N onward (initially turn 7, adjustable from 2–18). Earlier turns use local calculations. The collector tracks each player’s next discard number from a continuously observed opening; calls, kans, north extractions and replacement draws alone do not increment it. Missing events, disconnections or absent sequence numbers make it unknown. From-turn-N mode then stays local until a new complete opening; every-turn mode requires no turn threshold.
-4. Automatic calls run only at your own discard decisions, combining enabled modules in one request. The default minimum interval is 8 seconds, with 20 automatic model calls per round; both are adjustable. Replays remain manual. Position changes invalidate automatic results and cancel pending automatic requests. Round counters reset when the panel is reloaded.
+Use a local engine alone or choose “local Mortal decision + automatic LLM explanation.” The validated action appears first; the LLM adds explanations without changing it, and follow-up questions use the frozen position without rerunning the engine. Both v4 models currently require **manual confirmation of four-player hanchan for every analysis**; automatic analysis is not supported for them. [Engine and explanation setup](docs/MJAI.md) · [v4 runtime guide](docs/MORTAL_V4.md)
 
-With model calls disabled, local shanten, improving tiles and genbutsu/suji/kabe evidence require no model request. Integrated strategic explanations require a model. You can inspect analysis data in settings and disable `调用模型` to stop sending data.
+## Data and validation limits
 
-To annotate game tiles, open `分析设置 → 校准手牌提示` at the table. Position the frame over 13 concealed slots, the gap, and the drawn slot, then confirm. Calibration is saved relative to a single visible game Canvas. It assumes manzu, pinzu, souzu, and honors in that order, with shorter hands aligned left after calls; it does not detect individual tile coordinates or follow manual rearrangements. Recalibrate after layout changes or misalignment. Unknown hands, multiple canvases, replays, and historical views receive no markers. Current output shows recommendations and qualitative risk, not fabricated probabilities derived from preferences or unseen-tile upper bounds.
+Authorized inputs include your hand, public table information and collected round history. Opponents’ hidden hands, account credentials and future events are not sent to the analysis service. API keys, discussions and usage records remain in extension storage. Discussions have a storage limit, with no cloud sync or permanent-retention guarantee. Disabling model calls leaves only local calculations. See [security and permissions](SECURITY.md) and [sessions and usage](docs/AGENT_SESSIONS.md).
 
-The three analysis tasks use separate data contracts and modular prompts. Danger analysis retains selected players’ ordered discards, discard-from-hand/draw distinctions, riichi, and melds. Tile-efficiency analysis sends only your hand, melds, rules, and authorized visible-tile counts, excluding full discard histories. Combined offense/defense analysis uses both modules in one request.
+Complete live-protocol coverage, reconnection recovery and real-game advice quality remain unverified. Community v4 validation covers fixed-weight strict loading, synthetic four-seat positions, synthetic HTTP→Agent requests and key-action comparisons. This is not proof of full-game compatibility or playing strength, and the Mortal v4 architecture is not official Mortal 4.1. [Validation overview](VALIDATION.md) · [v4 evidence](docs/MORTAL_V4_VALIDATION.md)
 
-The extension computes shape-based shanten and improving tiles locally for standard hands, seven pairs, and thirteen orphans. The model explains these results and weighs offense against defense. The table’s unseen-tile counts are upper bounds, not counts of tiles remaining in the wall; zero means all copies have been seen. For high-shanten hands, the calculation compares shape improvements rather than exhaustively searching every future draw/discard sequence. A 13-tile hand shows only its current shanten and improving tiles. After riichi, only the confirmed newly drawn tile can be recommended for discard; if it is unknown, no specific discard is suggested. Completed hands are analyzed only as mathematical reviews.
+The historical 45-decision LLM fact-quality review and 39-decision cost / MAKA comparison remain in [fact-enhancement validation](docs/XF_VALIDATION.md) and [model experiments](docs/MODEL_BENCHMARK.md). Their earlier conditions do not establish quality, latency or cost promises for v0.14.0 or the new community models. Agreement with a reference choice is not accuracy or win rate.
 
-Model output must follow a JSON Schema; JSON code fences are accepted. The extension rejects discard suggestions outside your hand or unsupported by locally legal candidates. Claims that a tile is genbutsu require local evidence from the relevant opponent’s discards. Shanten and improving-tile counts come from local calculations; model-provided numeric fields outside the contract are rejected. The preview shows current-position and local-analysis data. Round sessions also send authorized round history and the current question; the preview is not the complete request body. Local calculations run within the extension.
+## Development and documentation
 
-The endpoint must support non-streaming `POST /chat/completions` with string content in `choices[0].message.content`; provider-side `response_format` support is not required. Native Anthropic, Gemini, and Responses API formats require a compatible gateway. Both request and response formats must be compatible, and the model must follow the JSON Schema described above. Requests time out after 25 seconds, with one concurrent request per tab.
-
-Advice may be wrong or late, calls may incur charges, and the configured provider processes the input. The small DeepSeek experiment does not establish other providers' compatibility or live advice quality. The API key stays in extension-local storage, is read only by the background component, and is excluded from game exports and the page bridge. See [SECURITY.md](SECURITY.md) for details.
-
-## Optional local mjai engine
-
-**v0.13.0 adds optional action → explanation chaining.** Prepare your own local engine/model and runtime, save a separate OpenAI-compatible explanation service, then configure local mjai and enable “local Mortal decision + automatic LLM explanation.” Each service has separate credentials and permissions. The engine action appears first; teaching cannot change it, and retries/follow-ups do not rerun the engine. No model weights or Python environment are bundled. [Configuration and validation](docs/MJAI.md) (Chinese).
-
-Replay mode also opens the official review site for user submission and verification. Import is limited to saved English **Classic / mjai-reviewer 1.5.3 / Mortal 3** HTML and supported ordinary discards. Current official 4.1, KillerDucky and other formats are unsupported. The public sample's 130/205 parsing coverage is not 130 fully aligned local decisions. No automatic upload or full-report compatibility claim. [Detailed scope](docs/MORTAL_WORKFLOW_VALIDATION.md) (Chinese).
-
-Local mjai is an optional backend, disabled by default; LLM analysis remains the main workflow. **0.10.0 provides a beginner setup** using a pinned Akagi v2 small Mortal example model and Windows x64 runtime files. Install the Python 3.11 CPU dependencies, then download, check, and serve without writing a Bot or `runtime.json`. This is a weak example model, not Equim's online Mortal 4.1 or a model supplied by mjai-reviewer; no specialist playing-strength claim is made. These local commands are included in the 0.10.0 source package, not the browser-extension ZIPs.
-
-```powershell
-npm run engine:akagi -- setup --dir research/evidence/akagi-v2
-npm run engine:akagi -- check --dir research/evidence/akagi-v2 --python .venv-akagi/Scripts/python.exe
-npm run engine:akagi -- serve --dir research/evidence/akagi-v2 --python .venv-akagi/Scripts/python.exe --port 17341
-```
-
-Prepare the virtual environment using the [full installation steps](docs/MJAI.md) (Chinese). After the model check succeeds, keep the bridge terminal open, select local mjai in extension settings, enter its URL and Token, and manually enable and authorize analysis. Downloads use the pinned official upstream repository and SHA-256 checks; game data is not automatically uploaded. Upstream programs and weights are not included in extension packages, and their licenses apply separately. The collector remains independent without these tools or engine permissions.
-
-Real example weights passed HTTP → EngineAgent acceptance on Windows x64 / Python 3.11 / PyTorch 2.7.0 CPU / NumPy 1.26.2, returning different valid actions across artificial positions at all four seats in about 6.7–10 seconds. Cancellation and cleanup passed. This does not establish playing strength or full live-game compatibility. See [validation scope](VALIDATION.md).
-
-Other trusted Bots can still use the generic adapter:
-
-```sh
-npm run engine:serve -- --config runtime.json --port 17341
-npm run engine:review -- observation.json --config runtime.json --seat 0 --hand --cursor 12
-```
-
-`runtime.json` names a trusted local program. JSONL receives one complete event array and returns one action line. The generic Python `Bot.react` wrapper requires your module to initialize the bot and load its weights; arbitrary upstream `bot.py` files are not guaranteed compatible. Configured commands are not sandboxed. 0.10.0 validates continuously replayable four-player positions: discards, calls/kans, post-call discards, passes, and riichi with an evidenced follow-up discard. Ron/tsumo also require same-step live operation eligibility and a locally completed hand shape. Missing eligibility, robbing a kan, own kans after riichi, and other unprovable cases are rejected. Response advice requires manual analysis; automatic triggers retain existing own-discard timing. Action tiles are distinct from discard hints, and saved discussions retain actions. An own-hand 14-tile opening record remains unsupported. Q values are not deal-in probabilities, and play is never automatic. No real complete-replay validation was performed this round. See the [setup, validation scope, and limits](docs/MJAI.md) (Chinese).
-
-The 0.9.0 Python wrapper can explicitly select a `Bot(player_id)` constructor and inspect interface signatures with `--check`. The check does not construct the Bot or call `react`, though importing a module can have side effects; signature compatibility does not verify inference with real weights. See [MJAI setup](docs/MJAI.md) (Chinese) for arguments and checks.
-
-## Optional NAGA replay export
-
-The full edition's `牌谱复盘 · NAGA` panel is disabled by default. Open a complete replay, enable it, explicitly select East-only / South game, one red five per suit / no red fives, and four-player open tanyao rules, then confirm generation. Conversion reads the entire replay locally, independently of the cursor. Select hands, preview, copy, or download one `Tenhou URL` per hand, then sign in and submit yourself on the [official NAGA page](https://naga.dmv.nico/naga_report/order_form/). Exports include all four hands and replace player names with seat labels.
-
-The first version supports standard four-player calls, kans, riichi, single-winner hands, and ordinary exhaustive draws. Multiple winners, responsibility payments, nagashi mangan, abortive draws, three-player games, unknown yaku, and missing data are rejected per hand. See [NAGA integration](docs/NAGA-INTEGRATION.md) for exact limits. The extension does not automatically upload, charge, read reports, or collect account credentials. Official prices and acceptance are determined on the official site. The collector-only edition contains no NAGA modules.
-
-## History and replays
-
-### Manual match review index
-
-`打开整盘整理` stays collapsed until you open it manually, for example after a match or during history/replay review. It builds a local overview of retained decision samples from saved snapshots, original analyses, and questions, organized into four themes: push/fold and risk, tile efficiency, calls and riichi positions, and user questions. It makes no model calls and does not automatically generate an LLM match summary. Each source links back to its original decision, captured hand, and advice, where you can continue asking questions through your configured and enabled `chat` LLM at its usual API cost. Live collection continues; hand annotations pause while viewing a historical decision.
-
-Coverage includes only retained analyses, excluding unanalyzed or evicted records. A missing match ID is marked as an unconfirmed scope; `刷新留存记录` refreshes the index. Advice does not establish what the player actually did: actual actions remain unknown, with no inferred error rate, overall performance, or user preferences. Questions distinguish answered, pending, and incomplete states. This feature is included in the 0.9.0 packages.
-
-### Optional match memory learning
-
-Disabled by default. When enabled, it saves evidence from your actual play. Only an explicit end of an East-only or South match with at least **3 reliably covered complete rounds and 20 actual self actions with complete context** triggers one match summary through your configured model API. Observations await confirmation and can be reviewed, corrected, or deleted; explicit preferences can also be saved manually. Live-source automatic analysis can query a fixed round version through read-only `get_user_memory`. Memory adjusts explanation emphasis without overriding facts, mahjong reasoning, or safety checks. Disabling learning stops collection and automatic summaries; saved memory remains until deleted or cleared. Summaries may cost extra, completion after closing the browser is not guaranteed, and real-model memory quality is unverified. See [match memory learning](docs/USER_MEMORY.md) (Chinese).
-
-### Results and replays
-
-Hand results show tsumo, ron, exhaustive draws, or abortive draws, along with scores and net changes from the start of the hand, including riichi payments. Missing final scores remain unknown and may be completed when the next hand begins.
-
-Expand `整场记录`, select a match, and click `查看` for a hand to inspect its result snapshot. Click `返回当前牌局` to return to the current table. Uncollected earlier hands cannot be recovered automatically. Loading a complete replay can archive its hands; repeated loads of the same replay are deduplicated.
-
-The replay cursor is **independent of game playback**. Use the previous/next event controls to align it manually; it does not follow playback automatically. Live collection uses only your own information and public table data already delivered to the client. Seeing four hands in a replay does not mean opponents’ concealed tiles are available during a live game.
-
-## Limitations
-
-- The current client protocol still needs full-match live validation. Special rules, protocol changes, and reconstruction after reconnecting are not fully covered.
-- State is derived from received events. Missing frames, joining mid-hand, or late seat detection may affect the hand. Completeness markers are retained without persistent warnings.
-- Seat winds rotate with the dealer and are not fixed screen positions. Your seat can be detected automatically or selected manually.
-- The extension does not play automatically, alter game messages, proactively download replays, or infer the tile wall or opponents’ concealed hands.
-- Read-only operation does not imply approval from the game operator. Check the platform rules. This is an unofficial project with no affiliation with the game publisher.
-
-## Development and validation
-
-Development, checks, and builds require Node.js 22.19 or newer and the locked dependencies below. Loading the committed `extension/` or a built package requires no Node.js:
+Development requires Node.js 22.19+. Loading an extension ZIP does not.
 
 ```sh
 npm ci
@@ -243,31 +81,8 @@ npm test
 npm run build
 ```
 
-`check` validates static dependency boundaries, browser-free core modules, profile resources, and loading order. `build` copies each profile's dependency closure without rewriting shared UI source. These checks do not establish live protocol compatibility or model quality.
+Agent uses the Pi Agent runtime adapted for Manifest V3; Collector remains independent. A standard data contract connects collection to analysis. See the documentation for implementation details, offline review, optional memory learning and the NAGA export workflow.
 
-Serve `tests/preview.html` with a local static server for the offline demo. For example, with Python installed:
+[Documentation](docs/README.md) · [Architecture](ARCHITECTURE.md) · [Module separation](docs/DECOUPLING.md) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md) · [References](docs/REFERENCES.md)
 
-```sh
-python -m http.server 8126 --bind 127.0.0.1
-```
-
-Open `http://127.0.0.1:8126/tests/preview.html`. Tests and demos use synthetic protocol frames, mocked browser APIs, and simulated model responses. They do not connect to an account or a real model and do not establish live capture accuracy or advice quality. See [VALIDATION.md](VALIDATION.md).
-
-| Document | Contents |
-| --- | --- |
-| [docs/README.md](docs/README.md) | Documentation index and reading paths |
-| [docs/PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md) | Directory responsibilities, source entry points, and local outputs |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | Module responsibilities, events, and model data flow |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Local development, reproduction data, and PR requirements |
-| [SECURITY.md](SECURITY.md) | Permissions, credentials, data handling, and vulnerability reports |
-| [CHANGELOG.md](CHANGELOG.md) | Version history |
-| [docs/HISTORY.md](docs/HISTORY.md) | Sanitization and migration of the original private development history |
-| [docs/PUBLISHING.md](docs/PUBLISHING.md) | Clean snapshot packaging and publication steps |
-
-The supporting documents above are currently in Simplified Chinese. When updating a README, keep the feature descriptions and limitations consistent across all three languages.
-
-## License and references
-
-Source code and 37 original SVG tile faces are available under the [MIT License](LICENSE). Tile faces are generated by this repository’s script; no game screenshots or external fonts are bundled.
-
-[mj_helper](https://github.com/tzp1021/mj_helper) informed the collection/state-machine layering and open-source repository organization, alongside other protocol research. This project focuses on an in-browser panel, result history, and user-selected models. It does not bundle mj_helper’s Python decision engine or claim equivalent playing strength. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for references and the handling of legacy assets.
+Supplementary documentation is currently in Simplified Chinese. Project code and 37 original SVG tile faces are [MIT licensed](LICENSE). Optional models, native components and upstream code retain their own licenses; the project’s MIT license does not replace them. [Third-party notices](THIRD_PARTY_NOTICES.md) · [License sources](licenses/SOURCES.md)

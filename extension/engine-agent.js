@@ -117,7 +117,7 @@
     const discardFuriten = ron && rivers[request.seat].discards.some(d => waits.includes(canon(d.tile)));
     return { ...localAnalysis, engineContext: { phase, trigger, forbidden, replacement, kanCount, kanActors: [...kanActors], doras: doras.length, winningShape, discardFuriten } };
   }
-  async function run({ snapshot, request, infer, signal, timeoutMs, onEvent }) {
+  async function run({ snapshot, request, infer, signal, timeoutMs, onEvent, expectedProfile }) {
     if (typeof infer !== 'function') throw new Error('缺少专业引擎传输。');
     const adapter = node ? require('./adapters/mjai.js') : root.MJMjaiAdapter;
     if (!adapter) throw new Error('专业引擎协议适配器未加载。');
@@ -129,7 +129,7 @@
         const payload = JSON.parse(JSON.stringify(value.request));
         return { ...value, response: await infer(payload, context) };
       },
-      'engine.validate': value => ({ ...R.validateResult(value.response, value), localAnalysis: value.localAnalysis })
+      'engine.validate': value => { R.checkIdentity(value.response, expectedProfile); return { ...R.validateResult(value.response, value), localAnalysis: value.localAnalysis }; }
     };
     const { output, trace } = await H.run({ steps: ['request.validate', 'engine.infer', 'engine.validate'], tools, input, signal, timeoutMs, onEvent });
     return { ...output, trace };

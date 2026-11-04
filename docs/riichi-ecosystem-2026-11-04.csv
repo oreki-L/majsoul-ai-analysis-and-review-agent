@@ -1,0 +1,44 @@
+﻿repository,url,default_branch,pushed_at_utc,archived,api_license,license_text_observation,metadata_status,checked_date
+FlyA-official/FlyAgent,https://github.com/FlyA-official/FlyAgent,main,2026-10-30T17:35:16Z,False,NOASSERTION,Proprietary (LICENSE read),confirmed,2026-11-04
+latorc/MahjongCopilot,https://github.com/latorc/MahjongCopilot,main,2025-03-22T20:00:26Z,False,GPL-3.0,Not independently checked in this metadata table; see report,confirmed,2026-11-04
+nanashi77777/xiaofeiyu-mahjong-llm,https://github.com/nanashi77777/xiaofeiyu-mahjong-llm,main,2026-11-03T08:22:02Z,False,unidentified,Not independently checked in this metadata table; see report,confirmed,2026-11-04
+ponder-j/xMahjong,https://github.com/ponder-j/xMahjong,main,2026-10-26T14:59:54Z,False,NOASSERTION,MIT (LICENSE read),confirmed,2026-11-04
+penguinHH/mahjong-llm,https://github.com/penguinHH/mahjong-llm,main,2026-10-26T07:42:25Z,False,Apache-2.0,Apache-2.0; libriichi_patch AGPL-3.0 (README read),confirmed,2026-11-04
+hongdp/LLM_Mahjong,https://github.com/hongdp/LLM_Mahjong,master,2026-11-02T05:32:29Z,False,unidentified,Not independently checked in this metadata table; see report,confirmed,2026-11-04
+AwakeFantasy/mahjong-paipu-assistant,https://github.com/AwakeFantasy/mahjong-paipu-assistant,main,2026-05-30T04:24:53Z,False,MIT,Not independently checked in this metadata table; see report,confirmed,2026-11-04
+swordofkings-blip/MJsoulCoaching,https://github.com/swordofkings-blip/MJsoulCoaching,main,2026-07-11T06:00:44Z,False,NOASSERTION,MIT; third-party terms separate (LICENSE read),confirmed,2026-11-04
+eitaar/driichi,https://github.com/eitaar/driichi,main,2026-11-02T05:24:52Z,False,MIT,Not independently checked in this metadata table; see report,confirmed,2026-11-04
+hamakyo/jev-mahjong-bench,https://github.com/hamakyo/jev-mahjong-bench,main,2026-09-22T21:11:52Z,False,NOASSERTION,MIT (LICENSE read),confirmed,2026-11-04
+shinkuan/Akagi,https://github.com/shinkuan/Akagi,v3,2026-11-01T03:58:11Z,False,Apache-2.0,Apache-2.0 (v3 LICENSE.txt and NOTICE read),confirmed,2026-11-04
+tzp1021/mj_helper,https://github.com/tzp1021/mj_helper,main,2026-06-01T09:57:05Z,False,MIT,Not independently checked in this metadata table; see report,confirmed,2026-11-04
+Jimboom7/AlphaJong,https://github.com/Jimboom7/AlphaJong,master,2024-11-03T20:00:51Z,False,GPL-3.0,Not independently checked in this metadata table; see report,confirmed,2026-11-04
+EndlessCheng/mahjong-helper,https://github.com/EndlessCheng/mahjong-helper,master,2022-06-23T01:11:42Z,False,MIT,Not independently checked in this metadata table; see report,confirmed,2026-11-04
+Fr0stbyteR/Majsoul-Helper,https://github.com/Fr0stbyteR/Majsoul-Helper,master,2022-11-29T12:08:52Z,False,WTFPL,Not independently checked in this metadata table; see report,confirmed,2026-11-04
+747929791/MajsoulAI,https://github.com/747929791/MajsoulAI,master,2024-06-17T22:48:38Z,False,MIT,Not independently checked in this metadata table; see report,confirmed,2026-11-04
+moxcomic/MajsoulAI,https://github.com/moxcomic/MajsoulAI,main,2024-07-17T10:58:13Z,False,GPL-3.0,Not independently checked in this metadata table; see report,confirmed,2026-11-04
+Equim-chan/Mortal,https://github.com/Equim-chan/Mortal,main,2025-09-28T14:29:24Z,False,AGPL-3.0,Not independently checked in this metadata table; see report,confirmed,2026-11-04
+Equim-chan/mjai-reviewer,https://github.com/Equim-chan/mjai-reviewer,master,2025-02-22T07:35:31Z,False,Apache-2.0,Not independently checked in this metadata table; see report,confirmed,2026-11-04
+Cryolite/kanachan,https://github.com/Cryolite/kanachan,main,2025-02-16T23:15:02Z,False,unidentified,Not independently checked in this metadata table; see report,confirmed,2026-11-04
+critter-mj/akochan,https://github.com/critter-mj/akochan,master,2022-07-05T08:41:12Z,False,NOASSERTION,Custom restricted license (LICENSE read),confirmed,2026-11-04
+smly/mjai.app,https://github.com/smly/mjai.app,main,2026-10-30T22:39:28Z,False,AGPL-3.0,Not independently checked in this metadata table; see report,confirmed,2026-11-04
+smly/RiichiEnv,https://github.com/smly/RiichiEnv,main,2026-10-27T09:06:20Z,False,Apache-2.0,Not independently checked in this metadata table; see report,confirmed,2026-11-04
+MahjongRepository/mahjong,https://github.com/MahjongRepository/mahjong,master,2026-11-01T15:59:06Z,False,MIT,Not independently checked in this metadata table; see report,confirmed,2026-11-04
+kobalab/majiang-core,https://github.com/kobalab/majiang-core,master,2026-04-12T03:41:26Z,False,MIT,Not independently checked in this metadata table; see report,confirmed,2026-11-04
+kobalab/majiang,https://github.com/kobalab/majiang,master,2026-10-20T22:55:01Z,False,MIT,Not independently checked in this metadata table; see report,confirmed,2026-11-04
+tomohxx/shanten-number,https://github.com/tomohxx/shanten-number,main,2026-07-26T03:23:05Z,False,LGPL-3.0,Not independently checked in this metadata table; see report,confirmed,2026-11-04
+Cryolite/nyanten,https://github.com/Cryolite/nyanten,main,2025-10-25T15:13:28Z,False,NOASSERTION,Not independently checked in this metadata table; see report,confirmed,2026-11-04
+Apricot-S/xiangting,https://github.com/Apricot-S/xiangting,main,2026-10-20T13:01:08Z,False,MIT,Not independently checked in this metadata table; see report,confirmed,2026-11-04
+gimite/mjai,https://github.com/gimite/mjai,master,2021-04-07T12:03:12Z,False,unidentified,Not independently checked in this metadata table; see report,confirmed,2026-11-04
+mjx-project/mjx,https://github.com/mjx-project/mjx,master,2024-04-19T14:38:20Z,False,MIT,Not independently checked in this metadata table; see report,confirmed,2026-11-04
+pgx-project/pgx,https://github.com/pgx-project/pgx,,,,unidentified,Not independently checked in this metadata table; see report,HTTP Error 404: Not Found,2026-11-04
+MahjongRepository/tenhou-python-bot,https://github.com/MahjongRepository/tenhou-python-bot,dev,2023-07-08T10:11:51Z,True,MIT,Not independently checked in this metadata table; see report,confirmed,2026-11-04
+yf-dev/majsoul-record,https://github.com/yf-dev/majsoul-record,master,2023-09-27T02:41:42Z,False,unidentified,Not independently checked in this metadata table; see report,confirmed,2026-11-04
+Xerxes-2/mjai-batch-review,https://github.com/Xerxes-2/mjai-batch-review,master,2024-11-10T03:29:05Z,False,MIT,Not independently checked in this metadata table; see report,confirmed,2026-11-04
+honvl/Majsoul-to-NAGA,https://github.com/honvl/Majsoul-to-NAGA,master,2026-09-07T21:32:56Z,False,MIT,Not independently checked in this metadata table; see report,confirmed,2026-11-04
+AmaeKoromo/amae-koromo,https://github.com/AmaeKoromo/amae-koromo,,,,unidentified,Not independently checked in this metadata table; see report,HTTP Error 404: Not Found,2026-11-04
+MahjongRepository/mahjong_soul_api,https://github.com/MahjongRepository/mahjong_soul_api,master,2026-10-26T06:35:11Z,False,unidentified,Not independently checked in this metadata table; see report,confirmed,2026-11-04
+Euophrys/Riichi-Trainer,https://github.com/Euophrys/Riichi-Trainer,develop,2025-11-10T23:11:27Z,False,GPL-3.0,Not independently checked in this metadata table; see report,confirmed,2026-11-04
+FluffyStuff/riichi-mahjong-tiles,https://github.com/FluffyStuff/riichi-mahjong-tiles,master,2024-06-15T08:44:30Z,False,NOASSERTION,CC0 / public domain (README read),confirmed,2026-11-04
+ailab-pku/Mahjong-LLM,https://github.com/ailab-pku/Mahjong-LLM,main,2026-06-23T05:53:30Z,False,GPL-3.0,Not independently checked in this metadata table; see report,confirmed,2026-11-04
+SiyeW/riichi-analysis-engine,https://github.com/SiyeW/riichi-analysis-engine,main,2026-11-02T16:35:59Z,False,AGPL-3.0,Not independently checked in this metadata table; see report,confirmed,2026-11-04
+shinkuan/Akagi-MjaiBot-Mortal,https://github.com/shinkuan/Akagi-MjaiBot-Mortal,main,2026-05-29T05:36:01Z,False,AGPL-3.0,Not independently checked in this metadata table; see report,confirmed,2026-11-04

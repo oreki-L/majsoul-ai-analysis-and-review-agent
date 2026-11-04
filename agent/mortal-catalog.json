@@ -1,0 +1,9 @@
+{
+  "format": "local-engine-catalog-v1",
+  "defaultEnabled": false,
+  "models": [
+    { "id": "akagi-v2", "name": "Akagi v2 Mortal · 弱示例", "status": "verified-experimental", "installable": true, "weightBytes": 5123618, "scope": "四麻弱示例；仅限既有人工局面验证", "command": "engine:akagi", "runtimeFamily": "akagi-v2-py311", "sharedRuntimeVerified": false },
+    { "id": "voidshine-298k", "name": "VoidShine Mortal v4 · 298k · 四麻半庄", "status": "verified-experimental", "installable": true, "weightBytes": 130774416, "scope": "四人半庄；社区模型，实验接入", "command": "engine:mortal", "runtimeFamily": "mortal-v4-win64-py3119-torch270cpu", "sharedRuntimeVerified": true },
+    { "id": "yuchen-582500", "name": "Yuchen1457/mortal-582500", "status": "verified-experimental", "installable": true, "weightBytes": 130786031, "scope": "四人半庄；社区模型，实验接入", "command": "engine:mortal", "runtimeFamily": "mortal-v4-win64-py3119-torch270cpu", "sharedRuntimeVerified": true }
+  ]
+}

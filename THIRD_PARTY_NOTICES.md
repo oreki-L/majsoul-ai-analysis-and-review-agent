@@ -16,6 +16,14 @@ Pi 的 `typebox/compile` 在构建时以同版本 TypeBox `Value.Check` / `Value
 
 ## 开发参考
 
+### 独立可选本地模型工具（不随扩展ZIP捆绑）
+
+社区v4工具固定使用 [Equim-chan/Mortal](https://github.com/Equim-chan/Mortal/tree/0cff2b52982be5b1163aa9a62fb01f03ce91e0d2) 的网络／引擎及本地编译libriichi，AGPL-3.0-or-later；工具包保留完整固定源码、Cargo.lock、对应vendored crate源码与构建资料。原生库涉及的Rust标准库MIT／Apache-2.0和GCC运行库例外许可公告保存在工具包 `sources/toolchain-licenses/`。`model.py`／`engine.py`未修改；项目独立wrapper与管理代码不调用训练／上传／GRP。进程分离不豁免适用许可义务。
+
+[VoidShine/mortal-298k](https://huggingface.co/VoidShine/mortal-298k/tree/dbbea7e3d34f99ec43fc4834ab7f2aaaed70b6ee) 声明AGPL-3.0；[Yuchen1457/mortal-582500](https://huggingface.co/Yuchen1457/mortal-582500/tree/7386c9f5c751a3ea75efea99737cef5a5ef950f1) 声明AGPL-3.0／upstream AGPL-3.0-or-later。模型各自许可证、model card和元数据随显式安装保存，不下载训练牌谱；发布者的牌力或授权说明作为来源声明保留，不视为本项目认证。
+
+便携Python3.11.9（PSF）、CPU PyTorch2.7.0、NumPy1.26.2及其固定依赖保留各自许可证／第三方公告。完整运行环境只按需安装或显式离线导出，默认bootstrap零权重、零完整Python。固定URL／SHA与实际验证见 [来源清单](agent/mortal-source.json)、[依赖锁](agent/mortal-runtime-lock.json) 和 [验收记录](docs/MORTAL_V4_VALIDATION.md)。v2原有AGPL加Commons Clause边界不变。
+
 开发时参考了以下公开资料。参考并不表示对方认可本项目，也不代表已验证当前客户端兼容性。
 
 | 项目 | 参考用途 | 处理方式 |

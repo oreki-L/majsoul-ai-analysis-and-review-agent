@@ -1,0 +1,38 @@
+{
+  "profile": "voidshine-298k",
+  "protocol": "mortal-worker-v1",
+  "model": "VoidShine-mortal-v4-298k",
+  "modelRevision": "dbbea7e3d34f99ec43fc4834ab7f2aaaed70b6ee",
+  "repository": "VoidShine/mortal-298k",
+  "sourceCommit": "0cff2b52982be5b1163aa9a62fb01f03ce91e0d2",
+  "native": { "sha256": "2ccbbc8db60f1df95f840f42735f83e75519290e435c83fbc2634cbbb9f3502c", "abi": "cp311-win_amd64-gnu", "features": ["pymod"], "rust": "1.99.1", "cargoLockSha256": "5f7a562e3c428b0ae7f078db63231c201a25f6ff1be16fd5e7b37df3b226dcb2" },
+  "pythonArchive": { "url": "https://www.python.org/ftp/python/3.11.9/python-3.11.9-embed-amd64.zip", "sha256": "009d6bf7e3b2ddca3d784fa09f90fe54336d5b60f0e0f305c37f400bf83cfd3b" },
+  "sourceArchive": { "url": "https://codeload.github.com/Equim-chan/Mortal/zip/0cff2b52982be5b1163aa9a62fb01f03ce91e0d2", "sha256": "225cfdcec1c041d2a31fa619c7f36e1f1ff691f4c87783761724013082dbb070" },
+  "license": "AGPL-3.0-or-later (Mortal); AGPL-3.0 (model declaration)",
+  "architecture": { "version": 4, "conv_channels": 192, "num_blocks": 40 },
+  "runtime": { "python": "3.11.9", "torch": "2.7.0+cpu", "numpy": "1.26.2", "threads": 1, "quickEval": true, "agariGuard": true },
+  "profiles": {
+    "yuchen-582500": {
+      "profile": "yuchen-582500", "model": "Yuchen1457-mortal-v4-582500",
+      "modelRevision": "7386c9f5c751a3ea75efea99737cef5a5ef950f1", "repository": "Yuchen1457/mortal-582500",
+      "license": "AGPL-3.0-or-later (Mortal/model repository declaration)",
+      "files": [
+        { "name": "mortal_582500.pth", "url": "https://huggingface.co/Yuchen1457/mortal-582500/resolve/7386c9f5c751a3ea75efea99737cef5a5ef950f1/mortal_582500.pth", "size": 130786031, "sha256": "738e0d6e3c0ce9671629554ad39abd147d2ffbac676e80b194c83f2acc0fea20" },
+        { "name": "model.py", "upstream": "mortal/model.py", "sha256": "217e2d3dc20631c769a57ea3f09ca4fac232430fc28f76b21d5f37cec7bf84f2" },
+        { "name": "engine.py", "upstream": "mortal/engine.py", "sha256": "5a7444b3f6f232ee168c9e8c17bafde1e6bc36d2620eaf726d14eeaaebd071b6" },
+        { "name": "Mortal-LICENSE", "url": "https://huggingface.co/Yuchen1457/mortal-582500/raw/7386c9f5c751a3ea75efea99737cef5a5ef950f1/Mortal-LICENSE", "sha256": "8486a10c4393cee1c25392769ddd3b2d6c242d6ec7928e1414efff7dfb2f07ef" },
+        { "name": "model-README.md", "url": "https://huggingface.co/Yuchen1457/mortal-582500/raw/7386c9f5c751a3ea75efea99737cef5a5ef950f1/README.md", "sha256": "de9e745decc87d3ccc29cadf4aa6ba5692ba998753874ead49ef8513a6485502" },
+        { "name": "model-manifest.json", "url": "https://huggingface.co/Yuchen1457/mortal-582500/raw/7386c9f5c751a3ea75efea99737cef5a5ef950f1/model-manifest.json", "sha256": "f7b58f0bd3af05939af9bd391a7356f48c4faf3b55a571c3a17dbe0056794861" }
+      ]
+    }
+  },
+  "files": [
+    { "name": "mortal_298k.pth", "url": "https://huggingface.co/VoidShine/mortal-298k/resolve/dbbea7e3d34f99ec43fc4834ab7f2aaaed70b6ee/mortal_298k.pth", "size": 130774416, "sha256": "bfb3a6c072aa0bfd4171a9cdc77cb6c02ae42cde920843f9e5784394f23447d8" },
+    { "name": "model.py", "upstream": "mortal/model.py", "sha256": "217e2d3dc20631c769a57ea3f09ca4fac232430fc28f76b21d5f37cec7bf84f2" },
+    { "name": "engine.py", "upstream": "mortal/engine.py", "sha256": "5a7444b3f6f232ee168c9e8c17bafde1e6bc36d2620eaf726d14eeaaebd071b6" },
+    { "name": "Mortal-LICENSE", "upstream": "LICENSE", "sha256": "8486a10c4393cee1c25392769ddd3b2d6c242d6ec7928e1414efff7dfb2f07ef" },
+    { "name": "model-LICENSE", "url": "https://huggingface.co/VoidShine/mortal-298k/raw/dbbea7e3d34f99ec43fc4834ab7f2aaaed70b6ee/LICENSE", "sha256": "8486a10c4393cee1c25392769ddd3b2d6c242d6ec7928e1414efff7dfb2f07ef" },
+    { "name": "model-README.md", "url": "https://huggingface.co/VoidShine/mortal-298k/raw/dbbea7e3d34f99ec43fc4834ab7f2aaaed70b6ee/README.md", "sha256": "1647ea2265fc7bfcc9ee002cafee8eba2e04126ae2792c7d8d75f441c5e80657" },
+    { "name": "model-config.toml", "url": "https://huggingface.co/VoidShine/mortal-298k/raw/dbbea7e3d34f99ec43fc4834ab7f2aaaed70b6ee/config.toml", "sha256": "cad8fd7df7fca17a4a692ac101ba33b254b0b1094684c64abc4bb3be433495e9" }
+  ]
+}

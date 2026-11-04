@@ -41,16 +41,22 @@ function createEngineServer({ runner, token = crypto.randomBytes(32).toString('h
       catch { reply(400, { error: 'Invalid request' }); return; }
       if (controller.signal.aborted) return;
       if (busy) { reply(429, { error: 'Engine is busy' }); return; }
+      if (runner.ready === false) { reply(503, { error: 'Engine is unavailable' }); return; }
       busy = true;
       try {
         const result = await runner.infer(request, { signal: controller.signal });
-        reply(200, { action: result.action, ...(result.followUp ? { followUp: result.followUp } : {}), ...(identity ? { identity } : {}) });
+        reply(200, { action: result.action, ...(result.followUp ? { followUp: result.followUp } : {}), ...(result.identity || identity ? { identity: result.identity || identity } : {}) });
       } finally { busy = false; }
-    } catch { reply(502, { error: 'Engine request failed' }); }
+    } catch (error) { reply(error.code === 'UNSUPPORTED_TRAILING_ANNOUNCEMENT' ? 422 : 502, { error: error.code === 'UNSUPPORTED_TRAILING_ANNOUNCEMENT' ? 'UNSUPPORTED_TRAILING_ANNOUNCEMENT' : 'Engine request failed' }); }
   });
   server.requestTimeout = 30000;
   server.headersTimeout = 10000;
-  return { server, token };
+  const close = async () => {
+    server.closeAllConnections();
+    try { if (server.listening) await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve())); }
+    finally { await runner.close?.(); }
+  };
+  return { server, token, close };
 }
 
 async function startEngineServer({ config, port = 17341, token, identity } = {}) {
