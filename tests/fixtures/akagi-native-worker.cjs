@@ -1,0 +1,13 @@
+'use strict';
+const readline=require('node:readline');
+const mode=process.argv[2],protocol='akagi-native-worker-v1';let requests=0;
+const identity={model:'akagi-v3-native',runtime:'native-test-only',checkpoint:'test-checkpoint',sourceCommit:'test-commit'};
+if(mode==='wrong-identity')identity.runtime='wrong';
+const emit=x=>process.stdout.write(JSON.stringify({protocol,...x})+'\n');
+emit({type:'ready',identity});
+readline.createInterface({input:process.stdin}).on('line',line=>{const raw=JSON.parse(line);requests++;
+ if(mode==='crash')process.exit(1);if(mode==='hang')return;
+ if(mode==='malformed')return process.stdout.write('bad-json\n');if(mode==='oversized')return process.stdout.write('x'.repeat(70000));
+ if(mode==='guard'&&requests===1)return emit({type:'error',requestId:raw.requestId,code:'NOT_DECISION_POINT'});
+ emit({type:'result',requestId:mode==='wrong-id'?'wrong':raw.requestId,action:{type:'dahai',actor:raw.seat,pai:'C',tsumogiri:false}});
+});

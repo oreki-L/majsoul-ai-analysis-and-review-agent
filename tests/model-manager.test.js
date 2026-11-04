@@ -69,6 +69,44 @@ test('failure is visible and shutdown aborts an active start', async t => {
   await request(g.manager, 'POST', '/api/models/voidshine-298k/start', { body: {} });
   await g.manager.close(); assert.equal(aborted, true); assert.equal(g.manager.status().bridge.state, 'stopped');
 });
+
+test('fourth native profile stays idle and unavailable until its real release gate passes', async t => {
+  const item = require('../agent/mortal-catalog.json').models.find(model => model.id === 'akagi-v3-native');
+  const previous = { ...item }; Object.assign(item, { installable: false, status: 'pending' });
+  t.after(() => Object.assign(item, previous));
+  const { manager, counts } = await fixture(t);
+  const profile = manager.status().models.find(model => model.id === 'akagi-v3-native');
+  assert.equal(profile.runtimeKind, 'native');
+  assert.equal(profile.installable, false);
+  assert.equal(profile.installed, false);
+  assert.equal(manager.status().runtimes.find(runtime => runtime.id === profile.runtimeId).kind, 'native');
+  assert.equal((await request(manager, 'POST', '/api/models/akagi-v3-native/install', { body: {} })).value.error, 'PROFILE_NOT_VERIFIED');
+  assert.equal((await request(manager, 'POST', '/pair/request', { body: { profile: profile.id, nonce: 'a'.repeat(64) }, headers: { Origin: 'chrome-extension://' + 'a'.repeat(32), 'X-Local-Pair': '1' } })).value.error, 'UNKNOWN_PROFILE');
+  assert.deepEqual(counts(), { installs: 0, removes: 0, starts: 0, stops: 0 });
+});
+
+test('native single-slot switch and pairing deliver only the approved model analysis credential (mock driver)', async t => {
+  const profile = require('../agent/mortal-catalog.json').models.find(model => model.id === 'akagi-v3-native');
+  const previous = { ...profile }; Object.assign(profile, { status: 'verified-experimental', installable: true });
+  t.after(() => Object.assign(profile, previous));
+  const { manager, counts } = await fixture(t);
+  for (const id of ['akagi-v3-native', 'voidshine-298k']) {
+    await request(manager, 'POST', '/api/models/' + id + '/install', { body: {} }); await settled(manager);
+  }
+  await request(manager, 'POST', '/api/models/akagi-v3-native/start', { body: {} }); await settled(manager);
+  const origin = 'chrome-extension://' + 'a'.repeat(32), nonce = 'b'.repeat(64);
+  const pairing = await request(manager, 'POST', '/pair/request', { body: { profile: profile.id, nonce }, headers: { Origin: origin, 'X-Local-Pair': '1' } });
+  assert.equal(pairing.code, 200);
+  await request(manager, 'POST', '/api/pair/approve', { body: { id: pairing.value.id } });
+  const claim = await request(manager, 'POST', '/pair/claim', { body: { id: pairing.value.id, nonce }, headers: { Origin: origin, 'X-Local-Pair': '1' } });
+  assert.equal(claim.value.profile, profile.id);
+  assert.equal(claim.value.apiKey, 'separate-engine-token');
+  assert.ok(!JSON.stringify(claim.value).includes(manager.token));
+  await request(manager, 'POST', '/api/models/voidshine-298k/start', { body: {} }); await settled(manager);
+  assert.equal(counts().stops, 1);
+  assert.equal(manager.status().runningModelId, 'voidshine-298k');
+  assert.equal(manager.status().models.find(model => model.id === profile.id).installed, true);
+});
 test('managed deletion refuses unknown assets, symlinks and changed pinned weights', async t => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'model-manager-')); t.after(() => fs.rm(root, { recursive: true, force: true }));
   const install = createInstallation({ root });

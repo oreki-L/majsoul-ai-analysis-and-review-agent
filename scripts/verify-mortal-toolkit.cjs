@@ -13,6 +13,9 @@ async function verify(root,{strict=false}={}){
   const required=['runtime/node.exe','runtime/LICENSE','runtime/SHASUMS256.txt','scripts/node-runtime-lock.json','scripts/launch-model-manager.cjs','scripts/verify-mortal-toolkit.cjs','scripts/prepare-node-runtime.cjs','agent/model-manager.cjs','agent/manager-access.cjs','agent/model-manager-ui/index.html','agent/model-manager-ui/app.js','agent/model-manager-ui/style.css','start.cmd','NOTICE.txt','PROJECT-LICENSE'];
   if(manifest.profile!=='bootstrap')required.push('check.cmd','serve.cmd');
   for(const name of required)if(!seen.has(name))throw new Error('TOOLKIT_REQUIRED_FILE_MISSING: '+name);
+  // A bootstrap must stay zero-model even if a maintainer accidentally lists
+  // extra native assets in a newly generated manifest.
+  if(manifest.profile==='bootstrap' && [...seen].some(name => /(?:^|\/)(?:weights|target)(?:\/|$)|\.(?:pth|safetensors)$/i.test(name) || /(?:^|\/)akagi-native\.exe$/i.test(name) || /(?:^|\/)akagi.*(?:source|runtime).*\.zip$/i.test(name))) throw new Error('BOOTSTRAP_MODEL_ASSET_REFUSED');
   if(strict){
     async function walk(folder){for(const item of await fs.readdir(folder,{withFileTypes:true})){if(item.name==='__pycache__'||item.name.endsWith('.pyc'))continue;const file=path.join(folder,item.name),relative=path.relative(root,file).replaceAll('\\','/');if(item.isSymbolicLink())throw new Error('TOOLKIT_PATH_REFUSED');if(item.isDirectory())await walk(file);else if(relative!=='TOOLKIT-SHA256.json'&&!seen.has(relative))throw new Error('TOOLKIT_UNLISTED_FILE: '+relative);}}
     await walk(root);

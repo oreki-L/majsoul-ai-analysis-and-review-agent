@@ -10,9 +10,9 @@ const {verifyRuntime}=require('./prepare-node-runtime.cjs');
 const {verify:verifyToolkit}=require('./verify-mortal-toolkit.cjs');
 const digest=data=>crypto.createHash('sha256').update(data).digest('hex');
 const REPO=path.resolve(__dirname,'..');
-const AGENT_FILES=['mortal-local.cjs','mortal-process.cjs','mortal-worker.py','mortal-source.json','mortal-profile.cjs','mortal-runtime-lock.json','mortal-catalog.json','mortal-sample.cjs','mjai-python-wrapper.py','mjai-process.cjs','engine-server.cjs','akagi-local.cjs','akagi-local.py','akagi-source.json','model-manager.cjs','manager-access.cjs','model-installation.cjs'];
-const SCRIPT_FILES=['mortal-official-reference.py','prepare-mortal-runtime.cjs','package-mortal-toolkit.cjs','verify-mortal-toolkit.cjs','build-mortal-native.ps1','prepare-node-runtime.cjs','node-runtime-lock.json','launch-model-manager.cjs'];
-const DOC_FILES=['MORTAL_V4.md','MORTAL_V4_VALIDATION.md','MODEL_MANAGER.md'];
+const AGENT_FILES=['mortal-local.cjs','mortal-process.cjs','mortal-worker.py','mortal-source.json','mortal-profile.cjs','mortal-runtime-lock.json','mortal-catalog.json','mortal-sample.cjs','mjai-python-wrapper.py','mjai-process.cjs','engine-server.cjs','akagi-local.cjs','akagi-local.py','akagi-source.json','model-manager.cjs','manager-access.cjs','model-installation.cjs','engine-registry.cjs','akagi-native-source.json','akagi-native-local.cjs','akagi-native-process.cjs'];
+const SCRIPT_FILES=['mortal-official-reference.py','prepare-mortal-runtime.cjs','package-mortal-toolkit.cjs','verify-mortal-toolkit.cjs','build-mortal-native.ps1','prepare-node-runtime.cjs','node-runtime-lock.json','launch-model-manager.cjs','extract-native-runtime.ps1'];
+const DOC_FILES=['MORTAL_V4.md','MORTAL_V4_VALIDATION.md','MODEL_MANAGER.md','AKAGI_V3_VALIDATION.md'];
 const TOOLCHAIN_NOTICE='Native Rust standard-library and GCC runtime notices: sources/toolchain-licenses/ (MIT/Apache-2.0 and GCC Runtime Library Exception).\n';
 async function writeLauncher(out,command){await fs.writeFile(path.join(out,command+'.cmd'),'@echo off\r\nsetlocal\r\n"%~dp0runtime\\node.exe" "%~dp0scripts\\launch-model-manager.cjs" '+command+'\r\nset "TOOLKIT_EXIT=%ERRORLEVEL%"\r\nif "%TOOLKIT_EXIT%"=="0" exit /b 0\r\necho.\r\necho Model manager failed. See the error above.\r\npause\r\nexit /b %TOOLKIT_EXIT%\r\n');}
 async function writeStart(out){await writeLauncher(out,'start');}

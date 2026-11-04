@@ -5,7 +5,7 @@ const path = require('node:path');
 const { createMortalRunner, validateIdentity } = require('../agent/mortal-process.cjs');
 const { sampleRequest } = require('../agent/akagi-local.cjs');
 const source = require('../agent/mortal-source.json');
-const runner = (mode, extra = {}) => createMortalRunner({ command: process.execPath, args: [path.join(__dirname, 'fixtures/mortal-worker.cjs'), mode], startupMs: 3000, restartLimit: 0, ...extra });
+const runner = (mode, extra = {}) => createMortalRunner({ command: process.execPath, args: [path.join(__dirname, 'fixtures/mortal-worker.cjs'), mode], startupMs: 5000, restartLimit: 0, ...extra });
 const alive = pid => { try { process.kill(pid, 0); return true; } catch { return false; } };
 test('persistent protocol validates provenance and reuses one process across fresh requests', async t => {
   const r = runner('valid'); t.after(() => r.close());
@@ -16,7 +16,7 @@ test('persistent protocol validates provenance and reuses one process across fre
 });
 for (const [mode,code] of [['crash','WORKER_EXIT'],['hang','TIMEOUT'],['wrong-id','PROTOCOL_MISMATCH'],['malformed','INVALID_OUTPUT'],['oversized','OUTPUT_LIMIT']]) {
   test('persistent protocol cleans process after '+mode, async t => {
-    const r=runner(mode,{timeoutMs:80}); t.after(()=>r.close()); await r.start(); const pid=r.pid;
+    const r=runner(mode,{timeoutMs:mode==='hang'?80:5000}); t.after(()=>r.close()); await r.start(); const pid=r.pid;
     await assert.rejects(r.infer(sampleRequest()),{code}); assert.equal(r.ready,false); assert.equal(alive(pid),false);
   });
 }

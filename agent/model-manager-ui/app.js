@@ -59,7 +59,9 @@
       meta.append(el('dt', '来源')); const source = el('dd');
       if (url) { const a = el('a', model.sourceName || new URL(url).hostname); a.href = url; a.target = '_blank'; a.rel = 'noopener noreferrer'; source.append(a); } else source.textContent = '来源待确认'; meta.append(source);
       detail(meta, '许可', typeof model.license === 'string' ? model.license : model.license?.name);
-      detail(meta, '运行环境', model.runtimeFamily || model.runtimeId);
+      detail(meta, '运行环境', (model.runtimeKind === 'native' ? 'Native · ' : model.runtimeKind === 'python' ? 'Python · ' : '') + (model.runtimeFamily || model.runtimeId || '待确认'));
+      const weight = model.assets?.find(asset => asset.role === 'weight' || asset.role === 'model');
+      if (weight) detail(meta, '权重文件', weight.name || weight.path);
       detail(meta, '环境共享', model.sharedRuntimeVerified ? '已验证共享；删除范围见安装说明' : '独立管理；未确认共享环境');
       detail(meta, '兼容验证', verificationLabels[model.verification || model.status] || model.verification || '待验证，不可运行');
       details.append(meta);

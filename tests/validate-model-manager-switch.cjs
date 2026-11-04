@@ -71,7 +71,7 @@ async function main(argv) {
     const results = [];
     await operate('start', 'yuchen-582500'); results.push(await infer('yuchen-582500'));
     await operate('start', 'voidshine-298k'); results.push(await infer('voidshine-298k'));
-    assert.ok(manager.status().models.filter(p => p.id !== 'akagi-v2').every(p => p.installed));
+    assert.ok(manager.status().models.filter(p => ['voidshine-298k', 'yuchen-582500'].includes(p.id)).every(p => p.installed));
     await operate('remove', 'yuchen-582500'); results.push(await infer('voidshine-298k'));
     await operate('stop'); await operate('start', 'voidshine-298k'); results.push(await infer('voidshine-298k'));
     assert.deepEqual(await runtimeSnapshot('voidshine-298k'), runtimeBefore);
@@ -82,7 +82,7 @@ async function main(argv) {
     assert.deepEqual(await runtimeSnapshot('voidshine-298k'), runtimeBefore); assert.deepEqual(await runtimeSnapshot('akagi-v2'), runtimeV2);
     for (const entry of starts.filter(s => s.pid)) assert.throws(() => process.kill(entry.pid, 0), { code: 'ESRCH' });
     const remainingPythonPids = await managedPythonPids(); if (remainingPythonPids) assert.deepEqual(remainingPythonPids, []);
-    assert.ok(manager.status().runtimes.every(r => r.installed));
+    assert.ok(manager.status().runtimes.filter(r => r.models.some(id => profiles.includes(id))).every(r => r.installed));
     const report = { mode: 'verify', offline: true, profiles, operations, results, starts, runtimeBefore, runtimeAfter: await runtimeSnapshot('voidshine-298k'), v2Runtime: runtimeV2, runtimeUnchanged: true, modelsCoexisted: true, singleModelAtATime: true, deletedModelDidNotAffectRemaining: true, allWeightsRemoved: true, runtimesRetained: true, remainingPythonPids, completedAt: new Date().toISOString() };
     await fs.writeFile(options.out, JSON.stringify(report, null, 2) + '\n'); console.log(JSON.stringify(report));
   } finally { await manager.close(); }

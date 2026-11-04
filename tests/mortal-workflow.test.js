@@ -17,20 +17,46 @@ function input() {
     engineRequest: Mjai.fromObservation({ format: 'mj-observer-v1', mode: 'live', state, events }, { hand: true }),
     context: { identity: { matchId: 'fixture', roundStartId: 'round' }, position: 1 } };
 }
-function setup(llm, stage = () => {}, memory = { version: 0, entries: [] }) {
+function setup(llm, stage = () => {}, memory = { version: 0, entries: [] }, engineIdentity) {
   const data = { modelConfig: { enabled: true, provider: 'mjai', workflow: 'mortal-explain', model: 'weak-example', endpoint: 'http://127.0.0.1:17341/analyze', apiKey: 'engine-secret' },
     analysisProviders: { chat: { provider: 'chat', endpoint: 'https://llm.example/v1', model: 'teaching', apiKey: 'llm-secret' } } };
+  if (engineIdentity) Object.assign(data.modelConfig, { engineProfile: 'akagi-v3-native', model: 'akagi-v3-native', endpoint: 'http://127.0.0.1:17345/analyze' });
   const storage = { get: async () => structuredClone(data), set: async values => Object.assign(data, structuredClone(values)) };
   const discussions = Discussions.create({ storage }), requests = [], runs = [];
   const context = vm.createContext({ URL, TextEncoder, TextDecoder, Uint8Array, AbortController, structuredClone, performance, setTimeout, clearTimeout });
   for (const file of ['contracts/snapshot.js','adapters/model-endpoint.js','adapters/engine-endpoint.js','adapters/mjai.js','mahjong-analysis.js','analysis.js','harness.js','contracts/engine-explanation.js','xf-context.js','agent.js','pi-runtime.js','model-usage.js','model-session-transport.js','contracts/engine-result.js','engine-agent.js','model-analysis-worker.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '../extension', file), 'utf8'), context);
   const service = context.MJModelAnalysisWorker.create({ storage, permissions: { contains: async () => true }, runtime: context.MJPiRuntime,
-    fetchModel: async (url, options) => { requests.push({ url, options }); return url.includes('127.0.0.1') ? Response.json({ action: { type: 'dahai', actor: 0, pai: '9p', tsumogiri: true } }) : llm(url, options); },
+    fetchModel: async (url, options) => { requests.push({ url, options }); return url.includes('127.0.0.1') ? Response.json({ action: { type: 'dahai', actor: 0, pai: '9p', tsumogiri: true }, ...(engineIdentity ? { identity: engineIdentity } : {}) }) : llm(url, options); },
     roundContexts: require('../extension/round-context.js').createStore({ storage }), runStore: { epoch: () => 1, append: async record => runs.push(record), clear: async () => {} },
     discussions, discussionReady: Promise.resolve(), memoryWorker: { cancel() {}, pump() {}, store: { pin: async () => structuredClone(memory) } }, onStage: stage });
   return { service, data, discussions, requests, runs };
 }
 const answer = () => Response.json({ choices: [{ message: { content: JSON.stringify({ summary: '基于可见牌效率解释该弃牌。', reasons: ['引擎首选保留。'], limitations: ['不是内部思考。'] }) } }], usage: { prompt_tokens: 20, completion_tokens: 10 } });
+
+test('frozen native history retains its original identity across reload, explanation retry and follow-up without rerunning an engine', async () => {
+  const identity = { model: 'akagi-v3-native', runtime: 'akagi-native-win64-cpu-jsonl-v1-p1-b91639e5b6154ce9', checkpoint: '33c20aaba3f349ef689df73b726224804dc4aaff99922093d8f30cc38d709a1d', sourceCommit: '1fb16453ae0b7b0a820510ea1d3dbd01b6939082' };
+  let failExplanation = true, published;
+  const w = setup(() => failExplanation ? Response.json({ error: 'synthetic failure' }, { status: 503 }) : answer(), (_key, value) => { published = value; }, undefined, identity);
+  const original = await w.service.analyze(input(), 1);
+  assert.equal(original.ok, true, original.error);
+  assert.equal(original.explanation.status, 'failed');
+  assert.deepEqual(structuredClone(original.engineIdentity), identity);
+  assert.deepEqual(structuredClone(published.analysis.engineIdentity), identity);
+  const record = original.discussionRecord;
+  failExplanation = false;
+  const reloaded = Discussions.create({ storage: { get: async () => structuredClone(w.data), set: async value => Object.assign(w.data, structuredClone(value)) } });
+  assert.deepEqual((await reloaded.get(record.id)).analysis.engineIdentity, identity);
+  const retry = await w.service.analyze({ provider: 'chat', discussionId: record.id, retryExplanation: true, selection: { hand: true, game: true, rivers: 'all' } }, 1);
+  assert.equal(retry.ok, true, retry.error); assert.deepEqual(structuredClone(retry.engineIdentity), identity);
+  await w.discussions.ask(record.id, '为什么这样打？', 'native-followup');
+  const followup = await w.service.analyze({ provider: 'chat', discussionId: record.id, discussionToken: 'native-followup', question: '为什么这样打？', selection: { hand: true, game: true, rivers: 'all' } }, 1);
+  assert.equal(followup.ok, true, followup.error);
+  assert.deepEqual((await reloaded.get(record.id)).analysis.engineIdentity, identity);
+  assert.equal(w.requests.filter(r => r.url.includes('127.0.0.1')).length, 1);
+  assert.equal(w.requests.filter(r => r.url.includes('llm.example')).length, 3);
+  assert.equal(w.requests[0].options.headers.Authorization, 'Bearer engine-secret');
+  assert.equal(w.requests[1].options.headers.Authorization, 'Bearer llm-secret');
+});
 
 test('a different tab cannot retry or mark a running explanation failed', async () => {
   let release, started;

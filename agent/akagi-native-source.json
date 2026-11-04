@@ -1,0 +1,163 @@
+{
+  "profile": "akagi-v3-native",
+  "protocol": "akagi-native-worker-v1",
+  "model": "akagi-v3-native",
+  "modelRevision": "1fb16453ae0b7b0a820510ea1d3dbd01b6939082",
+  "repository": "https://github.com/shinkuan/Akagi",
+  "sourceCommit": "1fb16453ae0b7b0a820510ea1d3dbd01b6939082",
+  "runtimeKind": "native",
+  "defaultPort": 17345,
+  "weightAsset": "akagi4p.safetensors",
+  "license": "Apache-2.0 (upstream code and weight repository declaration); MIT (local wrapper)",
+  "scope": "Windows x64 CPU; four-player hanchan; experimental; opt-in only",
+  "runtime": {
+    "id": "akagi-v3-win64-cpu-jsonl-v1-p1-b91639e5b6154ce9",
+    "buildId": "akagi-native-win64-cpu-jsonl-v1-p1-b91639e5b6154ce9",
+    "executable": "akagi-native.exe",
+    "archive": {
+      "name": "akagi-v3-win64-cpu-jsonl-v1-p1-b91639e5b6154ce9.zip",
+      "url": "https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/native-akagi-v3-p1-b91639e5b6154ce9/akagi-v3-win64-cpu-jsonl-v1-p1-b91639e5b6154ce9.zip",
+      "sha256": "bb4d3b0ba13ee4f9dc7289d7e60926940e268339d1ae329ee301a43e336cad12",
+      "size": 15871839
+    },
+    "files": [
+      {
+        "name": "akagi-native.exe",
+        "sha256": "b91639e5b6154ce9186c14ac259f7db03e4e66c58db97cd94c71e2e27a3397f5",
+        "size": 9845760
+      },
+      {
+        "name": "BUILD.json",
+        "sha256": "1e939531000f87465945b0de6fa0405ad7b118ffe102cb1d27761543d44a62bc",
+        "size": 799
+      },
+      {
+        "name": "licenses/Akagi-LICENSE.txt",
+        "sha256": "aa0e11e4740a0ae88ea797258500d9b066a68042be2f6036bfe49460b72405f0",
+        "size": 10752
+      },
+      {
+        "name": "licenses/Akagi-NOTICE",
+        "sha256": "2ffcce0e8bae52171dfdacd28ff9637334a2cc21d250deb4f30e315e65a3c421",
+        "size": 5414
+      },
+      {
+        "name": "licenses/DEPENDENCIES.json",
+        "sha256": "12b45afec796c80a7bf4fe5dace004b2c06079d16437fe839f8fe91bad0ff66e",
+        "size": 41679
+      },
+      {
+        "name": "licenses/rust/COPYRIGHT",
+        "sha256": "172020dbfd5b53a226dfde77616190a48dcff519b0bc0e6deb91a8450782c4af",
+        "size": 1571
+      },
+      {
+        "name": "licenses/rust/COPYRIGHT-library.html",
+        "sha256": "5647be074c8edf7339fd863055923a8fc80bc5610a8d4661ec3b767b9d392c27",
+        "size": 1499465
+      },
+      {
+        "name": "licenses/rust/COPYRIGHT.html",
+        "sha256": "d518ae2d76bc7a1f0cbf0069b8deafb56efc39c2614cab74a859ef0b467f8373",
+        "size": 14423589
+      },
+      {
+        "name": "licenses/rust/LICENSE-APACHE",
+        "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a",
+        "size": 9723
+      },
+      {
+        "name": "licenses/rust/LICENSE-MIT",
+        "sha256": "b71bd43a069ca0641a9ecfe585ca7b3c53b5cc1608f8b68321168698e28b5ea1",
+        "size": 1068
+      },
+      {
+        "name": "licenses/rust/licenses/Apache-2.0.txt",
+        "sha256": "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff",
+        "size": 10280
+      },
+      {
+        "name": "licenses/rust/licenses/BSD-2-Clause.txt",
+        "sha256": "f32fb3b417a194167cfad068223fc975ba96c5960513a10f66a3c28720aec1df",
+        "size": 1267
+      },
+      {
+        "name": "licenses/rust/licenses/CC-BY-SA-4.0.txt",
+        "sha256": "23ee78c8bae49cf08ea2f0c84945c66b987ebe4520881fb51b3dad4fb43d07c2",
+        "size": 20137
+      },
+      {
+        "name": "licenses/rust/licenses/GCC-exception-3.1.txt",
+        "sha256": "a3966c9410ef94a1efbfa9ec04e9c1994026a70623fbf0885ce36737bfba3b54",
+        "size": 3320
+      },
+      {
+        "name": "licenses/rust/licenses/GPL-2.0-only.txt",
+        "sha256": "54b212ba1f97f6948fa5486239ab505dd820b02e50cbfd296b4062c8609a70af",
+        "size": 17642
+      },
+      {
+        "name": "licenses/rust/licenses/GPL-3.0-or-later.txt",
+        "sha256": "05315fce6c35f79b8a35454828995fa26336f235895ac64557abc028f4ffcea2",
+        "size": 34795
+      },
+      {
+        "name": "licenses/rust/licenses/ISC.txt",
+        "sha256": "0ff61769b238634e042ab759dddfd104a8e69d091e3600ae3410e401a6164381",
+        "size": 730
+      },
+      {
+        "name": "licenses/rust/licenses/LLVM-exception.txt",
+        "sha256": "e34c58338bd89d43e709e226610d8f32b3e3c47f4ad9a99a8dc1d4ac7842488e",
+        "size": 919
+      },
+      {
+        "name": "licenses/rust/licenses/MIT.txt",
+        "sha256": "b85dcd3e453d05982552c52b5fc9e0bdd6d23c6f8e844b984a88af32570b0cc0",
+        "size": 1078
+      },
+      {
+        "name": "licenses/rust/licenses/NCSA.txt",
+        "sha256": "39cb0234065c92b9e6cee3830cbb52b1aa289aa8fe9ba2e66730fec5cf05c630",
+        "size": 1676
+      },
+      {
+        "name": "licenses/rust/licenses/OFL-1.1.txt",
+        "sha256": "8eea8287e5876b539670cadb82e99f9a7afddec6f6730811be1daf25d2e9bcfd",
+        "size": 4016
+      },
+      {
+        "name": "licenses/rust/licenses/Unicode-3.0.txt",
+        "sha256": "f5062c9a188d81dfe66b56db4182dcf9e4b17c0d9b0d311a8e20b3a1b075c443",
+        "size": 1995
+      },
+      {
+        "name": "licenses/wrapper-MIT-LICENSE",
+        "sha256": "1bf0eb1f38898fc9117e63de35f2bac26a4bbe5b9f59bb70d953fa2d13297565",
+        "size": 1086
+      },
+      {
+        "name": "pe-imports.txt",
+        "sha256": "bba50e777c3df6c318c077c7dbc285db0d311db3979edff082f320c89e90154d",
+        "size": 6344075
+      },
+      {
+        "name": "sources.zip",
+        "sha256": "6aeda37de153e8f196449a4f71bfd3fd4084424009a210698ebecb989ff80efb",
+        "size": 12600119
+      }
+    ]
+  },
+  "files": [
+    {
+      "name": "akagi4p.safetensors",
+      "role": "weights",
+      "upstream": "native_bot/weights/akagi4p.safetensors",
+      "url": "https://api.github.com/repos/shinkuan/Akagi/contents/native_bot/weights/akagi4p.safetensors?ref=1fb16453ae0b7b0a820510ea1d3dbd01b6939082",
+      "sha256": "33c20aaba3f349ef689df73b726224804dc4aaff99922093d8f30cc38d709a1d",
+      "size": 2641816,
+      "upstreamUrl": "https://raw.githubusercontent.com/shinkuan/Akagi/1fb16453ae0b7b0a820510ea1d3dbd01b6939082/native_bot/weights/akagi4p.safetensors",
+      "accept": "application/vnd.github.raw+json"
+    }
+  ]
+}

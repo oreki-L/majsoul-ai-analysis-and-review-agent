@@ -11,6 +11,7 @@
       { id: 'voidshine-298k', name: 'VoidShine Mortal v4 · 298k · 四麻半庄', config: { ...defaults('mjai'), endpoint: 'http://127.0.0.1:17342/analyze', engineProfile: 'voidshine-298k' } },
       { id: 'akagi-v2', name: 'Akagi v2 Mortal · 弱示例', config: { ...defaults('mjai'), engineProfile: 'akagi-v2' } },
       { id: 'yuchen-582500', name: 'Yuchen1457 Mortal v4 · 582500 · 社区模型', config: { ...defaults('mjai'), endpoint: 'http://127.0.0.1:17344/analyze', engineProfile: 'yuchen-582500' } },
+      { id: 'akagi-v3-native', name: 'Akagi v3 Native · 四人半庄 · 实验接入', config: { ...defaults('mjai'), endpoint: 'http://127.0.0.1:17345/analyze', engineProfile: 'akagi-v3-native' } },
       { id: 'custom', name: '自定义 mjai 服务', config: { ...defaults('mjai'), engineProfile: 'custom' } }
     ];
     if (saved?.version === 1 && Array.isArray(saved.profiles) && saved.profiles.length && saved.profiles.some(p => p.id === saved.activeId)) {

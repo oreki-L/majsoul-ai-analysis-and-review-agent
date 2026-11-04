@@ -78,3 +78,21 @@ test('expired launch ticket cannot query or mutate models and gives a restart in
   assert.deepEqual(p.requests.map(r => r.url), ['/session']);
   assert.equal(p.el('workspace').hidden, true); assert.match(p.el('message').textContent, /过期|重新打开/);
 });
+
+
+test('native fourth card displays explicit source and asset role but never promotes a pending model', async () => {
+  const state = { ...blank(), models: [
+    ...['akagi-v2', 'voidshine-298k', 'yuchen-582500'].map(id => ({ id, installed: false, installable: true })),
+    { id: 'akagi-v3-native', name: 'Akagi v3 Native', status: 'pending', installable: false, installed: false,
+      runtimeKind: 'native', runtimeId: 'native-build', sourceUrl: 'https://github.com/shinkuan/Akagi',
+      assets: [{ name: 'akagi4p.safetensors', role: 'weight' }, { name: 'NOTICE.txt', role: 'notice' }] }
+  ] };
+  const p = page(() => ({ ok: true, json: async () => state })); await p.connect('M');
+  assert.equal(p.el('models').children.length, 4);
+  const card = p.el('models').children[3];
+  const nodes = item => [item, ...item.children.flatMap(nodes)];
+  const all = nodes(card), text = all.map(n => n.textContent).join(' ');
+  assert.match(text, /Native.*native-build/); assert.match(text, /akagi4p.safetensors/); assert.doesNotMatch(text, /NOTICE.txt/);
+  assert.equal(all.find(n => n.tag === 'a').href, 'https://github.com/shinkuan/Akagi');
+  assert.ok(card.children.at(-1).children.every(button => button.disabled));
+});

@@ -5,7 +5,7 @@
 <form id="config">
 <label class="toggle"><input id="enabled" type="checkbox"> 开启模型分析</label>
 <label for="provider">服务类型</label><select id="provider"><option value="chat">OpenAI 兼容</option><option value="mjai">本地 mjai</option></select>
-<label><input id="engineExplain" type="checkbox"> 本地 Mortal 决策 + LLM 自动解释</label><p class="hint">先保存 OpenAI 兼容解释服务，再保存本地引擎并开启此模式。两份服务配置独立；引擎先显示动作，解释不能修改首选。弱示例不等于官网 4.1。</p>
+<label><input id="engineExplain" type="checkbox"> 本地引擎决策 + LLM 自动解释</label><p class="hint">先保存 OpenAI 兼容解释服务，再保存本地引擎并开启此模式。两份服务配置独立；引擎先显示动作，解释不能修改首选。</p>
 <section id="profilesPanel">
 <label for="profile">已保存的 LLM 配置</label><select id="profile"></select>
 <label for="profileName">配置名称</label><input id="profileName" maxlength="40" placeholder="例如：直连 / 本机网关">
@@ -20,7 +20,7 @@
 <p><a id="modelManager" target="_blank" rel="noopener noreferrer">打开本机模型管理</a></p>
 <p class="hint">先解压运行包，双击 <code>start.cmd</code>。在管理页安装并启动所选模型，再连接；无需复制 Token。切换模型后请重新连接。</p>
 <p><a id="runtimeDownload" target="_blank" rel="noopener noreferrer">下载可选运行包</a></p>
-<p class="hint">社区 v4 仅用于四人半庄，其他规则不支持。自动分析默认关闭，可在牌局面板主动开启。</p>
+<p class="hint">社区 v4 和 Akagi v3 仅用于四人半庄，其他规则不支持。自动分析默认关闭，可在牌局面板主动开启。</p>
 <details><summary>安装与使用说明</summary>
 <p class="hint">可以不安装任何模型。下载、删除和启停由本机管理页明确操作，切换保留已安装资产。运行包与扩展分别安装；启动管理页不会安装模型或运行推理。</p>
 <p class="hint">两个社区 v4 模型共用已验证的运行库。限定人工局面验证不等于整场兼容、官网 4.1 或牌力认证。VoidShine 作者不推荐排位。</p>

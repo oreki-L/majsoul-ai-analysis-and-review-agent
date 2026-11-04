@@ -24,7 +24,9 @@ files = packager.allowed_files()
 names = {path.relative_to(packager.ROOT).as_posix() for path in files}
 required = {'package.json', 'package-lock.json', 'licenses/pi-LICENSE.txt', 'licenses/typebox-LICENSE.txt', 'licenses/SOURCES.md', 'extension/pi-runtime.js', 'scripts/pi-runtime-entry.mjs', 'scripts/bundle-pi-runtime.mjs', 'benchmark/cli.cjs', 'benchmark/examples/suite.mock.json'}
 assert required <= names, required - names
-assert not any(part in {'.git', 'node_modules', 'dist', 'research'} for name in names for part in Path(name).parts)
+assert not any(part in {'.git', 'node_modules', 'dist', 'research', 'target', 'weights'} for name in names for part in Path(name).parts)
+assert {name for name in names if name.startswith('engines/')} == {'engines/akagi-native/' + name for name in packager.NATIVE_SOURCE_FILES}
+assert not any(Path(name).suffix.lower() in {'.exe', '.dll', '.pth', '.safetensors'} for name in names)
 with tempfile.TemporaryDirectory(prefix='majsoul-source-test-') as directory:
     archive = Path(directory) / 'source.zip'
     packager.write_zip(archive, [(path, path.relative_to(packager.ROOT).as_posix()) for path in files])

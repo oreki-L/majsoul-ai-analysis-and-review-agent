@@ -15,6 +15,17 @@ ROOT_FILES = [
     'SECURITY.md', 'THIRD_PARTY_NOTICES.md', 'ARCHITECTURE.md', 'VALIDATION.md', 'package.json', 'package-lock.json'
 ]
 SOURCE_DIRS = ['extension', 'agent', 'benchmark', 'tests', 'scripts', '.github', 'docs', 'licenses']
+# This is an explicit source-only subtree, never recursive engines/ inclusion.
+NATIVE_SOURCE_FILES = [
+    'Cargo.toml', 'Cargo.lock', 'README.md', 'PATCHES.md', 'src/main.rs', 'src/stage0_tests.rs',
+    'vendor/LICENSE.txt', 'vendor/NOTICE',
+    'vendor/native_bot/Cargo.toml', 'vendor/native_bot/Cargo.lock', 'vendor/native_bot/README.md',
+    *['vendor/native_bot/src/' + name + '.rs' for name in [
+        'action_codec', 'adapt', 'chankan', 'defaults', 'engine', 'lib',
+        'mjai_compat', 'model', 'obs', 'replay', 'tiles']],
+    'vendor/native_bot/tests/engine_replay.rs', 'vendor/native_bot/tests/parity.rs',
+    'vendor/native_bot/tests/fixtures/parity_4p.json',
+]
 SECRET_PATTERNS = [
     rb'-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----',
     rb'\b(?:sk-(?:proj-)?[A-Za-z0-9_-]{24,}|ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|AKIA[0-9A-Z]{16})\b'
@@ -31,6 +42,9 @@ def inside(path, parent):
 
 def allowed_files():
     files = [ROOT / name for name in ROOT_FILES]
+    native = ROOT / 'engines/akagi-native'
+    if native.exists():
+        files += [native / name for name in NATIVE_SOURCE_FILES]
     for directory in SOURCE_DIRS:
         for path in sorted((ROOT / directory).rglob('*')):
             if '__pycache__' in path.parts:
@@ -44,7 +58,7 @@ def allowed_files():
     for path in files:
         if not path.is_file() or path.is_symlink() or not inside(path.resolve(), ROOT):
             raise ValueError('Missing or invalid source file: ' + str(path.relative_to(ROOT)))
-        if path.suffix.lower() in {'.zip', '.har', '.jsonl', '.pem', '.key', '.log'} or path.name.startswith('.env'):
+        if path.suffix.lower() in {'.zip', '.har', '.jsonl', '.pem', '.key', '.log', '.exe', '.dll', '.pyd', '.pth', '.safetensors'} or path.name.startswith('.env'):
             raise ValueError('Private or generated file type: ' + path.relative_to(ROOT).as_posix())
         data = path.read_bytes()
         if any(re.search(pattern, data) for pattern in SECRET_PATTERNS):

@@ -42,3 +42,22 @@ test('store destructive operations cancel queued saves and overwrite writes alre
     else assert.equal(data.llmProfilesV1, undefined);
   }
 });
+
+
+test('fourth preset augments saved profiles without rewriting active credentials, custom fields or historical identity', async () => {
+  const saved = { version: 1, activeId: 'my-local', profiles: [
+    { id: 'my-local', name: 'Local', config: { provider: 'mjai', enabled: true, endpoint: 'http://localhost:9000/analyze', apiKey: 'LOCAL', engineProfile: 'custom', extra: 9 } },
+    { id: 'akagi-v2', config: { apiKey: 'V2', endpoint: 'http://localhost:9001/analyze' } },
+    { id: 'voidshine-298k', config: { apiKey: 'VOID' } }, { id: 'yuchen-582500', config: { apiKey: 'YUCHEN' } }
+  ] };
+  const initial = { modelConfig: saved.profiles[0].config, mjaiEngineProfilesV1: saved,
+    analysisProviders: { chat: { provider: 'chat', apiKey: 'CHAT' } }, decisionDiscussionsV1: { identity: { model: 'old-native', runtime: 'original-build' } } };
+  const { store, data, writes } = setup(initial), state = await store.load();
+  assert.equal(writes.length, 0); assert.equal(state.engineProfiles.activeId, 'my-local');
+  assert.deepEqual(state.engineProfiles.profiles.slice(0, 4), saved.profiles);
+  const v3 = state.engineProfiles.profiles.find(p => p.id === 'akagi-v3-native');
+  assert.equal(v3.config.endpoint, 'http://127.0.0.1:17345/analyze'); assert.equal(v3.config.enabled, false); assert.equal(v3.config.apiKey, '');
+  const again = Store.engineProfiles({ mjaiEngineProfilesV1: state.engineProfiles });
+  assert.equal(again.profiles.filter(p => p.id === v3.id).length, 1);
+  assert.deepEqual(data, initial);
+});

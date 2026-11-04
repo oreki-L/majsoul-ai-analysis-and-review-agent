@@ -1,7 +1,7 @@
 (function (root) {
   'use strict';
   const base = 'http://127.0.0.1:17343';
-  const ports = { 'akagi-v2': 17341, 'voidshine-298k': 17342, 'yuchen-582500': 17344 };
+  const ports = { 'akagi-v2': 17341, 'voidshine-298k': 17342, 'yuchen-582500': 17344, 'akagi-v3-native': 17345 };
   function apply(state, result, profile) {
     if (result?.format !== 'local-analysis-pair-v1' || result.profile !== profile || !ports[profile] || result.endpoint !== `http://127.0.0.1:${ports[profile]}/analyze` || typeof result.apiKey !== 'string' || result.apiKey.length < 16 || result.apiKey.length > 4096 || /[\r\n]/.test(result.apiKey)) throw new Error('运行包返回的模型或凭据不匹配。');
     const chosen = state.engineProfiles.profiles.find(p => p.id === profile);

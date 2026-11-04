@@ -112,7 +112,7 @@
               await runStore.append({ id: newRevision(), workflow: hybrid ? 'mortal-explain' : 'engine', stage: 'engine', engineCalls: 1, engineMs, elapsedMs: engineMs, calls: 0,
                 status: controller.signal.aborted ? 'cancelled' : engineStatus, lane: message.lane }, engineEpoch).catch(() => {});
             }
-            const engineLabel = ({ 'VoidShine-mortal-v4-298k': 'VoidShine Mortal v4 · 298k · 社区模型', 'Yuchen1457-mortal-v4-582500': 'Yuchen1457 Mortal v4 · 582500 · 社区模型' })[analysis.engine.identity?.model] || analysis.engine.identity?.model || '自选本地引擎（身份未知）';
+            const engineLabel = ({ 'akagi-v3-native': 'Akagi v3 Native · 实验接入', 'VoidShine-mortal-v4-298k': 'VoidShine Mortal v4 · 298k · 社区模型', 'Yuchen1457-mortal-v4-582500': 'Yuchen1457 Mortal v4 · 582500 · 社区模型' })[analysis.engine.identity?.model] || analysis.engine.identity?.model || '自选本地引擎（身份未知）';
             const decision = { ok: true, ...analysis, model: 'mjai · ' + engineLabel, provider: 'mjai',
               workflow: hybrid ? 'mortal-explain' : 'engine', engineModel: c.model, engineCalls, engineMs,
               engineIdentity: analysis.engine.identity || { model: c.model, runtime: 'user-local-mjai', checkpoint: 'unknown' } };

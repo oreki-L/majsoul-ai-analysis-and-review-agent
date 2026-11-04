@@ -54,7 +54,7 @@ test('both v4 profiles accept manual and live analysis without a per-request dec
   }
 });
 test('both v4 profiles still reject three-player, discontinuous, mismatched and unauthorized input before network', async () => {
-  for (const engineProfile of Object.keys(v4Identities)) for (const lane of ['manual-review', 'live']) for (const options of [
+  for (const engineProfile of [...Object.keys(v4Identities), 'akagi-v3-native']) for (const lane of ['manual-review', 'live']) for (const options of [
     { change: m => { m.snapshot.playerCount = 3; } },
     { change: m => { m.engineRequest.events[2].actor = 1; m.engineRequest.events[2].pai = '?'; } },
     { change: m => { m.snapshot.game.honba++; } },
@@ -67,6 +67,36 @@ test('both v4 profiles still reject three-player, discontinuous, mismatched and 
     const message = { ...input(), lane }; options.change?.(message);
     const response = await w.call(message);
     assert.equal(response.ok, false); assert.equal(w.requests.length, 0);
+  }
+});
+
+test('verified native runtime accepts manual and live analysis with its fixed binary identity', async () => {
+  const identity = { model: 'akagi-v3-native', checkpoint: '33c20aaba3f349ef689df73b726224804dc4aaff99922093d8f30cc38d709a1d', sourceCommit: '1fb16453ae0b7b0a820510ea1d3dbd01b6939082', runtime: 'akagi-native-win64-cpu-jsonl-v1-p1-b91639e5b6154ce9' };
+  for (const lane of ['manual-review', 'live']) {
+    const w = worker({ ...configured('http://127.0.0.1:17345/analyze'), engineProfile: 'akagi-v3-native' }, async () => Response.json({
+      action: { type: 'dahai', actor: 0, pai: '9p', tsumogiri: true }, identity
+    }));
+    const response = await w.call({ ...input(), lane });
+    assert.equal(response.ok, true, response.error);
+    assert.equal(response.result.decision.tile, '9p');
+    assert.deepEqual(response.engine.identity, identity);
+    assert.equal(w.requests.length, 1);
+  }
+});
+
+test('native runtime cannot masquerade as Mortal or publish an unverified action before explanation', async () => {
+  for (const lane of ['manual-review', 'live']) for (const identity of [
+    undefined,
+    { ...v4Identities['voidshine-298k'], sourceCommit: '0cff2b52982be5b1163aa9a62fb01f03ce91e0d2', runtime: 'test-v4' },
+    { model: 'akagi-v3-native', checkpoint: '33c20aaba3f349ef689df73b726224804dc4aaff99922093d8f30cc38d709a1d', sourceCommit: '1fb16453ae0b7b0a820510ea1d3dbd01b6939082', runtime: 'unverified-native-binary' }
+  ]) {
+    const w = worker({ ...configured('http://127.0.0.1:17345/analyze'), engineProfile: 'akagi-v3-native', workflow: 'mortal-explain' }, async () => Response.json({
+      action: { type: 'dahai', actor: 0, pai: '9p', tsumogiri: true }, identity
+    }));
+    const response = await w.call({ ...input(), lane });
+    assert.equal(response.ok, false); assert.match(response.error, /身份/);
+    assert.equal(response.result, undefined); assert.equal(response.discussionRecord, undefined);
+    assert.equal(w.requests.length, 1); assert.match(w.requests[0][0], /17345/);
   }
 });
 test('both v4 profiles still reject identity mismatches and illegal returned actions', async () => {

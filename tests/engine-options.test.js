@@ -496,11 +496,11 @@ test('hybrid mode is opt-in, saves separate services, requests both permissions 
 });
 
 
-test('runtime connection changes only selected profile draft, leaves Chat and saved config intact and disabled', async () => {
+test('runtime connection changes only selected v3 profile draft, leaves Chat and saved config intact and disabled', async () => {
   const initial = savedChat();
   const helper = require('../extension/local-runtime-pairing.js');
-  const p = await settings(initial, { pairing: { ...helper, connect: async profile => ({ format: 'local-analysis-pair-v1', profile, endpoint: 'http://127.0.0.1:17342/analyze', apiKey: 'ONLY_ANALYSIS_TOKEN' }) } });
-  p.select('mjai'); p.el('engineProfile').value = 'voidshine-298k'; p.el('engineProfile').onchange();
+  const p = await settings(initial, { pairing: { ...helper, connect: async profile => ({ format: 'local-analysis-pair-v1', profile, endpoint: 'http://127.0.0.1:17345/analyze', apiKey: 'ONLY_ANALYSIS_TOKEN' }) } });
+  p.select('mjai'); p.el('engineProfile').value = 'akagi-v3-native'; p.el('engineProfile').onchange();
   p.el('engineExplain').checked = true;
   await p.el('connectRuntime').onclick();
   assert.deepEqual(p.data, initial); assert.equal(p.el('enabled').checked, false); assert.equal(p.el('key').value, 'ONLY_ANALYSIS_TOKEN');
@@ -514,13 +514,13 @@ test('runtime connection changes only selected profile draft, leaves Chat and sa
 for (const change of ['cancel', 'profile', 'provider', 'clear']) test('late runtime pairing cannot overwrite after ' + change, async () => {
   const pending = deferred(), helper = require('../extension/local-runtime-pairing.js');
   const p = await settings(savedChat(), { pairing: { ...helper, connect: () => pending.promise } });
-  p.select('mjai'); p.el('engineProfile').value = 'voidshine-298k'; p.el('engineProfile').onchange();
+  p.select('mjai'); p.el('engineProfile').value = 'akagi-v3-native'; p.el('engineProfile').onchange();
   const connecting = p.el('connectRuntime').onclick(); await new Promise(r => setImmediate(r));
   if (change === 'cancel') p.el('cancelRuntime').onclick();
   if (change === 'profile') { p.el('engineProfile').value = 'akagi-v2'; p.el('engineProfile').onchange(); }
   if (change === 'provider') p.select('chat');
   if (change === 'clear') await p.el('clear').onclick();
   const before = p.el('key').value;
-  pending.resolve({ format: 'local-analysis-pair-v1', profile: 'voidshine-298k', endpoint: 'http://127.0.0.1:17342/analyze', apiKey: 'STALE_ANALYSIS_TOKEN' }); await connecting;
+  pending.resolve({ format: 'local-analysis-pair-v1', profile: 'akagi-v3-native', endpoint: 'http://127.0.0.1:17345/analyze', apiKey: 'STALE_ANALYSIS_TOKEN' }); await connecting;
   assert.equal(p.el('key').value, before); assert.notEqual(p.el('key').value, 'STALE_ANALYSIS_TOKEN');
 });

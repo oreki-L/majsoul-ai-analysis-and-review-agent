@@ -1,0 +1,19 @@
+'use strict';
+const {test}=require('node:test'),assert=require('node:assert/strict'),path=require('node:path');
+const {createAkagiNativeRunner,validateIdentity}=require('../agent/akagi-native-process.cjs');
+const {sampleRequest}=require('../agent/mortal-sample.cjs');
+const identity={model:'akagi-v3-native',runtime:'native-test-only',checkpoint:'test-checkpoint',sourceCommit:'test-commit'};
+const worker=path.join(__dirname,'fixtures/akagi-native-worker.cjs');
+const make=(mode,extra={})=>createAkagiNativeRunner({command:process.execPath,args:[worker,mode],identity,startupMs:5000,restartLimit:0,...extra});
+const alive=pid=>{try{process.kill(pid,0);return true;}catch{return false;}};
+test('native persistent JSONL validates identity and preserves one worker',async t=>{const r=make('valid');t.after(()=>r.close());await r.start();const pid=r.pid;for(let n=0;n<4;n++)assert.equal((await r.infer(sampleRequest())).action.pai,'C');assert.equal(r.pid,pid);await r.close();assert.equal(alive(pid),false);});
+for(const [mode,code] of [['crash','WORKER_EXIT'],['hang','TIMEOUT'],['wrong-id','PROTOCOL_MISMATCH'],['malformed','INVALID_OUTPUT'],['oversized','OUTPUT_LIMIT']])test('native cleans before rejecting '+mode,async t=>{const r=make(mode,{timeoutMs:mode==='hang'?100:5000});t.after(()=>r.close());await r.start();const pid=r.pid;await assert.rejects(r.infer(sampleRequest()),{code});assert.equal(alive(pid),false);assert.equal(r.ready,false);});
+test('native abort cleans old PID before rejecting; fresh restart can infer',async t=>{const r=make('hang');t.after(()=>r.close());await r.start();const pid=r.pid,c=new AbortController();const p=r.infer(sampleRequest(),{signal:c.signal});await assert.rejects(r.infer(sampleRequest()),{code:'BUSY'});c.abort();await assert.rejects(p,{name:'AbortError'});assert.equal(alive(pid),false);await r.start();assert.notEqual(r.pid,pid);});
+test('native malformed identity never becomes ready',async t=>{const r=make('wrong-identity');t.after(()=>r.close());await assert.rejects(r.start(),{code:'IDENTITY_MISMATCH'});assert.equal(r.pid,undefined);assert.equal(r.ready,false);for(const key of Object.keys(identity))assert.throws(()=>validateIdentity({...identity,[key]:'wrong'},identity),{code:'IDENTITY_MISMATCH'});});
+test('native expected request guards preserve process and recover independently',async t=>{const r=make('guard');t.after(()=>r.close());await r.start();const pid=r.pid;await assert.rejects(r.infer(sampleRequest()),{code:'NOT_DECISION_POINT'});assert.equal(r.pid,pid);assert.equal((await r.infer(sampleRequest())).action.pai,'C');});
+test('native standalone check closes worker on startup, inference and warmup validation failure with keep=true',async t=>{
+ const fs=require('node:fs/promises'),os=require('node:os'),crypto=require('node:crypto');const source=require('../agent/akagi-native-source.json'),local=require('../agent/akagi-native-local.cjs'),processModule=require('../agent/akagi-native-process.cjs');
+ const dir=await fs.mkdtemp(path.join(os.tmpdir(),'akagi-native-check-'));t.after(()=>fs.rm(dir,{recursive:true,force:true}));await fs.writeFile(path.join(dir,'fixture'),'fixture');
+ const old={files:source.files,runtime:source.runtime};t.after(()=>{source.files=old.files;source.runtime=old.runtime;});const asset={role:'weights',name:'fixture',size:7,sha256:crypto.createHash('sha256').update('fixture').digest('hex')};source.files=[asset];source.runtime={...source.runtime,buildId:'test',files:[asset]};
+ for(const mode of ['start','infer','validation']){let closed=false;const fake={async start(){if(mode==='start')throw Error('FAIL');},async infer(){if(mode==='infer')throw Error('FAIL');return {action:{type:'none'}};},async close(){closed=true;}};const mock=t.mock.method(processModule,'createAkagiNativeRunner',()=>fake);await assert.rejects(local.check({dir,runtimeDir:dir},true));assert.equal(closed,true);mock.mock.restore();}
+});

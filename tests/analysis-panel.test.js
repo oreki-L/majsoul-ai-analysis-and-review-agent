@@ -465,8 +465,8 @@ test('engine preview matches its input and configuration invalidation hides save
   assert.equal(p.hints.at(-1), null);
 });
 
-test('community v4 manual analysis needs no repeated scope checkbox after the position changes', async () => {
-  for (const engineProfile of ['voidshine-298k', 'yuchen-582500']) {
+test('known local engines manual analysis needs no repeated scope checkbox after the position changes', async () => {
+  for (const engineProfile of ['voidshine-298k', 'yuchen-582500', 'akagi-v3-native']) {
     const p = panel({ status: () => ({ enabled: true, provider: 'mjai', engineProfile, preferences: { useModel: true } }), engineRequest: () => ({ events: [] }), manualTimers: true });
     await flush();
     assert.doesNotMatch(p.html(), /mortal-hanchan|本次为四人半庄|每次重新确认/);
@@ -484,8 +484,8 @@ test('community v4 manual analysis needs no repeated scope checkbox after the po
   }
 });
 
-test('community v4 uses the existing opt-in automatic own-discard boundary', async () => {
-  for (const engineProfile of ['voidshine-298k', 'yuchen-582500']) {
+test('known local engines use the existing opt-in automatic own-discard boundary', async () => {
+  for (const engineProfile of ['voidshine-298k', 'yuchen-582500', 'akagi-v3-native']) {
     const p = panel({ status: () => ({ enabled: true, provider: 'mjai', engineProfile, preferences: { useModel: true, automatic: true } }), engineRequest: () => ({ events: [] }), manualTimers: true });
     await flush();
     assert.equal(p.timers.size, 0);

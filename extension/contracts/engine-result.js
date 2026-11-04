@@ -4,9 +4,12 @@
   const canonical = tile => typeof tile === 'string' && /^0[mps]$/.test(tile) ? '5' + tile[1] : tile;
   const fail = () => { throw new Error('专业引擎结果无效或当前动作不受支持。'); };
   function checkIdentity(raw, profile) {
-    if (!['voidshine-298k', 'yuchen-582500', 'akagi-v2'].includes(profile)) return;
+    if (!['voidshine-298k', 'yuchen-582500', 'akagi-v2', 'akagi-v3-native'].includes(profile)) return;
     const identity = raw?.identity;
-    const expected = profile === 'yuchen-582500'
+    // Native runtime must be pinned to a verified binary build before results are accepted.
+    const expected = profile === 'akagi-v3-native'
+      ? { model: 'akagi-v3-native', checkpoint: '33c20aaba3f349ef689df73b726224804dc4aaff99922093d8f30cc38d709a1d', sourceCommit: '1fb16453ae0b7b0a820510ea1d3dbd01b6939082', runtime: 'akagi-native-win64-cpu-jsonl-v1-p1-b91639e5b6154ce9' }
+      : profile === 'yuchen-582500'
       ? { model: 'Yuchen1457-mortal-v4-582500', checkpoint: '738e0d6e3c0ce9671629554ad39abd147d2ffbac676e80b194c83f2acc0fea20', sourceCommit: '0cff2b52982be5b1163aa9a62fb01f03ce91e0d2', modelRevision: '7386c9f5c751a3ea75efea99737cef5a5ef950f1' }
       : profile === 'voidshine-298k'
       ? { model: 'VoidShine-mortal-v4-298k', checkpoint: 'bfb3a6c072aa0bfd4171a9cdc77cb6c02ae42cde920843f9e5784394f23447d8', sourceCommit: '0cff2b52982be5b1163aa9a62fb01f03ce91e0d2', modelRevision: 'dbbea7e3d34f99ec43fc4834ab7f2aaaed70b6ee' }
