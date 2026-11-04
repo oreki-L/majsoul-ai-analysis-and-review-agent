@@ -2,19 +2,19 @@
 
 **麻雀の助言を、質問しながら学べる会話へ。**
 
-現在のリリース：**0.15.0**
+現在のリリース：**0.16.0**
 
 [简体中文](README.md) | [English](README.en.md) | **日本語**
 
-雀魂ブラウザ版向けの AI 分析アシスタントです。自分の LLM で局面を分析するほか、ローカルの Mortal エンジンに判断させ、LLM に解説させることもできます。「なぜこの打牌？」「別の牌なら何を失う？」と質問を続けられ、判断ごとに局面と議論が保存されます。
+雀魂ブラウザ版向けの AI 分析アシスタントです。自分の LLM で局面を分析するほか、ローカルの Mortal または Akagi エンジンに判断させ、LLM に解説させることもできます。「なぜこの打牌？」「別の牌なら何を失う？」と質問を続けられ、判断ごとに局面と議論が保存されます。
 
-[**ダウンロード**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.15.0) · [通常の使い方](#通常の使い方) · [ローカルモデルの使い方](#ローカルモデルの使い方) · [ドキュメント](docs/README.md)
+[**ダウンロード**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.0) · [通常の使い方](#通常の使い方) · [ローカルモデルの使い方](#ローカルモデルの使い方) · [ドキュメント](docs/README.md)
 
 ![人工局面と模擬モデル応答を使ったフローティング分析カード](docs/images/agent-floating-preview.png)
 
 ## 答えから、選択の理由へ
 
-**Mortal が判断し、LLM が解説し、その先を質問できます。** エンジンの動作は、合法性と既知モデルの識別情報を検証してから先に表示します。LLM は当時の局面・ローカル計算・元の動作をもとに解説を追加し、第一候補やリーチに伴う打牌は変更できません。解説に失敗しても検証済み動作は残り、解説だけ再試行できます。
+**ローカルエンジンが判断し、LLM が解説し、その先を質問できます。** エンジンの動作は、合法性と既知モデルの識別情報を検証してから先に表示します。LLM は当時の局面・ローカル計算・元の動作をもとに解説を追加し、第一候補やリーチに伴う打牌は変更できません。解説に失敗しても検証済み動作は残り、解説だけ再試行できます。
 
 議論には当時の手牌・卓上情報・元の助言・それまでの問答が紐づきます。対局が進んでも以前の判断に戻れ、後の牌を混ぜません。追加質問や解説の再試行でエンジンを再実行する必要はありません。保存済みの判断には元のモデル情報が残り、モデルを切り替えても書き換わりません。
 
@@ -32,12 +32,12 @@
 
 | パッケージ | 用途 |
 | --- | --- |
-| [完全版 Agent · v0.15.0](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.15.0/majsoul-ai-analysis-and-review-agent-0.15.0.zip) | どちらの使い方でも最初に導入。収集・分析・追加質問・設定を含む |
-| [独立 Collector · v0.15.0](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.15.0/majsoul-collector-0.15.0.zip) | 収集・表示・精算履歴・エクスポートのみ。モデルコードとモデルホスト権限を含まない |
-| [ローカルモデル用ポータブル版 · Windows x64 · v0.15.0](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.15.0/majsoul-model-manager-windows-x64-0.15.0.zip) | Node 同梱。展開してダブルクリックで起動し、重みと依存は必要なものだけ導入。通常利用では不要 |
-| [ソース · v0.15.0](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.15.0/majsoul-ai-analysis-and-review-agent-source-0.15.0.zip) | 開発・ビルド・オフライン検討 |
+| [完全版 Agent · v0.16.0](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.0/majsoul-ai-analysis-and-review-agent-0.16.0.zip) | どちらの使い方でも最初に導入。収集・分析・追加質問・設定を含む |
+| [独立 Collector · v0.16.0](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.0/majsoul-collector-0.16.0.zip) | 収集・表示・精算履歴・エクスポートのみ。モデルコードとモデルホスト権限を含まない |
+| [ローカルモデル用ポータブル版 · Windows x64 · v0.16.0](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.0/majsoul-model-manager-windows-x64-0.16.0.zip) | Node 同梱。展開してダブルクリックで起動し、重みと依存は必要なものだけ導入。通常利用では不要 |
+| [ソース · v0.16.0](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.0/majsoul-ai-analysis-and-review-agent-source-0.16.0.zip) | 開発・ビルド・オフライン検討 |
 
-[リリースと SHA-256 チェックサム](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.15.0)。拡張パッケージに重み・Python・ネイティブモデルライブラリは含まれません。Agent と Collector の保存領域は独立しており、自動移行しません。同じゲームページでは片方だけ有効にしてください。
+[リリースと SHA-256 チェックサム](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.0)。拡張パッケージに重み・Python・ネイティブモデルライブラリは含まれません。Agent と Collector の保存領域は独立しており、自動移行しません。同じゲームページでは片方だけ有効にしてください。
 
 ## 使い始める
 
@@ -56,18 +56,18 @@ LLM による分析と追加質問を使う場合です。**完全版 Agent と�
 
 ### ローカルモデルの使い方
 
-Mortal の動作提案、または LLM 解説との併用向けです。**拡張は単独で導入します。ローカルモデルが必要になったら任意の Windows x64 ポータブル実行パッケージを取得し、展開してダブルクリックします。Node.js・Python・Rust の別途導入は不要です。**
+Mortal または Akagi の動作提案、LLM 解説との併用向けです。**拡張は単独で導入します。ローカルモデルが必要になったら任意の Windows x64 ポータブル実行パッケージを取得し、展開してダブルクリックします。Node.js・Python・Rust の別途導入は不要です。**
 
 1. 通常利用の手順 1–2 で Agent を読み込み、ゲームを再読み込みします。**Mortal＋LLM** を使う場合は、先に手順 3–4 で解説用 OpenAI 互換サービスを保存します。エンジン単独なら省略できます。
 2. パッケージを書き込み可能なフォルダへ完全に展開し、`start.cmd` をダブルクリックします。同梱環境でファイルを検証し、管理画面を自動で開きます。実行ウィンドウは開いたままにします。
 3. 必要なモデルの「安装」を押し、完了後に「启动分析」を押します。選んだ重みと必要な依存環境だけを取得し、インストール自体では推論しません。
 4. 拡張の設定で **本地 mjai** と対応モデルを選び、「连接本地运行包」を押してローカル API 権限を許可します。管理画面で接続を承認すると分析設定が自動入力され、**Token のコピーは不要です**。
-5. **Mortal＋LLM** なら「本地 Mortal 决策 + LLM 自动解释」を有効にし、エンジン単独なら無効のままにします。接続後も分析は無効なので、自分で「开启模型分析」を有効にして保存します。LLM とエンジンの設定は別々に保存されます。
-6. 対局画面で座席を確認し、対局情報・四家の捨て牌・自分の手牌を許可します。「调用模型」を有効にして「综合攻守」を選び、分析します。二つのコミュニティ v4 モデルは **四人半荘のみ** が対象です。
+5. **Mortal＋LLM** なら「本地引擎决策 + LLM 自动解释」を有効にし、エンジン単独なら無効のままにします。接続後も分析は無効なので、自分で「开启模型分析」を有効にして保存します。LLM とエンジンの設定は別々に保存されます。
+6. 対局画面で座席を確認し、対局情報・四家の捨て牌・自分の手牌を許可します。「调用模型」を有効にして「综合攻守」を選び、分析します。二つのコミュニティ v4 と Akagi v3 は、本プロジェクトでは **四人半荘のみ** が対象です。
 
 v0.15.0 から毎回の半荘確認は不要で、対応範囲は設定画面に明記します。自動分析は明示的に有効にする必要があり、自分の打牌判断時のみが対象です。v0.14.0 からは拡張とローカル実行パッケージの両方を更新してください。旧パッケージ内の導入データは自動移行しません。
 
-Node は同梱し、Python／PyTorch などはモデル導入時に自動で準備します。初回はネット接続が必要で、失敗時はエラーを表示します。モデルなしでも、複数を保持しても構いません。**同時に動くのは一つだけです。** 保存先は初期値で `%LOCALAPPDATA%\MajsoulAgent\models` のため、後で別フォルダにパッケージを展開しても再利用できます。旧版のパッケージ内データは自動移動しません。VoidShine に Akagi の導入は不要で、二つの v4 は検証済み CPU 環境を共有します。切り替えたモデルに再接続し、分析を明示的に有効にしてください。
+Node は同梱し、Python／PyTorch などはモデル導入時に自動で準備します。初回はネット接続が必要で、失敗時はエラーを表示します。モデルなしでも、複数を保持しても構いません。**同時に動くのは一つだけです。** 保存先は初期値で `%LOCALAPPDATA%\MajsoulAgent\models` のため、後で別フォルダにパッケージを展開しても再利用できます。旧版のパッケージ内データは自動移動しません。VoidShine に Akagi の導入は不要で、二つの v4 は検証済み CPU 環境を共有します。Akagi v3 は独立した軽量ネイティブ環境を使い、Python／PyTorch は取得しません。切り替えたモデルに再接続し、分析を明示的に有効にしてください。
 
 終了時は「停止分析服务」を押すか実行ウィンドウを閉じます。拡張の呼び出しを無効にするだけではローカルサービスは終了しません。推論はローカルですが、LLM 解説や追加質問では許可した局面を設定先 LLM に送信します。自前の mjai サービスには詳細設定で URL と分析 Token を手入力できます。
 
@@ -80,8 +80,9 @@ Node は同梱し、Python／PyTorch などはモデル導入時に自動で準�
 | Akagi v2 に付属する旧・弱 Mortal サンプル | 既存の導入・回帰確認用 |
 | [VoidShine/mortal-298k](https://huggingface.co/VoidShine/mortal-298k) | コミュニティ Mortal v4、四人半荘。作者は段位戦での使用を非推奨 |
 | [Yuchen1457/mortal-582500](https://huggingface.co/Yuchen1457/mortal-582500) | コミュニティ Mortal v4。本プロジェクトでは四人半荘が対象 |
+| Akagi v3 ネイティブモデル | 任意の実験機能、四人半荘。重みは約 2.64 MB、独立 CPU 環境で Python は不要 |
 
-これらは公式 Mortal 4.1 ではありません。Akagi v3 は [導入計画](docs/AKAGI_V3_MODEL_IMPLEMENTATION_PLAN.md) の段階で、まだ利用可能なモデルではありません。
+最初の三項目は公式 Mortal 4.1 ではありません。Akagi v3 は Rust で推論する別の行動模倣モデルで、バージョン番号だけで強さは判断できません。[v3 検証](docs/AKAGI_V3_VALIDATION.md) に対応範囲とルール調整を記録しています。
 
 ## 対応範囲とデータ
 

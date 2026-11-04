@@ -86,9 +86,15 @@ test('fourth native profile stays idle and unavailable until its real release ga
 });
 
 test('native single-slot switch and pairing deliver only the approved model analysis credential (mock driver)', async t => {
-  const profile = require('../agent/mortal-catalog.json').models.find(model => model.id === 'akagi-v3-native');
-  const previous = { ...profile }; Object.assign(profile, { status: 'verified-experimental', installable: true });
-  t.after(() => Object.assign(profile, previous));
+  const catalog = require('../agent/mortal-catalog.json');
+  const profile = catalog.models.find(model => model.id === 'akagi-v3-native');
+  assert.equal(catalog.defaultEnabled, false);
+  assert.equal(profile.status, 'verified-experimental');
+  assert.equal(profile.installable, true);
+  assert.match(profile.scope, /四人半庄.*实验接入/);
+  assert.equal(profile.runtimeKind, 'native');
+  assert.equal(profile.defaultPort, 17345);
+  assert.equal(profile.runtimeFamily, require('../agent/akagi-native-source.json').runtime.id);
   const { manager, counts } = await fixture(t);
   for (const id of ['akagi-v3-native', 'voidshine-298k']) {
     await request(manager, 'POST', '/api/models/' + id + '/install', { body: {} }); await settled(manager);

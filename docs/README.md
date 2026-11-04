@@ -1,6 +1,6 @@
 # 文档导航
 
-本文按用途整理当前 v0.15.0 的公开文档。首次使用从[项目介绍与安装](../README.md)开始；查文件位置看[项目目录结构](PROJECT_STRUCTURE.md)，查组件关系看[项目架构](../ARCHITECTURE.md)。补充技术文档目前以简体中文维护。
+本文按用途整理当前 v0.16.0 的公开文档。首次使用从[项目介绍与安装](../README.md)开始；查文件位置看[项目目录结构](PROJECT_STRUCTURE.md)，查组件关系看[项目架构](../ARCHITECTURE.md)。补充技术文档目前以简体中文维护。
 
 ## 使用与配置
 
@@ -12,7 +12,7 @@
 | [NED 回退输入](NED_CONTEXT.md) | 其他实时任务保留的导航、效率与防守输入 |
 | [整场记忆学习](USER_MEMORY.md) | 默认关闭的学习开关、可靠覆盖门槛与本机记忆 |
 | [可选 mjai 本地引擎](MJAI.md) | 自备引擎、Akagi 弱示例、HTTP 桥接和 Mortal 教学模式 |
-| [本机模型管理](MODEL_MANAGER.md) · [社区 Mortal v4](MORTAL_V4.md) | 可选便携运行包、免复制连接、三模型按需安装／删除与单模型启停；v4仅用于四人半庄；v0.15.0 提供便携流程 |
+| [本机模型管理](MODEL_MANAGER.md) · [社区 Mortal v4](MORTAL_V4.md) | 可选便携运行包、免复制连接、四模型按需安装／删除与单模型启停；社区 v4 和 Akagi v3 限四人半庄；v3 无需 Python |
 | [可选 NAGA 导出](NAGA-INTEGRATION.md) | 牌谱本地转换、规则确认与用户自行提交 |
 
 ## 开发与维护
@@ -31,7 +31,7 @@
 
 ## 基准测试与结果
 
-社区v4的真实权重、官方对照、性能、许可和未测范围见 [MORTAL_V4_VALIDATION.md](MORTAL_V4_VALIDATION.md)。
+社区 v4 的真实权重、官方对照、性能、许可和未测范围见 [MORTAL_V4_VALIDATION.md](MORTAL_V4_VALIDATION.md)；Akagi v3 的独立 Rust 推理、规则补丁、在线安装和浏览器人工联调见 [AKAGI_V3_VALIDATION.md](AKAGI_V3_VALIDATION.md)。
 
 | 文档 | 内容与适用范围 |
 | --- | --- |
@@ -64,7 +64,7 @@
 | [网关接入研究](MODEL_GATEWAY_RESEARCH.md) | Magpie / CC Switch 的研究依据；实际配置见上方使用文档 |
 | [Mortal 后端研究](MORTAL_INTEGRATION_RESEARCH.md) | 保留调研时点结论，当前能力以工作流验收为准 |
 | [VoidShine Mortal v4 接入方案](VOIDSHINE_MORTAL_V4_IMPLEMENTATION_PLAN.md) | 历史设计与实施范围；已实现的两个社区v4及保留v2以当前使用文档和验收记录为准 |
-| [Akagi v3 模型接入方案](AKAGI_V3_MODEL_IMPLEMENTATION_PLAN.md) | 按 v0.14.0 重审的第四可选项计划；统一管理、独立按需 native runtime；仅文档，未接入或完成真实推理验收 |
+| [Akagi v3 模型接入方案](AKAGI_V3_MODEL_IMPLEMENTATION_PLAN.md) | 第四可选项的设计依据及实施跟进；实际结果见 [原生引擎验收](AKAGI_V3_VALIDATION.md) |
 | [Mortal + LLM 产品适配研究](MORTAL_LLM_PRODUCT_ADAPTATION.md) | 历史方案建议，不作为当前实现清单 |
 | [官网 Mortal 复盘研究](OFFICIAL_MORTAL_REPLAY_RESEARCH.md) | 官网入口与报告适配可行性；未验证范围保留 |
 | [版本变更](../CHANGELOG.md) | 逐版本功能变化 |

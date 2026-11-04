@@ -16,6 +16,14 @@ Pi 的 `typebox/compile` 在构建时以同版本 TypeBox `Value.Check` / `Value
 
 ## 开发参考
 
+### 可选 Akagi v3 原生引擎
+
+Akagi v3 与旧 Mortal 示例是不同模型。对应推理源码固定为 [shinkuan/Akagi](https://github.com/shinkuan/Akagi/tree/1fb16453ae0b7b0a820510ea1d3dbd01b6939082) 的 `native_bot`，保留 Apache-2.0 LICENSE 与 NOTICE；本项目的 JSONL wrapper 使用 MIT。公开源码包含经标注的本地规则／回放补丁，不移植 Tauri 应用，也不将上游代码改称本项目原创。
+
+四麻 `akagi4p.safetensors` 仅在用户显式安装时单独下载，固定来源和 SHA-256 见 [资产锁](agent/akagi-native-source.json)。权重仓库沿用上游 Apache-2.0 声明，但未提供独立 model card 或训练数据授权证明，不据此宣称训练数据许可已验证。
+
+专用 Windows x64 CPU runtime 与扩展及默认便携引导包分开分发；不嵌入四麻／三麻权重。对应源码、Cargo 锁、依赖源码与许可证、工具链公告和构建说明随专用工件保留。安装 Akagi v3 不需要 Python／PyTorch；原三模型的许可和运行环境保持各自边界。构建、规则差异及实测范围见 [Akagi v3 验收记录](docs/AKAGI_V3_VALIDATION.md)。
+
 ### 独立可选本地模型工具（不随扩展ZIP捆绑）
 
 当前源码的便携运行包附带官方 Node.js v22.19.0 Windows x64 的 `node.exe`、完整 `runtime/LICENSE`（含依赖公告）和官方校验表。固定下载来源／SHA 见 [Node 运行时锁](scripts/node-runtime-lock.json)，许可证来源见 [licenses/SOURCES.md](licenses/SOURCES.md)。此运行时仅在用户另行下载的可选包中，不进入 Agent／Collector 扩展 ZIP；便携流程从 v0.15.0 提供。

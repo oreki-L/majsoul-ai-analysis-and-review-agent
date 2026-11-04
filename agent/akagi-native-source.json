@@ -16,7 +16,9 @@
     "executable": "akagi-native.exe",
     "archive": {
       "name": "akagi-v3-win64-cpu-jsonl-v1-p1-b91639e5b6154ce9.zip",
-      "url": "https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/native-akagi-v3-p1-b91639e5b6154ce9/akagi-v3-win64-cpu-jsonl-v1-p1-b91639e5b6154ce9.zip",
+      "url": "https://api.github.com/repos/oreki-L/majsoul-ai-analysis-and-review-agent/releases/assets/709800604",
+      "canonicalUrl": "https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/native-akagi-v3-p1-b91639e5b6154ce9/akagi-v3-win64-cpu-jsonl-v1-p1-b91639e5b6154ce9.zip",
+      "accept": "application/octet-stream",
       "sha256": "bb4d3b0ba13ee4f9dc7289d7e60926940e268339d1ae329ee301a43e336cad12",
       "size": 15871839
     },

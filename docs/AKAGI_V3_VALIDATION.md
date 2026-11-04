@@ -14,9 +14,9 @@
 | 专用 runtime ZIP | `akagi-v3-win64-cpu-jsonl-v1-p1-b91639e5b6154ce9.zip`，15,871,839 字节，SHA-256 `bb4d3b0ba13ee4f9dc7289d7e60926940e268339d1ae329ee301a43e336cad12` |
 | 内含对应源码 ZIP | `sources.zip`，12,600,119 字节，SHA-256 `6aeda37de153e8f196449a4f71bfd3fd4084424009a210698ebecb989ff80efb` |
 
-机器锁以 [akagi-native-source.json](../agent/akagi-native-source.json) 为准，二进制和权重分别校验；worker 启动自行计算当前exe SHA形成身份，Node核对固定身份，扩展已知profile再核对精确buildID。源码包不把浮动release/显示名当身份。runtime的正式发布、下载URL/API asset ID与正式在线安装由发布阶段另验，不能从上述本地工件推断已上线。
+机器锁以 [akagi-native-source.json](../agent/akagi-native-source.json) 为准，二进制和权重分别校验；worker 启动自行计算当前exe SHA形成身份，Node核对固定身份，扩展已知profile再核对精确buildID。源码包不把浮动release/显示名当身份。正式 runtime 已发布于 [固定独立 release](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/native-akagi-v3-p1-b91639e5b6154ce9)，asset ID `709800604`；来源锁使用官方 asset API 及 `application/octet-stream`，canonical download URL 一并保留。匿名下载与本地最终 ZIP 字节一致。
 
-本轮固定本地权重实核匹配并真实外载；本机直接访问 `raw.githubusercontent.com` 的新下载在Node/Python/PowerShell均遇连接重置，保留失败事实。官方固定commit contents API可用，模型来源锁已改为该API及明确 `application/vnd.github.raw+json`，原raw保留 `upstreamUrl`；主代理的正式安装验证另行记录，不能以已有本地权重复制充当在线安装。
+本轮固定本地权重实核匹配并真实外载；本机直接访问 `raw.githubusercontent.com` 的新下载在Node/Python/PowerShell均遇连接重置，保留失败事实。官方固定commit contents API可用，模型来源锁已改为该API及明确 `application/vnd.github.raw+json`，原raw保留 `upstreamUrl`；后续主代理已从该官方 API 完成真实在线安装，详见下节；没有用本地权重复制充当在线结果。
 
 ## 构建、许可与零权重闭包
 
@@ -54,7 +54,7 @@ PE导入为Windows系统的 `api-ms-win-core-synch-l1-2-0.dll`、`KERNEL32.dll`�
 
 独立最终worker连续100次外载请求后工作集 **17,944,576字节**，峰值 **18,751,488字节**（额外内存测量，不混入前述100点延迟样本）。
 
-## 生命周期与尚待发布验收
+## 生命周期与管理回归
 
 10项Node测试覆盖单worker、错身份、崩溃、超时、错误requestId、损坏/超限输出、并发拒绝、取消后先清理再reject、新请求、guard后恢复；独立CLI的start/infer/预热动作失败在keep=true时也始终close。非hang故障用例改5秒预算，hang仍100ms；现有Mortal同类测试非hang改5秒、hang保持80ms，避免满负载时将崩溃误判timeout。
 
@@ -64,4 +64,14 @@ PE导入为Windows系统的 `api-ms-win-core-synch-l1-2-0.dll`、`KERNEL32.dll`�
 
 最终二进制配首轮ad699对应源码工件，另完成7次v3↔v2/VoidShine/Yuchen真实管理HTTP/身份切换、旧PID回收、删除v3留runtime/其他模型不变；最终源码fixture仅改赤/普通五预留后重包，二进制不变。公开源码精确白名单独立干净导出，新target离线wrapper/native_bot/replay/parity测试通过（同上述通过/ignore数）。证据另见 `research/evidence/akagi-v3-legacy-regression-7be4042f731d4b35b79c4a1c8a80ea47/four-model-final.json` 与 `research/evidence/akagi-v3-public-source-closure-6da77b921aa049169bfadbd18ad97ddf/`。
 
-正式runtime发布、官方在线全新目录安装、真实浏览器零模型/安装/切换/停止/删除/runtime保留，以及手动/主动开启既有自动入口的最终联调由整体验收补充；本记录不能替代这些结果。真实整场雀魂、断线重连、干净Windows VM、建议质量/牌力、真实LLM解释尚未验证，不称稳定推荐或实战认证。
+## 正式下载与浏览器联调
+
+- 正式工件在线验收：全新受管理目录，`toolkit:null`、无 source override；只为安装测试在进程内临时开放当时尚 pending 的 catalog，下载来源保持正式锁。实际下载最终 `bb4d…` runtime 和官方固定权重，安装约 12,718ms、启动约 1,261ms，HTTP200 返回合法弃 C 与精确身份；停删后保留 runtime 并回收所有进程。随后目录正式开放为 `verified-experimental`。证据：`online-install-result.json`。
+- Edge 真实扩展与管理页：零模型启动→只安装 v3→启动真实 worker→批准扩展来源配对→保存仍关闭→人工开启。其余三个模型未安装；管理切换另由前节四模型真实 HTTP 回归覆盖。
+- 实际游戏域名下通过 route 提供人工 HTML、以正式采集消息合同注入人工事件；真实后台／EngineAgent／HTTP／native 推理得到弃 C。LLM 由本机模拟响应，核对动作先显示、解释随后保存且不改变动作。主动开启自动后，两次自家出牌决策分别新增记录（总数2→3→4），随后关闭自动。
+- 停止并删除 v3 后，权重移除、runtime 保留，其他模型安装数仍为0。测试浏览器和本轮管理／模拟教学进程均已关闭。
+- 原版扩展在无界面 Edge 中正确等待 optional-host 授权；原生权限弹窗未完成。后续联调用仅预授本机 host 权限的测试副本，其余代码与生产相同，生产 manifest 没有扩大权限。人工局面与模拟 LLM 不代表真实牌局或教学质量。
+
+截图与脱敏回执保存在本机 `research/evidence/akagi-v3-implementation/`，包括 `options-v3-default-off.png`、`manager-v3-running.png`、`game-real-native-action.png`、`game-real-native-mock-explanation.png`、`game-real-native-automatic.png`、`manager-v3-removed-runtime-retained.png`、`browser-validation.json`。
+
+真实整场雀魂、断线重连、干净Windows VM、建议质量/牌力、真实LLM解释尚未验证，不称稳定推荐或实战认证。

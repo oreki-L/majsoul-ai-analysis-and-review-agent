@@ -42,13 +42,14 @@ python scripts/package-public.py
 工具包必须使用上述干净提交中的打包脚本，固定 native 构建输入由维护者显式提供。示例中的 `NATIVE_SOURCE_DIR` 是经校验的准备目录，`NEW_TOOLKIT_DIR` 必须是不存在的新目录：
 
 ```sh
-node scripts/package-mortal-toolkit.cjs --dir NATIVE_SOURCE_DIR --out NEW_TOOLKIT_DIR
+node scripts/prepare-node-runtime.cjs --out NEW_NODE_RUNTIME_DIR
+node scripts/package-mortal-toolkit.cjs --dir NATIVE_SOURCE_DIR --out NEW_TOOLKIT_DIR --node-runtime NEW_NODE_RUNTIME_DIR
 node scripts/verify-mortal-toolkit.cjs NEW_TOOLKIT_DIR
 ```
 
 默认发布 bootstrap，不传 `--offline-profile`，不捆绑模型权重或完整 Python。Python、固定 wheels 和用户所选模型只在用户明确安装时准备；模型进程仍需另行点击启动。不要将开发验收时的 `installations/`、完整运行环境、权重、Token 或日志混入发布包。
 
-打包前后必须核对固定 `agent/mortal-source.json`、运行时锁、native SHA-256／ABI／构建记录。包内保留完整固定 Mortal 源码、`Cargo.lock`、匹配的完整 vendored crate 源码及原许可、Rust／GCC 运行库公告、项目许可和 native 构建说明；不能只分发 `.pyd` 而省略对应源码与许可证，也不能用本项目 MIT 覆盖第三方许可。逐文件清单为 `TOOLKIT-SHA256.json`，验证脚本通过后再将目录内容压缩为 `majsoul-model-manager-windows-x64-0.14.0.zip`，解压后直接包含 `start.cmd`。
+打包前后必须核对固定 `agent/mortal-source.json`、运行时锁、native SHA-256／ABI／构建记录。包内保留完整固定 Mortal 源码、`Cargo.lock`、匹配的完整 vendored crate 源码及原许可、Rust／GCC 运行库公告、项目许可和 native 构建说明；不能只分发 `.pyd` 而省略对应源码与许可证，也不能用本项目 MIT 覆盖第三方许可。逐文件清单为 `TOOLKIT-SHA256.json`，验证脚本通过后再将目录内容压缩为 `majsoul-model-manager-windows-x64-<version>.zip`，解压后直接包含 `start.cmd`。
 
 若在最后审查时更新管理 UI、后端或文档，应从同一最终提交重新生成工具包，再重算清单和 ZIP 哈希。`--refresh` 只能刷新已经识别且没有安装数据的工具包，不替代发布来源一致性审查。首次在线下载链路、干净环境和真实推理的已测／未测范围必须保留在包内指南与 [验收记录](MORTAL_V4_VALIDATION.md)，不得用离线复制成功替代在线安装验收。
 
@@ -76,3 +77,9 @@ Topics建议：`mahjong`、`majsoul`、`agent`、`browser-extension`、`llm`、`
 ## 验证边界
 
 每次发布须核对所选提交的实际检查、测试、构建与浏览器验收，不能用旧版本成功记录替代本次验收。按版本维护的自动测试与浏览器范围见[验证记录](../VALIDATION.md)，X-F 输入移植见 [X-F 验证](XF_VALIDATION.md)，可选 Mortal 路径见[工作流验收](MORTAL_WORKFLOW_VALIDATION.md)。历史人工牌局与模拟上游验证不等于真实整场采集、断线续接、任意模型兼容或实战牌力。`npm run eval` 的人工样例仅用于本地计算回归。
+
+## Akagi v3 独立 runtime（v0.16.0 起）
+
+默认五附件仍为两种扩展、公开源码、便携管理包与四ZIP校验表。它们不含 v3 权重或原生二进制；选择 v3 后按 `agent/akagi-native-source.json` 的固定来源、SHA-256、大小及逐文件清单下载。
+
+v3 runtime 单独使用不可变 build release，不替换应用 latest。对应源码／锁／完整依赖许可／本地补丁随专用ZIP提供；打包见 `scripts/package-akagi-native.py`，构建见 `scripts/build-akagi-native.ps1`。正式发布后先匿名核对 asset API 下载字节，再更新固定 asset ID；保留 canonical release URL，下载须使用锁中的 Accept。公开源码只纳入 `scripts/package-public.py` 的 `NATIVE_SOURCE_FILES` 确切文件，不打包含权重的上游 archive 或本地草稿。

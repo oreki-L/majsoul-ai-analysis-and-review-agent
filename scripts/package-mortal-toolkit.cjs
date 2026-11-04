@@ -19,14 +19,14 @@ async function writeStart(out){await writeLauncher(out,'start');}
 async function writeGuide(out,profile='bootstrap'){
   await fs.writeFile(path.join(out,'README.md'),`# 雀魂本机模型管理工具（Windows x64）
 
-发布资产：\`majsoul-model-manager-windows-x64-0.15.0.zip\`。此可选包自带固定 Node.js 22.19.0；${profile==='bootstrap'?'此引导包不含模型权重或完整 Python':'此显式离线导出包含 '+profile+' 权重及固定 Python 环境'}。普通 LLM 使用无需安装本工具。
+发布资产：\`majsoul-model-manager-windows-x64-0.16.0.zip\`。此可选包自带固定 Node.js 22.19.0；${profile==='bootstrap'?'此引导包不含模型权重或完整 Python':'此显式离线导出包含 '+profile+' 权重及固定 Python 环境'}。普通 LLM 使用无需安装本工具。
 
 1. 完整解压 ZIP 到可写目录，双击 \`start.cmd\`。包内运行环境先校验文件，随后自动打开本机管理页；保持终端运行，无需另装 Node、Python 或 Rust。
 2. 选择所需模型并点击“安装”。只有这一步才下载选中权重及其必要环境；可保持零模型，安装后也不会自动推理。安装完成后点击“启动分析”。
 3. 在扩展中连接运行包，在管理页批准连接，扩展自动填入分析配置；保存后主动开启分析。
 4. 用完在管理页停止分析，再关闭终端。删除模型保留共享环境；可保留多个已安装模型，一次只运行一个。
 
-安装数据默认保存在 \`%LOCALAPPDATA%\\MajsoulAgent\\models\`，重新解压新版工具包后可复用受管理的下载，不搬迁旧目录或接管未知文件。启动管理服务不会下载模型或运行推理，不注册系统自启。管理凭据与分析 Bearer 凭据隔离；只在本机页面授权。首次安装需要网络，下载失败或哈希不符会明确报错。两个社区 v4 限四人半庄，完整实战兼容和牌力未认证。
+安装数据默认保存在 \`%LOCALAPPDATA%\\MajsoulAgent\\models\`，重新解压新版工具包后可复用受管理的下载，不搬迁旧目录或接管未知文件。启动管理服务不会下载模型或运行推理，不注册系统自启。管理凭据与分析 Bearer 凭据隔离；只在本机页面授权。首次安装需要网络，下载失败或哈希不符会明确报错。两个社区 v4 及 Akagi v3 限四人半庄，完整实战兼容和牌力未认证。Akagi v3 单独按需下载原生运行包，不需要 Python／PyTorch。
 
 详细操作见 [模型管理](docs/MODEL_MANAGER.md)，范围见 [Mortal v4](docs/MORTAL_V4.md)，验证限制见 [验收记录](docs/MORTAL_V4_VALIDATION.md)。
 

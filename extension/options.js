@@ -63,7 +63,7 @@ function show(provider) {
   engineSelect.value = engineProfiles?.activeId || 'custom';
   $('engineGuide').href = 'https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/blob/main/docs/MJAI.md';
   $('modelManager').href = 'http://127.0.0.1:17343/';
-  if ($('runtimeDownload')) $('runtimeDownload').href = 'https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.15.0/majsoul-model-manager-windows-x64-0.15.0.zip';
+  if ($('runtimeDownload')) $('runtimeDownload').href = 'https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.0/majsoul-model-manager-windows-x64-0.16.0.zip';
   $('provider').value = provider; $('enabled').checked = !!c.enabled;
   $('endpoint').value = c.endpoint || ''; $('endpoint').placeholder = engine ? 'http://127.0.0.1:17341/analyze' : 'https://api.openai.com/v1';
   $('endpointHint').textContent = engine ? '仅支持 localhost / 127.0.0.1 的 HTTP /analyze 接口。' : '自动补全 /chat/completions，也可填写完整接口地址。';
