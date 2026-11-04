@@ -1,0 +1,17 @@
+{
+  "format": "node-portable-runtime-v1",
+  "version": "22.19.0",
+  "platform": "win32",
+  "arch": "x64",
+  "archive": {
+    "url": "https://nodejs.org/dist/v22.19.0/node-v22.19.0-win-x64.zip",
+    "name": "node-v22.19.0-win-x64.zip",
+    "directory": "node-v22.19.0-win-x64",
+    "sha256": "ea3fad0e67a991d8477d8c01344b56e69c676ccb733f065b22436994b1253f86"
+  },
+  "shasumsUrl": "https://nodejs.org/dist/v22.19.0/SHASUMS256.txt",
+  "files": [
+    { "name": "node.exe", "sha256": "995a3fb3cefad590cd3f4b321532a4b9582fb9c6575320ed2e3e894caac3e362" },
+    { "name": "LICENSE", "sha256": "339c50294da6a84322dcbe7285b57b248123bd4d9e37a2f72d68d5abf2574783" }
+  ]
+}

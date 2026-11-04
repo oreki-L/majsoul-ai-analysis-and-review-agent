@@ -14,12 +14,13 @@
   const api = { actions, size, safeLink };
   if (typeof module !== 'undefined' && module.exports) { module.exports = api; return; }
   const $ = id => document.getElementById(id);
+  let sessionConnected = false;
   let managementToken = '', snapshot = null, timer = null, sending = false, generation = 0, modelView = null;
   function message(value, error = false) { $('message').textContent = value; $('message').classList.toggle('error', error); }
   function el(tag, value, className) { const node = document.createElement(tag); if (value != null) node.textContent = value; if (className) node.className = className; return node; }
   function detail(list, key, value) { list.append(el('dt', key), el('dd', value || '未提供')); }
-  async function request(path, method = 'GET') {
-    const response = await fetch(path, { method, headers: { Authorization: 'Bearer ' + managementToken, ...(method === 'POST' ? { 'Content-Type': 'application/json' } : {}) }, ...(method === 'POST' ? { body: '{}' } : {}), cache: 'no-store', credentials: 'omit', redirect: 'error' });
+  async function request(path, method = 'GET', body = {}) {
+    const response = await fetch(path, { method, headers: { ...(managementToken ? { Authorization: 'Bearer ' + managementToken } : {}), 'X-Manager-Request': '1', ...(method === 'POST' ? { 'Content-Type': 'application/json' } : {}) }, ...(method === 'POST' ? { body: JSON.stringify(body) } : {}), cache: 'no-store', credentials: 'same-origin', redirect: 'error' });
     let data; try { data = await response.json(); } catch (_) { throw new Error('管理服务返回了无法识别的响应。'); }
     if (!response.ok) throw new Error('操作未完成：' + (data.error || 'HTTP ' + response.status));
     if (data.format !== 'local-model-manager-v1' || !Array.isArray(data.models)) throw new Error('管理服务协议不匹配，请核对项目版本。');
@@ -27,7 +28,15 @@
   }
   function render() {
     if (!snapshot) return;
+    $('access').hidden = true;
     $('workspace').hidden = false; $('connection').textContent = '已连接'; $('disconnect').hidden = false;
+    const pairing = $('pairing'); pairing.replaceChildren();
+    for (const pair of snapshot.pairing || []) {
+      const row = el('p', '扩展 ' + pair.origin + ' 请求连接 ' + pair.profile + '。');
+      const approve = el('button', '允许连接当前模型'); approve.type = 'button';
+      approve.disabled = snapshot.bridge?.state !== 'running' || snapshot.bridge.profile !== pair.profile;
+      approve.onclick = () => mutate('/api/pair/approve', { id: pair.id }); row.append(approve); pairing.append(row);
+    }
     const bridge = snapshot.bridge || { state: 'stopped' }, active = snapshot.models.find(model => model.id === bridge.profile);
     $('runningState').textContent = (states[bridge.state] || bridge.state) + (bridge.profile ? '：' + (active?.name || bridge.profile) : '');
     $('stop').disabled = sending || !['running', 'error'].includes(bridge.state) || snapshot.operation?.state === 'running';
@@ -78,7 +87,7 @@
     if (Array.isArray(snapshot.runtimes)) for (const runtime of snapshot.runtimes) runtimes.append(el('p', (runtime.name || runtime.id) + '：' + (states[runtime.state] || runtime.state || (runtime.installed ? '已安装' : '未安装')) + (runtime.models ? '；使用模型：' + runtime.models.join('、') : ''), 'runtime'));
     $('refresh').disabled = sending;
   }
-  function schedule() { clearTimeout(timer); if (managementToken) timer = setTimeout(refresh, 1500); }
+  function schedule() { clearTimeout(timer); if (managementToken || sessionConnected) timer = setTimeout(refresh, 1500); }
   async function refresh() {
     const current = generation;
     try { const next = await request('/api/status'); if (current !== generation) return; snapshot = next; render();
@@ -87,16 +96,17 @@
       else if (next.bridge?.error) message('分析服务失败：' + next.bridge.error, true);
       else message(next.operation?.state === 'succeeded' ? '操作已完成，当前状态已更新。' : '已读取本机状态。');
       schedule();
-    } catch (error) { if (current !== generation) return; disconnect(); message(error.message + ' 请检查终端后重新连接。', true); }
+    } catch (error) { if (current !== generation) return; disconnect(); message(error.message + ' 会话过期时，请关闭管理终端并重新双击运行包。', true); }
   }
-  async function mutate(path) {
+  async function mutate(path, body = {}) {
     if (sending) return; sending = true; clearTimeout(timer); render(); message('已发送操作，等待服务确认。'); const current = generation;
-    try { const next = await request(path, 'POST'); if (current !== generation) return; snapshot = next; message(next.operation?.state === 'failed' ? '操作失败：' + next.operation.error : '服务已受理，等待状态更新。', next.operation?.state === 'failed'); }
+    try { const next = await request(path, 'POST', body); if (current !== generation) return; snapshot = next; message(next.operation?.state === 'failed' ? '操作失败：' + next.operation.error : '服务已受理，等待状态更新。', next.operation?.state === 'failed'); }
     catch (error) { if (current === generation) message(error.message, true); }
     finally { if (current === generation) { sending = false; render(); schedule(); } }
   }
   function disconnect() {
-    ++generation; managementToken = ''; snapshot = null; sending = false; modelView = null; clearTimeout(timer);
+    ++generation; sessionConnected = false; managementToken = '';
+    $('access').hidden = false; snapshot = null; sending = false; modelView = null; clearTimeout(timer);
     $('workspace').hidden = true; $('models').replaceChildren(); $('analysisEndpoint').value = ''; $('analysisToken').value = ''; $('analysisConfig').hidden = true;
     $('managementToken').value = ''; $('disconnect').hidden = true; $('connection').textContent = '未连接'; $('connect').disabled = false;
   }
@@ -109,5 +119,17 @@
     try { if (!$('analysisConfig').hidden && $(inputId).value) { await navigator.clipboard.writeText($(inputId).value); message(buttonId === 'copyToken' ? '已复制分析 Token。' : '已复制分析接口。'); } }
     catch (_) { message('浏览器未允许复制，请选择字段内容后手动复制。', true); }
   };
+  async function resume() {
+    const ticket = new URLSearchParams(root.location.hash.slice(1)).get('ticket');
+    root.history.replaceState(null, '', root.location.pathname);
+    try {
+      if (ticket) {
+        const response = await fetch('/session', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Manager-Request': '1' }, body: JSON.stringify({ ticket }), credentials: 'same-origin', cache: 'no-store', redirect: 'error' });
+        if (!response.ok) throw new Error('启动链接已过期或已使用，请重新打开运行包。');
+      }
+      sessionConnected = true; await refresh();
+    } catch (error) { disconnect(); message(error.message, true); }
+  }
+  if (root.location) resume();
   root.addEventListener('pagehide', disconnect);
 })(globalThis);

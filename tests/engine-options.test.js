@@ -6,16 +6,16 @@ const vm = require('node:vm');
 const Endpoint = require('../extension/adapters/engine-endpoint.js');
 const ChatEndpoint = require('../extension/adapters/model-endpoint.js');
 
-async function settings(initial = {}, { permission = true, beforeSet, clearResult = { ok: true }, usageResult, modelResult } = {}) {
+async function settings(initial = {}, { permission = true, beforeSet, clearResult = { ok: true }, usageResult, modelResult, pairing } = {}) {
   const data = structuredClone(initial), calls = [], elements = new Map(), downloads = [];
-  for (const id of ['engineProfile', 'engineExplain', 'profilesPanel', 'profile', 'profileName', 'newProfile', 'magpiePreset', 'ccSwitchPreset', 'loadCcSwitchModels', 'deleteProfile', 'discoveredModels', 'diagnosticStatus', 'diagnose', 'cancelDiagnostic', 'magpieHello', 'loadModels', 'status', 'provider', 'providerHint', 'engineSetup', 'engineGuide', 'enabled', 'endpoint', 'endpointHint', 'model', 'key', 'keyLabel', 'chatOptions', 'thinking', 'thinkingHint', 'maxTokens', 'priceCurrency', 'priceInput', 'priceOutput', 'priceCacheRead', 'priceCacheWrite', 'config', 'disable', 'clear', 'clearAgentData', 'exportUsage']) elements.set(id, { value: '', checked: false, textContent: '', children: [], replaceChildren() { this.children = []; }, appendChild(item) { this.children.push(item); } });
+  for (const id of ['connectRuntime', 'cancelRuntime', 'engineProfile', 'engineExplain', 'profilesPanel', 'profile', 'profileName', 'newProfile', 'magpiePreset', 'ccSwitchPreset', 'loadCcSwitchModels', 'deleteProfile', 'discoveredModels', 'diagnosticStatus', 'diagnose', 'cancelDiagnostic', 'magpieHello', 'loadModels', 'status', 'provider', 'providerHint', 'engineSetup', 'engineGuide', 'enabled', 'endpoint', 'endpointHint', 'model', 'key', 'keyLabel', 'chatOptions', 'thinking', 'thinkingHint', 'maxTokens', 'priceCurrency', 'priceInput', 'priceOutput', 'priceCacheRead', 'priceCacheWrite', 'config', 'disable', 'clear', 'clearAgentData', 'exportUsage']) elements.set(id, { value: '', checked: false, textContent: '', children: [], replaceChildren() { this.children = []; }, appendChild(item) { this.children.push(item); } });
   const local = {
     get: async keys => { calls.push(['get']); return Object.fromEntries((Array.isArray(keys) ? keys : [keys]).filter(key => key in data).map(key => [key, structuredClone(data[key])])); },
     set: async value => { const copied = structuredClone(value); calls.push(['set']); if (beforeSet) await beforeSet(copied); Object.assign(data, copied); },
     remove: async keys => { calls.push(['remove']); for (const key of Array.isArray(keys) ? keys : [keys]) delete data[key]; }
   };
   elements.set('modelManager', { href: '' });
-  const context = vm.createContext({ Blob, setTimeout, structuredClone, URL: {
+  const context = vm.createContext({ AbortController, MJLocalRuntimePairing: pairing || require('../extension/local-runtime-pairing.js'), Blob, setTimeout, structuredClone, URL: {
     createObjectURL(blob) { downloads.push({ blob }); return 'blob:usage-' + downloads.length; },
     revokeObjectURL(url) { calls.push(['revoke', url]); }
   }, document: { getElementById: id => elements.get(id), body: { appendChild() {} }, createElement(tag) {
@@ -40,6 +40,7 @@ test('v4, v2 and custom engine profiles keep separate tokens, disable on switch 
   choose('voidshine-298k');
   assert.equal(page.el('enabled').checked,false); assert.equal(page.el('endpoint').value,'http://127.0.0.1:17342/analyze');
   page.el('key').value='V4_TOKEN'; page.el('enabled').checked=true; await page.submit();
+  assert.match(page.el('status').textContent, /已保存。在牌局面板开启“调用模型”即可使用/);
   choose('akagi-v2'); assert.equal(page.el('enabled').checked,false); assert.equal(page.el('key').value,'');
   page.el('key').value='V2_TOKEN'; await page.submit();
   choose('voidshine-298k'); assert.equal(page.el('key').value,'V4_TOKEN'); assert.equal(page.el('enabled').checked,false);
@@ -492,4 +493,34 @@ test('hybrid mode is opt-in, saves separate services, requests both permissions 
   assert.equal(p.calls.find(c => c[0] === 'permission')[1].origins.length, 2);
   const loaded = await settings(p.data); assert.equal(loaded.el('engineExplain').checked, true);
   loaded.el('engineExplain').checked = false; await loaded.submit(); assert.equal(loaded.data.modelConfig.workflow, 'engine');
+});
+
+
+test('runtime connection changes only selected profile draft, leaves Chat and saved config intact and disabled', async () => {
+  const initial = savedChat();
+  const helper = require('../extension/local-runtime-pairing.js');
+  const p = await settings(initial, { pairing: { ...helper, connect: async profile => ({ format: 'local-analysis-pair-v1', profile, endpoint: 'http://127.0.0.1:17342/analyze', apiKey: 'ONLY_ANALYSIS_TOKEN' }) } });
+  p.select('mjai'); p.el('engineProfile').value = 'voidshine-298k'; p.el('engineProfile').onchange();
+  p.el('engineExplain').checked = true;
+  await p.el('connectRuntime').onclick();
+  assert.deepEqual(p.data, initial); assert.equal(p.el('enabled').checked, false); assert.equal(p.el('key').value, 'ONLY_ANALYSIS_TOKEN');
+  assert.equal(p.el('engineExplain').checked, true);
+  await p.submit(); assert.equal(p.data.modelConfig.enabled, false);
+  assert.match(p.el('status').textContent, /已保存，模型分析仍关闭；需要时开启并保存/);
+  assert.equal(p.data.analysisProviders.chat.apiKey, initial.modelConfig.apiKey);
+  assert.equal(p.data.mjaiEngineProfilesV1.profiles.find(x => x.id === 'akagi-v2').config.apiKey, '');
+});
+
+for (const change of ['cancel', 'profile', 'provider', 'clear']) test('late runtime pairing cannot overwrite after ' + change, async () => {
+  const pending = deferred(), helper = require('../extension/local-runtime-pairing.js');
+  const p = await settings(savedChat(), { pairing: { ...helper, connect: () => pending.promise } });
+  p.select('mjai'); p.el('engineProfile').value = 'voidshine-298k'; p.el('engineProfile').onchange();
+  const connecting = p.el('connectRuntime').onclick(); await new Promise(r => setImmediate(r));
+  if (change === 'cancel') p.el('cancelRuntime').onclick();
+  if (change === 'profile') { p.el('engineProfile').value = 'akagi-v2'; p.el('engineProfile').onchange(); }
+  if (change === 'provider') p.select('chat');
+  if (change === 'clear') await p.el('clear').onclick();
+  const before = p.el('key').value;
+  pending.resolve({ format: 'local-analysis-pair-v1', profile: 'voidshine-298k', endpoint: 'http://127.0.0.1:17342/analyze', apiKey: 'STALE_ANALYSIS_TOKEN' }); await connecting;
+  assert.equal(p.el('key').value, before); assert.notEqual(p.el('key').value, 'STALE_ANALYSIS_TOKEN');
 });

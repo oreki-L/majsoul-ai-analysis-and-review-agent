@@ -4,6 +4,8 @@ const status = text => { $('status').textContent = text; };
 const providerOf = c => c?.provider === 'mjai' ? 'mjai' : 'chat';
 let currentProvider = 'chat', drafts = {}, profiles, engineProfiles;
 let diagnosticGeneration = 0, diagnosticRequestId = null;
+let pairingController = null;
+function cancelPairing() { pairingController?.abort(); pairingController = null; if ($('connectRuntime')) $('connectRuntime').disabled = false; }
 // This identity stays in page memory only: never persist or display credentials.
 let modelDirectoryIdentity = null;
 function directoryIdentity() {
@@ -18,6 +20,7 @@ function syncModelDirectory() {
   const option = document.createElement('option'); option.value = ''; option.textContent = '请为当前配置加载模型（也可手填）'; select.appendChild(option); select.value = '';
 }
 function cancelDiagnostic() {
+  cancelPairing();
   diagnosticGeneration++;
   if (diagnosticRequestId) chrome.runtime.sendMessage({ type: 'model:cancel', requestId: diagnosticRequestId }).catch(() => {});
   diagnosticRequestId = null;
@@ -54,11 +57,13 @@ function show(provider) {
   $('engineExplain').disabled = !engine; $('engineExplain').checked = c.workflow === 'mortal-explain';
   $('profilesPanel').hidden = engine;
   $('engineSetup').hidden = !engine;
+  if ($('manualConnection')) { $('manualConnection').open = !engine; $('manualConnectionSummary').hidden = !engine; }
   const engineSelect = $('engineProfile'); engineSelect.replaceChildren();
   for (const item of engineProfiles?.profiles || []) { const option = document.createElement('option'); option.value = item.id; option.textContent = item.name; engineSelect.appendChild(option); }
   engineSelect.value = engineProfiles?.activeId || 'custom';
   $('engineGuide').href = 'https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/blob/main/docs/MJAI.md';
   $('modelManager').href = 'http://127.0.0.1:17343/';
+  if ($('runtimeDownload')) $('runtimeDownload').href = 'https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.15.0/majsoul-model-manager-windows-x64-0.15.0.zip';
   $('provider').value = provider; $('enabled').checked = !!c.enabled;
   $('endpoint').value = c.endpoint || ''; $('endpoint').placeholder = engine ? 'http://127.0.0.1:17341/analyze' : 'https://api.openai.com/v1';
   $('endpointHint').textContent = engine ? '仅支持 localhost / 127.0.0.1 的 HTTP /analyze 接口。' : '自动补全 /chat/completions，也可填写完整接口地址。';
@@ -70,10 +75,10 @@ function show(provider) {
   $('priceCurrency').value = typeof c.pricing?.currency === 'string' ? c.pricing.currency : '';
   for (const [key, id] of Object.entries(priceFields)) $(id).value = typeof c.pricing?.[key] === 'number' ? String(c.pricing[key]) : '';
   updateThinking();
-  $('key').value = c.apiKey || ''; $('key').required = engine;
+  $('key').value = c.apiKey || ''; $('key').required = false;
   $('key').placeholder = engine ? '填写本地服务的 Token' : '填写密钥；无密钥的本地服务可留空';
   $('keyLabel').textContent = engine ? '分析 Bearer Token（不是管理 Token）' : 'API Key';
-  $('providerHint').textContent = engine ? '需手动启动桥接服务并自备模型，不捆绑权重。仅支持可验证的四麻局面与动作。关闭分析停止请求；关闭桥接终端退出模型进程。' : '';
+  $('providerHint').textContent = engine ? '扩展与运行包不捆绑权重，按需安装模型并手动启动；自备 mjai 服务也可手动填写。仅支持可验证的四麻局面与动作。关闭分析停止请求。' : '';
   syncModelDirectory();
 }
 async function load(generation = configStore.generation) {
@@ -139,7 +144,7 @@ $('config').onsubmit = async event => {
     if (generation === configStore.generation) {
       if (currentProvider === c.provider) $('endpoint').value = c.endpoint;
       if (c.provider === 'chat') renderProfiles();
-      status('已保存。在牌局面板开启“调用模型”即可使用。');
+      status(c.enabled ? '已保存。在牌局面板开启“调用模型”即可使用。' : '已保存，模型分析仍关闭；需要时开启并保存。');
     }
   } catch (error) { if (generation === configStore.generation) status(error.message); }
 };
@@ -247,3 +252,25 @@ $('loadCcSwitchModels').onclick = () => modelOperation('cc-switch-models');
 $('cancelDiagnostic').onclick = () => { cancelDiagnostic(); $('diagnosticStatus').textContent = '测试已取消。'; };
 
 $('config').oninput = () => { cancelDiagnostic(); configStore.invalidate(); syncModelDirectory(); };
+
+if ($('connectRuntime')) $('connectRuntime').onclick = async () => {
+  cancelDiagnostic(); const generation = configStore.invalidate();
+  const profile = engineProfiles.activeId;
+  if (currentProvider !== 'mjai' || !MJLocalRuntimePairing.supports(profile)) { status('请先选择需要的模型；自备服务可继续手动填写。'); return; }
+  const controller = new AbortController(); pairingController = controller;
+  $('connectRuntime').disabled = true;
+  const valid = () => !controller.signal.aborted && generation === configStore.generation && currentProvider === 'mjai' && engineProfiles.activeId === profile;
+  try {
+    // Permission request remains directly inside the user's click gesture.
+    const allowed = await chrome.permissions.request({ origins: ['http://127.0.0.1/*'] });
+    if (!valid()) return;
+    if (!allowed) throw new Error('未授予本机访问权限，配置未改变。');
+    const result = await MJLocalRuntimePairing.connect(profile, { signal: controller.signal, notify: () => status('请在本机模型管理页允许连接所选模型。尚未安装或启动时，先在管理页完成。') });
+    if (!valid()) return;
+    const chosen = engineProfiles.profiles.find(p => p.id === profile); chosen.config = fields('mjai');
+    ({ drafts, engineProfiles } = MJLocalRuntimePairing.apply({ drafts, engineProfiles }, result, profile));
+    show('mjai'); status('已连接，配置尚未保存，分析保持关闭。请检查后保存设置。');
+  } catch (error) { if (valid()) status(error.message === 'Failed to fetch' ? '未找到运行包。请下载并解压运行包，双击启动后重试；下载入口见下方。' : error.message); }
+  finally { if (pairingController === controller) { pairingController = null; $('connectRuntime').disabled = false; } }
+};
+if ($('cancelRuntime')) $('cancelRuntime').onclick = () => { cancelPairing(); configStore.invalidate(); status('连接已取消，配置未改变。'); };

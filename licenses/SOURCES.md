@@ -4,6 +4,13 @@ Reviewed on 2026-10-24. The complete license files in this directory accompany t
 
 Optional native model toolkits are separate from the extension archives. Their pinned Mortal/model/Python/wheel sources and hashes are in [agent/mortal-source.json](../agent/mortal-source.json) and [agent/mortal-runtime-lock.json](../agent/mortal-runtime-lock.json); see [MORTAL_V4.md](../docs/MORTAL_V4.md) for corresponding source, crate vendor, build and notice packaging. Upstream AGPL/model/runtime licenses are retained under their own terms and are not re-licensed as project MIT.
 
+## Optional portable Node.js runtime
+
+- Distributed only in the optional Windows x64 local-model package, not in either extension ZIP.
+- Fixed official archive: [Node.js v22.19.0 Windows x64](https://nodejs.org/dist/v22.19.0/node-v22.19.0-win-x64.zip), SHA-256 `ea3fad0e67a991d8477d8c01344b56e69c676ccb733f065b22436994b1253f86`, checked against the official [SHASUMS256.txt](https://nodejs.org/dist/v22.19.0/SHASUMS256.txt).
+- The package retains `runtime/node.exe`, the complete upstream `runtime/LICENSE` (including dependency notices), and official `runtime/SHASUMS256.txt`. The LICENSE file SHA-256 is `339c50294da6a84322dcbe7285b57b248123bd4d9e37a2f72d68d5abf2574783`.
+- Versions, URLs and file hashes are fixed in [scripts/node-runtime-lock.json](../scripts/node-runtime-lock.json). The maintainer explicitly runs `prepare-node-runtime.cjs`; normal extension builds, tests and installation do not download this runtime.
+
 ## Pi 1.4.0
 
 - Packages: `@earendil-works/pi-agent-core@1.4.0`, `@earendil-works/pi-ai@1.4.0`.

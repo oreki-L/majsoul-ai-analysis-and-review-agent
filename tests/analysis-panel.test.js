@@ -465,6 +465,44 @@ test('engine preview matches its input and configuration invalidation hides save
   assert.equal(p.hints.at(-1), null);
 });
 
+test('community v4 manual analysis needs no repeated scope checkbox after the position changes', async () => {
+  for (const engineProfile of ['voidshine-298k', 'yuchen-582500']) {
+    const p = panel({ status: () => ({ enabled: true, provider: 'mjai', engineProfile, preferences: { useModel: true } }), engineRequest: () => ({ events: [] }), manualTimers: true });
+    await flush();
+    assert.doesNotMatch(p.html(), /mortal-hanchan|本次为四人半庄|每次重新确认/);
+    p.state.turn = p.state.selfSeat; p.render();
+    assert.equal(p.timers.size, 0);
+    for (let step = 1; step <= 2; step++) {
+      p.state.lastStep = step; p.render();
+      const pending = p.element('model-run').onclick({ isTrusted: true }); await flush();
+      const sent = p.messages.filter(m => m.type === 'model:analyze');
+      assert.equal(sent.length, step); assert.equal(sent.at(-1).lane, 'manual-review');
+      assert.equal('hanchanConfirmation' in sent.at(-1), false);
+      p.resolve(modelResult()); await pending;
+    }
+    p.destroy();
+  }
+});
+
+test('community v4 uses the existing opt-in automatic own-discard boundary', async () => {
+  for (const engineProfile of ['voidshine-298k', 'yuchen-582500']) {
+    const p = panel({ status: () => ({ enabled: true, provider: 'mjai', engineProfile, preferences: { useModel: true, automatic: true } }), engineRequest: () => ({ events: [] }), manualTimers: true });
+    await flush();
+    assert.equal(p.timers.size, 0);
+    p.state.turn = p.state.selfSeat; p.state.lastStep = 1; p.render();
+    assert.equal(p.timers.size, 1); p.fireTimer(); await flush();
+    const sent = p.messages.find(m => m.type === 'model:analyze');
+    assert.equal(sent.lane, 'live'); assert.equal(sent.provider, 'mjai');
+    assert.equal('hanchanConfirmation' in sent, false);
+    p.resolve(modelResult()); await flush(); p.render();
+    assert.equal(p.timers.size, 0);
+    p.state.turn = (p.state.selfSeat + 1) % 4; p.state.lastStep = 2; p.render();
+    assert.equal(p.timers.size, 0);
+    assert.equal(p.messages.filter(m => m.type === 'model:analyze').length, 1);
+    p.destroy();
+  }
+});
+
 test('engine skip action is shown in the global result', async () => {
   const p = panel({ provider: 'mjai', engineRequest: () => ({ events: [] }) }); await flush();
 

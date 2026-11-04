@@ -1,189 +1,158 @@
-# Akagi v3 模型接入方案：新增 v3，保留 v2
+# Akagi v3 模型接入方案：统一管理的第四个可选引擎
 
-日期：2026-11-04。状态：**暂缓实施；尚未接入或完成性能／牌力验证**。
+日期：2026-11-04。基线：**v0.14.0**。状态：**旧方案审查与修订，仅文档；尚未接入、构建通过或完成本项目真实推理验收**。
 
-用户已调整优先顺序，当前以 [VoidShine Mortal v4 接入方案](VOIDSHINE_MORTAL_V4_IMPLEMENTATION_PLAN.md) 为准。本文保留原设计，不作为当前实施任务；模型和原生推理进程仍须用户主动选择，默认关闭。
+用户重新要求把 Akagi v3 作为可选项。本方案在已发布的 Akagi v2、VoidShine 298k、Yuchen 582500 及本机模型管理能力上增量设计，不改变这三项的已测范围。`engines/akagi-native/` 是早期未完成草稿，不是可用引擎或发布资产。已完成固定上游源码／权重元信息与当前架构核查；本轮未下载新权重、编译或执行 v3。
 
-## 结论与范围
+## 1. 旧方案的适用与失效差异
 
-新增 **Akagi v3 Native 四麻模型**作为可选本地引擎，同时保留 **Akagi v2 弱 Mortal 示例**和自定义 mjai 服务。继续使用本项目的浏览器扩展采集、标准快照、动作校验、冻结决策及 LLM 教学链路。
-
-推荐以独立 Rust 推理程序接入 v3 的 `native_bot`，复用现有本机 Node HTTP 桥接。v3 程序常驻、权重一次加载；每次请求重置牌局并重放完整事件前缀，避免跨标签页、回看游标或换座位导致状态串用。v2 保持现有 Python 路径，不要求其用户迁移。
-
-首期交付包含：Windows x64、CPU 推理、四麻、手动切换两种本地引擎、现有自动弃牌点分析，以及可选 LLM 自动解释与冻结追问。新用户的本地引擎起步文档优先介绍 v3；项目默认仍为关闭分析的 Chat 配置，旧用户不自动换模型。
-
-三麻模型虽由上游提供，但本项目的 mjai 输入、状态重放及动作合同目前限定四麻。本期不开放三麻、AutoPlay、CDP／MITM 采集、Akagi 桌面界面或其云端推理服务。模型接入与完整桌面平台迁移是两个独立项目。
-
-## 已核对的依据
-
-本方案固定研究 Akagi 提交 [`1fb16453ae0b7b0a820510ea1d3dbd01b6939082`](https://github.com/shinkuan/Akagi/tree/1fb16453ae0b7b0a820510ea1d3dbd01b6939082)，不按浮动 `v3` 分支下载发布资产。
-
-| 项目 | 核对结果及设计影响 |
+| 旧方案假设／当前实现障碍 | v0.14.0 现状与修订 |
 | --- | --- |
-| 模型身份 | `native_bot` 是行为克隆 CNN，不是 Mortal；四麻权重为 `akagi4p.safetensors` |
-| 运行依赖 | `native_bot` 使用 candle 与 riichienv-core；不需要 Tauri、浏览器或 Python 才能推理 |
-| 特征与模型 | 四麻输入 39 × 34；需配套 observation 编码、动作解码和状态适配，不能单独替换 `mortal.pth` |
-| 生命周期 | `Engine::reset()` 保留模型；`set_seat()` 可设置座位；可用 `feed()` 重放后调用 `decide()` |
-| 输出 | `BotAction` 含弃牌、立直、鸣牌、和牌等；立直首选携带配套弃牌；还可能输出本项目暂不支持的九种九牌／拔北 |
-| 候选含义 | 候选来自合法动作上的策略分布，不是胜率、放铳率或解释文本 |
-| 协议风险 | `feed_line()` 会跳过无法建模的事件；不能把其宽松跳过行为直接当作本项目的严格重放 |
-| 规则风险 | `Engine` 初始化为 `GameRule::default_tenhou()`；雀魂规则差异需实测和限定，不能据支持 mjai 推定完全一致 |
-| 许可 | 上游根目录 LICENSE 为 Apache-2.0，`native_bot/Cargo.toml` 同样声明 Apache-2.0；模块文档说明继承项目许可 |
+| 浏览器扩展采集、冻结输入、HTTP `/analyze`、EngineAgent 校验及 LLM 解释 | 继续复用；不替换采集器，不接入 Tauri／CDP／系统代理 |
+| 新增 v3、保留 v2 | 扩展为第四项：v2、VoidShine、Yuchen、v3；保留 custom／legacy 配置 |
+| mjai 只有一个草稿槽位，新增 `engine-profiles.js`／存储 | 已有 `model-config-store.js` 和 `mjaiEngineProfilesV1`，只增量加入 profile，不建重复 store |
+| 新用户优先介绍 v3，首期支持自动分析 | 不优先推荐未验模型；首期实验范围为四人半庄，提前声明范围，手动及既有自动路径须独立验收，不设置逐巡确认 |
+| v3 地址使用 `17342` | 已由 VoidShine 使用；候选 v3 地址改为 `http://127.0.0.1:17345/analyze`，管理端口仍为 `17343` |
+| 用户可同时启动 v2 与 v3 再切换 | 管理器只运行一个模型；切换先回收旧桥接／worker，保留安装资产 |
+| 旧方案已说明 v3 不用 Python；但 v0.14.0 管理代码按现有三模型固定准备 Python／PyTorch | 按 runtime kind 分流；v3 保留原生方案，不调用 Mortal `ensureRuntime` |
+| 工具包统一包含 v3 程序 | 改为独立固定 v3 runtime 工件，仅选 v3 时准备；其他模型不为它下载二进制或权重 |
+| 新写 `engine-explain` 并迁移所有历史分支 | 不做大规模存储迁移；内部继续兼容 `mortal-explain`，只把用户可见通用文案改为“本地引擎决策 + LLM 解释” |
+| 常驻加载、每请求重置／重放、严格动作映射及身份校验 | 保留设计目标，但必须用真实 v3 权重验证，不能把旧草稿或 v4 验收当作 v3 证据 |
+| 完整整场和干净 VM 均作为首发硬门槛 | 区分实验可选发布与稳定推荐门槛，见第 4 节；未完成项继续明确标注 |
 
-直接来源：[引擎接口](https://github.com/shinkuan/Akagi/blob/1fb16453ae0b7b0a820510ea1d3dbd01b6939082/native_bot/src/engine.rs)、[模块说明](https://github.com/shinkuan/Akagi/blob/1fb16453ae0b7b0a820510ea1d3dbd01b6939082/native_bot/README.md)、[特征编码](https://github.com/shinkuan/Akagi/blob/1fb16453ae0b7b0a820510ea1d3dbd01b6939082/native_bot/src/obs.rs)、[训练说明](https://github.com/shinkuan/Akagi/blob/1fb16453ae0b7b0a820510ea1d3dbd01b6939082/native_bot/train/README.md)、[LICENSE](https://github.com/shinkuan/Akagi/blob/1fb16453ae0b7b0a820510ea1d3dbd01b6939082/LICENSE.txt)、[NOTICE](https://github.com/shinkuan/Akagi/blob/1fb16453ae0b7b0a820510ea1d3dbd01b6939082/NOTICE)。
+固定上游为 Akagi commit [`1fb16453ae0b7b0a820510ea1d3dbd01b6939082`](https://github.com/shinkuan/Akagi/tree/1fb16453ae0b7b0a820510ea1d3dbd01b6939082)，核查时仍是默认 `v3` 分支 HEAD（2026-11-01）。公开 release `v3.7.2`（2026-10-21）对应 commit `6fef1c3f2f2e39d983dfbc1aee7d2468025193bf`；HEAD 多两个提交，`native_bot/` 及其锁文件未变。设计仍锁定上述完整 commit，不使用浮动分支／release URL 作为安装锁。
 
-本项目依据：`agent/akagi-local.cjs`、`agent/akagi-local.py`、`agent/mjai-process.cjs`、`agent/engine-server.cjs`、`extension/contracts/engine-result.js`、`extension/model-config-store.js`、`docs/MJAI.md`。目前仅 Chat 有命名配置集合，mjai 只有一个草稿槽位；引擎结果已支持模型名、运行时、checkpoint 哈希及来源提交。
+| 已核事实 | 依据与限制 |
+| --- | --- |
+| 四麻权重 `native_bot/weights/akagi4p.safetensors`，2,641,816 字节 | 本地权重 blob `73d463396c8d91a7ca7e282c01161ceef1e1f4ab` 与固定官方 tree 匹配，为非 LFS 文件；SHA-256 `33c20aaba3f349ef689df73b726224804dc4aaff99922093d8f30cc38d709a1d`。本轮未重新下载或执行 |
+| 行为克隆 CNN，非 Mortal | safetensors 为 18 个 F32 tensors、660,050 参数；源码架构为 39×34 输入、82 actions、conv 64、3 blocks、fc 256，需配套编码／动作映射，不能替换 `.pth` |
+| 外部权重接口已存在 | [`Engine::new(Vec<u8>, players, seat)`](https://github.com/shinkuan/Akagi/blob/1fb16453ae0b7b0a820510ea1d3dbd01b6939082/native_bot/src/engine.rs#L117) 与 [`from_safetensors`](https://github.com/shinkuan/Akagi/blob/1fb16453ae0b7b0a820510ea1d3dbd01b6939082/native_bot/src/model.rs#L28)，无须重写模型 |
+| CPU 与固定依赖 | 源码使用 `Device::Cpu`；已有独立 [`native_bot/Cargo.lock`](https://github.com/shinkuan/Akagi/blob/1fb16453ae0b7b0a820510ea1d3dbd01b6939082/native_bot/Cargo.lock)，candle 0.9.2、riichienv-core 0.4.8。应复用审查后的锁，不从零解析宽松依赖；最低 Rust／Windows 链接与二进制尚未编译验收 |
+| 默认嵌入两套权重 | [`defaults.rs`](https://github.com/shinkuan/Akagi/blob/1fb16453ae0b7b0a820510ea1d3dbd01b6939082/native_bot/src/defaults.rs#L9) 的两个 `include_bytes!` 包含四麻／三麻，`lib.rs` 公开 defaults；只“不调用”默认入口不能保证二进制无权重 |
+| 许可与训练说明 | 根 LICENSE、NOTICE、crate／README 说明采用／继承 Apache-2.0；weights 没有单独 license／model card。训练说明为天凤行为克隆，未提供详细训练数据来源及授权证明；不扩称训练数据已获授权，不新增采集或训练任务 |
 
-## 用户使用方式
+权重拟固定原始地址：[akagi4p.safetensors](https://raw.githubusercontent.com/shinkuan/Akagi/1fb16453ae0b7b0a820510ea1d3dbd01b6939082/native_bot/weights/akagi4p.safetensors)。上述哈希来自固定文件核查，安装仍须实际下载后复核；它不是本项目推理可用或权重加载成功的证明。源码许可见 [LICENSE](https://github.com/shinkuan/Akagi/blob/1fb16453ae0b7b0a820510ea1d3dbd01b6939082/LICENSE.txt)、[NOTICE](https://github.com/shinkuan/Akagi/blob/1fb16453ae0b7b0a820510ea1d3dbd01b6939082/NOTICE)、[训练说明](https://github.com/shinkuan/Akagi/blob/1fb16453ae0b7b0a820510ea1d3dbd01b6939082/native_bot/train/README.md)。
 
-设置页保留 Chat／本地 mjai 两种服务类型。在本地 mjai 下新增可保存的引擎配置，起步项为：
+## 2. 最终用户流程
 
-| 配置 | 建议默认地址 | 本机要求 |
+以下是**拟议完成后的流程**，不是当前可用说明：
+
+1. 用户升级到**支持 v3 的新版便携运行包**（具体版本待实施），复用当前源码的新流程：包内 Node 运行 `start.cmd`，自动打开并连接本机管理页，无需预装 Node 或复制管理 Token。已发布 v0.14.0 ZIP 不会自动出现第四项。启动管理页不下载、不推理；普通 LLM、扩展或其他三模型不依赖 v3。
+2. 模型目录中出现 Akagi v3 Native 第四项。实施前／未过门槛时标“待验证”且不能安装启动；验证通过后才开放安装。主卡沿用模型名、简洁状态、大小及操作；来源、许可、环境与验证范围放在详情，不增加重复次要标签。
+3. 点击 v3“安装”才准备固定 v3 runtime 和所选四麻权重。它们分别校验、记录和原子安装，不下载 Python／PyTorch，不顺带安装其他模型。失败显示真实错误，不回退到 v2、Mortal 或 LLM。
+4. 安装不启动推理。点击“启动分析”后校验资产、启动 worker、完成真实预热，才显示分析接口与独立分析 Token；候选端口 `17345`。管理 Token 不用于分析，不写 URL 或持久存储。
+5. 扩展选择独立 v3 profile，复用当前源码的运行包配对流程，在管理页批准后自动填入该模型的分析配置，再保存并明确开启分析。必须将 v3 加入配对 profile／固定端口白名单并覆盖身份及迟到保护，不能只新增目录项。profile 切换关闭分析、取消旧在途动作／解释，保存不会启动本机程序。首期仅支持四人半庄，在模型选择与使用说明中提前声明，不要求逐巡勾选。自动分析默认关闭，沿已有自家出牌触发路径验收后才可由用户主动开启；不根据局数或“v3”名称推断整场模式。
+6. 管理页对另一已安装模型点击“切换并启动”时，先停止旧模型，再启动所选模型；四个权重可同时保留，运行槽只有一个。用完停止分析再退出管理终端。
+7. 删除 v3 模型只删除其受管理且完整性通过的权重／模型目录，保留 v3 runtime 供以后重装；不删除其他模型、共享 v4 Python 环境或外部自备目录。清理 runtime 若以后提供，另作为显式功能设计。
+
+现有 v2 独立 `setup/check/serve --python ...` 路径继续有效；拟增的 v3 CLI 可独立 `check/serve`，由用户手动运行，不要求先通过浏览器管理页。统一 manager 路径保证一次一个模型，不承诺控制用户另行启动的外部 CLI 服务；端口占用需明确报错，不静默换模型或杀其他进程。
+
+当前源码的便携启动器统一使用 `%LOCALAPPDATA%\MajsoulAgent\models`，换包后复用通过校验的已下载模型和环境。旧版安装可用显式 `--root` 指向原目录；不自动发现、搬迁或合并旧包内目录，不强制重装。目录复用需作为升级回归验证，不绕过所有权／完整性检查。
+
+## 3. 资产、架构与文件清单
+
+### 3.1 三层资产
+
+| 资产层 | 内容与固定要求 | 准备／删除时机 |
 | --- | --- | --- |
-| Akagi v3 Native（四麻） | `http://127.0.0.1:17342/analyze` | Node.js 与项目提供的预编译 Rust 推理程序 |
-| Akagi v2 Mortal 弱示例 | `http://127.0.0.1:17341/analyze` | 保持原 Python 3.11／PyTorch 组合 |
-| 自定义 mjai 服务 | 用户填写 | 由用户服务决定 |
+| 通用管理引导层 | 现有 Node 管理服务、UI、目录及驱动声明 | 普通扩展不需要；默认 bootstrap 不嵌入 v3 权重或完整 v3 runtime |
+| v3 专用 runtime | 候选 `akagi-native.exe`、配套动态库（如有）、版本／ABI／协议清单、对应源码、完整依赖与许可证、改动记录 | 仅显式安装 v3 时按固定 SHA-256 工件准备；删除权重后保留 |
+| v3 模型权重 | 固定四麻 safetensors、来源 revision、权重 SHA-256、大小与许可／model card | 仅显式安装 v3 时准备；仅删除自己的模型目录 |
 
-地址和端口可修改；选择配置只切换保存的地址、Token、模型身份期望和教学开关，不代表对应服务已经启动。用户可只运行一个服务，也可同时启动两者后在扩展中切换。两个服务各有独立 Token。
+建议目录沿用 `models/{profile}` 与 `runtimes/{runtimeFamily}`。候选 profile ID 为 `akagi-v3-native`，runtime family 需包含平台／ABI／协议版本；实际名称在来源清单固定时确定。二进制哈希和权重哈希分别记录，启动时核对兼容矩阵，不允许“旧程序 + 任意新权重”静默运行。
 
-v3 首次使用流程：下载本地引擎工具包 → 校验并安装固定模型资产 → 运行真实推理检查 → 启动桥接 → 将地址与 Token 保存到扩展 → 明确启用分析。普通用户不用安装 Rust 编译器、Python 或 PyTorch；开发者从源码构建时需要 Rust。
+v3 runtime 工件下载 URL、发布命名和 SHA-256 **尚未就绪**，不填写假值，不把 GitHub 浮动 release 当锁定来源。若尚不能提供经审查的分发工件，就只保留禁用目录项，不让用户本机临时编译作为普通安装的隐含步骤。普通用户无需 Rust；构建依赖由维护者明确准备。
 
-建议新增命令如下，均为**拟议接口，当前尚不存在**：
+### 3.2 增量接入现有管理器
 
-```powershell
-npm run engine:akagi-v3 -- setup --dir research/evidence/akagi-v3
-npm run engine:akagi-v3 -- check --dir research/evidence/akagi-v3
-npm run engine:akagi-v3 -- serve --dir research/evidence/akagi-v3 --port 17342
-```
+当前 `mortal-catalog.json` 使用通用目录格式，可继续保留文件名，不为命名整洁重构全部 Mortal 文件。新增小型固定 profile registry，集中 `source`、`runtimeKind`、`runtimeFamily`、`runnerKind`、`defaultPort`、`weightAsset`；以 driver 分派替代“非 v2 即 Mortal v4”的假设。现有三模型的目录、marker、hash 与运行路径不重写：
 
-现有 `npm run engine:akagi -- setup/check/serve ... --python ...` 继续表示 v2，参数和默认端口不变，避免已有脚本被解释成 v3。
+- **目录与安装**：权重通过 `weightAsset`／明确 asset role 寻找，不按 `.pth` 或 `.safetensors` 扩展名猜测；`sourceUrl` 显式使用固定 GitHub／权重来源，不走“任意 repository 默认拼 Hugging Face”的回退。`inspect/install/remove` 保持受管理路径、所有权、哈希、原子安装与取消语义；runtime 安装、状态、完整性校验均按类型分派，v3 不进入固定 Python archive／wheel 的 `ensureRuntime`、`pythonFor`、Mortal lock 或 `libriichi.pyd` 专用路径。native runtime 使用独立 `kind`、资产锁与 marker，不能覆盖现有 Mortal `managed-runtime-v1`／锁。
+- **路径边界**：继续采用 v0.14.0 修复后的 Windows 大小写／8.3 路径规范化，以及祖先、root、child junction 拒绝检查并覆盖回归；提取 driver 不得退回字符串前缀校验，不因路径别名绕过管理目录与所有权边界。
+- **状态**：模型权重、runtime、运行中桥接分别报告；删除最后一个模型后 runtime 仍应显示保留。操作阶段显示校验模型、校验 runtime、加载、预热、监听的真实进度，不杜撰百分比。
+- **启动**：`startBridge` 按 driver 构造 runner、identity、预热与端口，v3 不落入默认 Mortal 分支。`createEngineServer` 的 runner 注入已存在，直接复用；loopback、Bearer、Origin／Host、限额、脱敏错误等边界保持。
+- **生命周期**：沿用 `infer(request, { signal })`、`close()`、`ready`／`pid` 可观测合同。启动只在检查与预热成功后监听；超时、取消、损坏输出或协议错位后清理整棵 worker 树，清理后释放槽位；重启重新预热，不重试同次失败请求。
 
-展示统一使用“本地引擎决策 + LLM 解释”，卡片显示实际身份，例如“Akagi v3 Native · 四麻”或“Akagi v2 Mortal · 弱示例”。解释注明依据可见事实生成，不是读取神经网络内部思考。
+进程层优先小范围提取 `persistent-engine-process.cjs`，供 `mortal-process.cjs` 薄适配与新 `akagi-native-process.cjs` 共用进程树终止、有界恢复和协议解析；各自协议／握手／身份仍独立，v2 单次 runner 不改。以当前 20 秒请求、120 秒启动、2 MiB 输入、64 KiB 输出、最多 3 次恢复作为待验证起点，native 真实测试后才能固定预算。失败必须先清理再 reject，不让旧 worker 在新请求期间继续运行；不借抽取扩大并发或修改动作校验。
 
-## 架构与运行机制
+### 3.3 Rust worker 与动作合同
 
-```mermaid
-flowchart TD
-    A[现有扩展采集和冻结快照] --> B[mjai 适配与输入校验]
-    B --> C[选中引擎配置的本机 HTTP /analyze]
-    C --> V3[v3 桥接：常驻 Rust worker]
-    C --> V2[v2 桥接：现有 Python 单次进程]
-    V3 --> D[现有 EngineAgent 动作校验]
-    V2 --> D
-    D --> E[立即展示并保存引擎动作]
-    E --> F[可选 Pi / LLM 解释及冻结追问]
-```
+拟复用上游模型／编码实现，不另用 JavaScript 或 Python 仿写。worker 以显式外部权重路径调用现有外载接口；必须用 feature gate 或明确移除的方式禁用 defaults 的两套 `include_bytes!`，不是仅不调用。构建后检查二进制与分发清单确实无嵌入权重，改动与上游未修改文件分开记录。仅引入推理必要组件，不引入 Tauri 应用、浏览器自动操作、云推理或训练数据下载。
 
-### 1. Rust 推理程序
+Node↔Rust 使用私有版本化 JSONL envelope，requestId、seat、events 有界；stdout 只承载协议，stderr 有界且不记录 Token／手牌正文。HTTP 外层继续现有 `{format, seat, events}` 与 `/analyze`，不为选模型扩展采集授权。
 
-新增 `engines/akagi-native/`，仅引入固定提交的 `native_bot` 推理必要源码及权重，保留上游文件的许可及改动标识；不引入整个 Tauri 应用，也不重新用 JavaScript／Python 仿写特征编码。保留上游目录为独立第三方组件，本项目 wrapper 单独存放。
+每次请求保留已加载网络，清空牌局并设置本次座位，严格重放完整授权事件前缀，只在最终局面决策。不采用宽松跳过未知事件的默认行为；允许忽略的 envelope 元数据必须有明确表，必要牌局事件不能建模则失败。A→B→A、不同座位／标签页／回看游标互不污染。
 
-使用受审查的依赖锁；核对上游实际解析的 riichienv-core／candle 版本后生成并提交本地 `Cargo.lock`，构建使用 `--locked`。不能只照抄宽松版本声明并假设未来解析结果一致。
+以下为固定源码核查发现的**阶段 0 风险门槛**，尚未以 v3 真实运行验证，不能写成已发生的污染或已修复的缺陷：
 
-worker 启动时加载固定模型并发出有界 `ready` 消息，包含协议版本、模型身份与支持模式。每次分析依次执行：
+| 风险与固定依据 | 实施前必须验证／处理 |
+| --- | --- |
+| 未知牌 `?`：riichienv-core 0.4.8 的 `state/event_handler.rs:8`、`:93` 将其转为 tile 0（1m）；但 `state/mod.rs:189` 屏蔽其他手牌，[`adapt.rs:81`](https://github.com/shinkuan/Akagi/blob/1fb16453ae0b7b0a820510ea1d3dbd01b6939082/native_bot/src/adapt.rs#L81) 只取 `obs.hands[pid]` | 不能仅凭占位转换断言污染。固定自家／公开输入，改变合法隐藏填充，对四座位比较 observation、mask、logits、action；覆盖未知摸牌、鸣牌、杠及补牌。不得用真实对手暗牌凑输入 |
+| 振听状态：[`chankan.rs:64`](https://github.com/shinkuan/Akagi/blob/1fb16453ae0b7b0a820510ea1d3dbd01b6939082/native_bot/src/chankan.rs#L64) 注明 replay 不维护临时／立直振听的 missed-agari flags，core `legal_actions.rs:267` 读取该类状态 | 保留同一步雀魂和牌资格与本项目振听校验；增加错过荣和后同巡再遇、立直后再遇的拒绝用例，不能只信上游 legal mask |
+| `start_game.id` 类型：core `replay/mjai_replay.rs:70` 期望 `Option<String>`，本项目为数字 | 按 Akagi [`convert.rs:33`](https://github.com/shinkuan/Akagi/blob/1fb16453ae0b7b0a820510ea1d3dbd01b6939082/src/game_state/convert.rs#L33) 显式转字符串或剥离元数据；座位仍独立 `set_seat`，不能因 parse 失败静默跳过 |
+| 默认规则：[`engine.rs:118`](https://github.com/shinkuan/Akagi/blob/1fb16453ae0b7b0a820510ea1d3dbd01b6939082/native_bot/src/engine.rs#L118) 与 reset 固定 `default_tenhou()`，没有 setter；core `rule.rs:29`、`:44` 定义天凤／雀魂差异 | 核对半庄支持范围的相关规则。若 patch 为雀魂规则，标记本地改动；将“未改引擎模型／特征对照”与“规则修改的预期差异／雀魂资格验收”分开，不能要求修改规则后最终动作全相同 |
+| 尾随事件与旧合法集：`Engine::decide()` 的 `None` 不等于显式 Pass；上层 [`src/bot/native.rs:559`](https://github.com/shinkuan/Akagi/blob/1fb16453ae0b7b0a820510ea1d3dbd01b6939082/src/bot/native.rs#L559) 对最终 `reach_accepted` 及自家杠后待补牌专门 guard | 把必要 guard 纳入 wrapper，而不是只摘取 native_bot 库；自家弃牌缺动作失败。`None` 仅在当前授权局面可证明无合法响应时才可映射 `none`，显式 Pass 也须验证响应阶段；`reach_accepted`／待补牌依 guard 拒绝或等待，不复用旧建议 |
+| 解码内部过滤：[`action_codec.rs`](https://github.com/shinkuan/Akagi/blob/1fb16453ae0b7b0a820510ea1d3dbd01b6939082/native_bot/src/action_codec.rs) 按 action ID 去重普通／赤五且优先普通五，softmax 仅作用于去重合法集；reach 克隆状态再次前向取弃牌，缺配套则移除 reach | 对照并披露上游内部过滤，验证赤五实体与立直配套；桥接层校验失败时仍不得二次替换候选 |
 
-1. 校验请求版本、ID、座位、体积及事件白名单。
-2. `reset()` 清空牌局状态，`set_seat()` 设置本次座位，保留已加载权重。
-3. 通过显式转换表重放完整事件前缀，区分 envelope 元数据与必须应用的牌局事件；未知或无法表达的必要事件明确失败，不静默跳过。
-4. 只在最终授权局面执行 `decide()`；缺少可决策动作时返回结构化错误，不把它伪造为可跳过。
-5. 将 `BotAction` 映射为本项目动作合同，返回动作与可校验的身份信息。
+上述 core 路径以 `native_bot/Cargo.lock` 锁定的 riichienv-core **0.4.8** crate 源码为准（不是浮动 Git 分支）。修复或证明这些风险在本项目授权输入下可控，是阶段 A 的前置条件；未通过不能靠扩大输入授权或放松动作校验绕过。
 
-首期使用单 worker、串行请求，不做跨请求增量事件缓存或多模型服务池。权重常驻解决重复加载成本，重放完整事件前缀保留请求隔离；后续只有基准证明重放成为瓶颈时再考虑增量同步。
+动作仍经现有 EngineAgent 校验：赤五与摸切实体、副露来源、立直及同快照配套弃牌、响应阶段 Pass、荣和／自摸的当前资格与振听约束均须验证。未支持的九种九牌、拔北或其他动作明确拒绝，不在本项目桥接层另选候选替代。保留固定上游内部解码行为的对照记录，不能把上游内部已作的过滤声称为本项目可恢复的原始策略。
 
-### 2. Node 常驻 runner 与 HTTP 桥接
+首期仅交付最终动作，候选仍可为空。logit／softmax 不当作胜率、放铳率或神经网络“思考过程”。本项目实验支持范围固定为四人半庄并提前声明，不要求逐巡确认，这不表示 v3 权重只用半庄训练或无法支持东风。规则默认值、可配置能力与输入适配仍需核查；如半庄范围内有未解决差异，应解决或阻止该范围发布，不能把“能返回合法动作”视为完整雀魂兼容。
 
-新增 `agent/akagi-native-process.cjs` 实现现有 `infer(request, {signal})` 端口。继续复用 `createEngineServer({runner, token, identity})`；当前 `startEngineServer({config})` 只能创建单次进程 runner，需要新增可注入 runner 的启动路径，保持旧调用兼容。
+### 3.4 配置、身份与解释
 
-Node 与 Rust 之间新增私有、有版本的 JSONL envelope，包含 requestId、seat、events；不冒充通用 Bot 插件协议。每行一条响应，stdout 只用于协议，stderr 只记有界诊断。HTTP 外层维持原 `/analyze` 与 `{format, seat, events}` 请求，不为模型选择扩大游戏数据合同。
+只扩展 `extension/model-config-store.js` 的现有 profile 集合：读取合法旧 `mjaiEngineProfilesV1` 时也按 ID 增量补入缺失的 v3 preset，不能仅改默认数组而直接返回旧保存列表。新增项 `enabled:false`；已有用户不重写 activeId、当前选中项、三个模型的地址／Token、Chat 配置、custom 或 legacy，也不按端口猜测旧模型身份。`modelConfig` 继续是唯一运行时配置，`analysisProviders.mjai` 为兼容草稿。
 
-生命周期要求：
+用户已要求取消逐次规则确认，当前 v4 源码也已移除 `mortal-hanchan-manual-v1` 门槛；v3 不再复用或新增此声明机制。适用范围在模型设置与目录提前展示，保留四人局面、事件一致性、授权与动作合法性校验；不能声称已自动识别整场半庄。手动与既有自动调用路径分别验收，自动默认关闭，沿原有自家出牌触发、去重、频率、上限和过期取消保护，不扩大到自动鸣牌响应。不复用写死“v4”的用户提示来假称 v3 是 Mortal；来源／许可／构建详情折叠。
 
-- 服务启动完成模型校验和实际推理检查后才进入可用状态；check 成功必须实际执行模型，不能只检查文件存在。
-- 冷启动超时与单次推理超时分开；HTTP 分析仍服从现有 25 秒客户端预算。
-- 同时只处理一次请求，繁忙时沿用 429，不无限排队。
-- 请求取消、推理超时、损坏输出、协议错位或 worker 异常时终止并清理整棵进程树，清理结束后才释放槽位；不得向后续请求交付旧响应。
-- worker 重启后重新校验／预热，不在同次失败请求中自动重试；非就绪状态快速返回明确不可用错误。关闭服务时同时回收 worker。
-- 只监听 loopback，继续沿用 Bearer Token、来源校验、输入输出限额与脱敏错误；不记录手牌载荷和 Token。
+复用已有 `identity.model/runtime/checkpoint/sourceCommit` 字段，不新增历史 identity schema。`runtime` 使用唯一 runtime build ID，绑定二进制 SHA-256 及 wrapper／编码／协议版本；来源清单保存这些完整值，`checkpoint` 仍为权重 hash，`sourceCommit` 为固定上游 commit。runtime 二进制必须单独核验，不能仅复述源码 commit 就冒认运行身份。值来自经验证资产，不来自显示名。已知 v3 profile 在提交结果前核对期望身份，缺失／错配明确失败；custom 可如实保持身份未知。既有讨论持久字段能够保留该 build ID；仍须测试写入、读取、解释重试与刷新后原始模型身份不变，不能只检查当次 HTTP 响应。
 
-v2 继续使用 `mjai-process.cjs`，不顺便改造成常驻 Python。本期不在 v3 失败时自动改用 v2 或 LLM 决策；用户明确选择的模型必须与实际动作来源一致。
+内部工作流继续识别 `mortal-explain`，不为非 Mortal 引擎引入整套 `engine-explain` 存储迁移。只将适用于所有本地引擎的用户可见名称改成通用说法；官网 Mortal 报告、Mortal 特有文档及历史事实不跟随改名。动作先展示并保存，解释失败只重试解释，冻结追问不重跑引擎。
 
-### 3. 动作与规则映射
+### 3.5 拟议文件范围
 
-复用现有扩展合法性校验，Rust 的“合法”不直接替代本项目校验。
+| 文件／模块 | 拟议工作 |
+| --- | --- |
+| `engines/akagi-native/` | 审查旧草稿、固定上游与依赖锁；完成外部权重 worker／转换表；草稿不得直接当可发布组件 |
+| 新 `agent/akagi-v3-source.json`、`akagi-v3-local.cjs`、`akagi-native-process.cjs`（名称暂定） | 固定来源与兼容矩阵、独立 check／serve、runner 生命周期 |
+| `agent/mortal-catalog.json`、`model-installation.cjs`、`model-manager.cjs` | 第四目录项、driver 分流、按需 v3 runtime 与权重安装、单模型切换 |
+| 新小型 profile registry、`persistent-engine-process.cjs`（名称暂定） | 固定资产／runner／端口／策略声明；有限进程生命周期复用，现有 v4 全面回归 |
+| `extension/model-config-store.js`、`options.*`、`model-analysis-worker.js`、`analysis-panel.js`、身份校验模块 | preset 增量迁移、独立地址／Token、通用显示名与适用范围；复用已取消逐巡确认的手动／自动路径，验证默认关闭、触发边界与 v3 身份检查 |
+| `agent/model-manager-ui/*` | 复用简洁模型卡与真实状态，不增加第二个管理页 |
+| `scripts/package-public.py`、工具包打包／校验脚本及来源／许可证文档 | 精确扩展公开源码 allowlist；固定可下载 v3 runtime 包、对应源码／完整依赖许可，默认 bootstrap 不强带 v3 资产 |
+| 定向测试、真实验证脚本、公开验收记录 | 分开记录工程合同、真实模型、浏览器操作和未测范围 |
 
-- 普通弃牌、吃碰杠映射实体牌、来源座位及摸切；赤五／普通五重复副本须与重放后的自家手牌一致。
-- `Reach {pai}` 转换为 `action: reach` 与 `followUp: dahai`，其中摸切标志根据同一冻结局面验证；缺少可证明的配套弃牌时拒绝，不猜测。
-- `Hora {target}` 映射后仍需同一步雀魂实时和牌资格、和牌形及现有振听检查。引擎没有显式给出的和牌字段只能从本次已校验事件中补足。
-- `Pass` 仅在可证明的响应阶段映射为 `none`；自家弃牌阶段没有动作属于失败。
-- 九种九牌、本项目未支持的抢杠、立直后杠等动作明确报告不支持，不在桥接层选第二名替代。
-- 逐项检查 `start_kyoku` 点数／供托、立直成立、副露、补牌、摸切、赤五与未知对手暗牌的转换；有输入无法可靠表示时拒绝。
+公开源码包只对白名单新增经审查的 `engines/akagi-native/` 必要子树；排除 `target/`、`.exe`、`.dll`、模型权重和私有构建产物，不能为省事递归纳入整个草稿目录。固定上游完整源码 archive 自身含权重，不能原样放入“零模型”bootstrap／runtime 工件；应提供不含 weights 的对应推理源码、原始路径／commit／文件 hash 清单、锁、许可与补丁说明，单独按需下载权重。可执行二进制只在专用 runtime 工件分发。
 
-上游 `decide()` 自带若干解码策略，例如无法生成立直弃牌时可能移除立直首选。第一阶段应记录这类上游行为并验证与固定上游一致；“不替换动作”指我们不能在桥接或扩展校验失败后擅自换选，不宣称能恢复上游未输出的原始策略。
+## 4. 分阶段门槛与测试
 
-规则检查是实施前置门槛：核对上游默认天凤规则与现有支持的雀魂四麻场景。可配置时显式适配；不可配置或无法验证时限制支持范围并报告。不可仅凭模型返回动作就宣称完整雀魂兼容。
-
-首期只展示经校验的最终动作，继续使用 `candidates: []`。策略候选与概率展示单独后续实现，需要固定动作映射、逐项校验及明确标签；不得把 softmax、logit 或 Q 值显示为放铳率／和牌率。
-
-### 4. 模型身份与配置迁移
-
-复用结果已有 `identity.model/runtime/checkpoint/sourceCommit`；checkpoint 为权重 SHA-256，sourceCommit 为固定上游提交。桥接身份必须来自经校验的运行资产，不能由用户输入的显示名称冒充。
-
-建议新增纯模块 `extension/engine-profiles.js` 与存储 `mjaiEngineProfilesV1`：保存引擎配置列表、activeId、endpoint、Token、workflow、来源预期。沿用 `modelConfig` 作为唯一运行时配置，`analysisProviders.mjai` 继续作为兼容槽位。
-
-旧 mjai 配置完整迁移为“原本地引擎”，保留地址、Token、教学开关与启用状态；未知服务不得猜成 v2。Chat 命名配置和独立解释服务不改写。新增预设与手动切换仍需保存，切换不自动开启分析，并取消旧配置的在途动作／解释。
-
-已知 v2／v3 预设在结果提交前核对期望模型与来源清单；缺少身份或身份不符时不把结果保存为所选模型。自定义服务可保持身份未知并如实展示。来源为桥接声明与本机文件验证，不是远程认证。
-
-### 5. 教学与历史兼容
-
-界面及新记录采用通用工作流 `engine-explain`，内部统一判断两种值，继续识别历史 `mortal-explain`。读取旧记录时不改其模型身份或动作；新写配置使用通用值。同步覆盖设置校验、后台 worker、讨论与会话存储、解释重试、面板展示、关闭清除流程，避免只改设置页造成其他入口失效。
-
-动作先校验、展示并保存，LLM 随后解释；解释失败只重试解释，冻结追问不调用模型引擎。历史记录保存本次动作、引擎身份及解释配置引用；切换 v2／v3 后，旧讨论仍标识原动作来源，不重新解释为新模型建议。官网 Mortal 报告导入保持原来的独立含义，不改名为 Akagi 报告。
-
-## 下载、构建与分发
-
-新增 v3 来源清单，固定源码提交、必要文件、权重 SHA-256、编码布局版本、协议版本、运行平台和许可证；下载后校验再原子安装，失败不覆盖现有可用资产。哈希需实施时从固定来源实际取得并复核，本方案不填写未测值。
-
-提供独立 Windows x64 本地工具包，包含 Node 启动脚本、预编译 Rust worker、来源清单及许可；沿用现有 Node.js 22.19+ 要求。权重由显式 setup 安装，扩展 ZIP 不携带原生程序／权重。核对固定上游 `include_bytes!` 行为，构建时改为明确加载外部固定权重，移除默认嵌入入口并记录改动，使工具包与资产分离。
-
-Rust、candle、riichienv-core 等构建依赖由维护者／CI 准备，普通用户不在本机编译。发布时同时校验工具二进制与权重；分别固定两者身份，避免“旧程序 + 新权重”静默混用。安装检查同时验证加载、真实推理和版本兼容。
-
-保留 v3 的 Apache-2.0 LICENSE、适用 NOTICE、组件来源及修改说明；项目自有代码继续使用现有 MIT。v2 独立下载及许可流程不变，不把 v2 资产的条款改成 Apache-2.0。所依赖组件和权重目录是否存在额外声明，在首次固定资产时一并核对并记录；采用已有权重，不重新抓取训练牌谱。
-
-## 实施顺序与交付物
-
-| 阶段 | 工作与主要文件 | 完成门槛 |
+| 阶段 | 交付 | 必须通过才能进入下一阶段 |
 | --- | --- | --- |
-| 1. 独立可行性验证 | 固定来源清单；`engines/akagi-native/`；事件转换表及规则差异记录 | 四座位真实权重推理；关键事件转换覆盖；与固定上游同输入同动作；确认规则／暗牌重放可用性 |
-| 2. 本机服务 | `agent/akagi-v3-local.cjs`、`agent/akagi-native-process.cjs`；兼容扩展 `engine-server.cjs`；新增 npm 命令 | 模型只加载一次；重复请求、历史分支及取消／崩溃恢复隔离；HTTP → EngineAgent 真实动作通过 |
-| 3. 配置与教学 | engine profiles、config store、options、后台 worker、结果身份、讨论历史和解释工作流 | v2／v3 可保存切换；旧配置和历史无损；模型不误标；教学与追问复用 |
-| 4. 验收与发布 | 定向测试、Rust 构建、真实链路报告、独立工具包、来源和使用文档 | 满足下列验收门槛；v2 回归通过；发布限定兼容范围 |
+| A. 来源与可行性 | 将已核 commit／已有锁／四麻权重 hash 落入机器可读清单，完成第 3.3 节阶段 0 风险核验与适配 | 实际下载并复核；移除默认嵌入；编译完成；外部权重加载；四座位隐藏填充不变性、振听／资格、事件与 guard、规则差异对照通过；未支持规则明确拒绝 |
+| B. 独立运行 | Rust worker、Node runner、CLI check／serve | 真正一次加载；严格重放；动作合同；隔离、取消、超时、崩溃、重启预热和进程回收通过 |
+| C. 管理与扩展 | 第四项、按需 runtime、preset／Token、手动 gate、解释复用 | 零下载启动；v3 安装不准备 Python／其他模型；四模型保留切换；删除权重留 runtime；配置与身份不串用；现有三模型回归 |
+| D. 实验可选发布 | 固定可下载 runtime 工件、来源／许可、限定说明与验收报告 | 下列实验门槛全部通过；未完成真实整场／干净 VM 时明确实验状态，不首推或默认启用 |
+| E. 稳定推荐评估 | 真实完整对局、干净 Windows VM、质量与运维证据 | 完整采集／规则／重连覆盖、安装卸载／恢复、可复核同点质量与资源表现满足标准，才讨论是否推荐 |
 
-阶段 1 若发现规则或事件无法可靠重放，应先解决或缩小声明范围，再进入发布；不通过改动动作校验把问题隐藏掉。
+**实验可选发布门槛**：
 
-## 验收与比较方法
+- 真实 v3 权重 → Rust → HTTP → EngineAgent → 扩展展示完整链路；四座位、赤五、立直配套弃牌、吃碰杠／补牌、响应跳过及资格受限的和牌覆盖，未支持项按合同拒绝。真实推理与 LLM mock 解释分开报告。
+- 与固定未改上游对照模型数值、事件到特征、合法动作与最终动作；不能用“数值接近”替代事件语义一致性。若有雀魂规则补丁，独立记录预期动作差异及资格验收，不把合理规则差异算作模型数值不一致，也不掩盖未知差异。
+- 沿 v4 本机验收口径，使用 100 个或更多预先固定的不同人工请求，初步工程目标为热 **HTTP→EngineAgent 端到端 p95≤2 秒**，不是已测承诺或牌力结论。记录硬件、权重／二进制哈希、事件长度、p50／p95、超时、内存与合法交付率；冷资产全校验和模型加载另报，但请求仍须满足现有 20 秒服务／25 秒客户端预算。未达目标时报告瓶颈并解决，或明确缩小／调整设计再接受；不得事后改样本或排除重放耗时宣称通过，也不能以“只支持手动”为由免除延迟门槛。
+- A→B→A、换座位／局面／游标、取消后新请求、崩溃重启均不串局；worker ready 前不接请求，端口占用不留孤儿进程，管理器关闭回收子树。
+- 真实浏览器完成零模型、安装、失败、启动、v3↔其余模型切换、停止、删除和 runtime 保留；管理／分析 Token 隔离，默认无原生自启。安装取消／哈希失败不覆盖可用资产。
+- 在现有验证主机的全新管理目录完成从正式 bootstrap 及固定 v3 工件的安装、校验、推理；核对干净提交构建、下载后 hash、依赖／许可／清单及扩展资源闭包。若在线下载未通，不能把离线复制当在线已通过；只能说明实际提供并验收过的离线工件入口，不编造 UI 导入或离线安装能力。
+- 执行 v3 Rust 定向测试、相关 Node 测试／真实验证脚本，以及 `npm run check`、`npm test`、`npm run build`；v2、VoidShine、Yuchen 和独立 Collector 回归通过。
 
-### 必须通过的工程验收
+**稳定推荐额外门槛**：在干净 Windows x64 VM 中无需预装 Python／Rust，按用户路径安装、运行、切换和删除；完成支持规则下从开局到整场结束的真实雀魂采集与关键动作、断线／缺口恢复验证，并以多个授权牌谱的同点评价检查解释与建议质量。未完成可继续作为明确受限的实验选项，不能写为稳定首选或实战认证。
 
-- **v2 兼容**：原 setup/check/serve 命令、固定文件校验、Python 推理、动作、取消与已有教学功能继续可用。
-- **v3 正确接入**：四座位、弃牌、赤五、立直配套弃牌、响应跳过、吃碰杠及补牌、鸣牌后弃牌、受资格约束的荣和／自摸；不支持情形按合同拒绝。
-- **编码一致性**：固定上游与 wrapper 对同一事件流产生一致结果；保留上游数值 parity 检查，并增加实际事件到特征的对照，数值接近不替代特征语义检查。
-- **隔离与恢复**：A → B → A 请求、换座位、同局不同游标、不同标签页／对局、取消后新请求与 worker 崩溃重启；同一冻结输入不受前序请求污染。
-- **配置与历史**：旧 mjai／Chat 配置迁移、两套 Token、模型身份错配、撤权、切换取消、刷新恢复；旧 Mortal 讨论与新 v3 讨论各自保持原身份。
-- **完整链路**：真实 v3 权重 → Rust → 本机 HTTP → 扩展动作校验 → 展示。LLM 部分先用 mock 验证合同，真实模型解释质量单独报告，不能混称已验证。
-- **真实游戏兼容**：在实际支持的雀魂四麻环境完成从开局到整盘结束的连续采集，检查关键阶段及采集缺口；人工局面与离线牌谱不能替代该项。
-- **分发**：干净 Windows 环境无需 Python／Rust，可安装 v3 工具和权重并推理；扩展及独立获取器资源边界检查通过。
+## 5. 边界与待验证项
 
-实施时运行相关 Node 定向测试、Rust 测试及真实模型验收脚本，再完成 `npm run check`、`npm test`、`npm run build`。发布工具包另验证锁定构建、资产哈希和干净环境安装。
+本轮只修订文档；不新增可用 profile、不构建／下载／发布 v3，不修改现有三模型行为。实施需要下一阶段按本方案逐门槛推进，不以“草稿目录存在”认定进度。
 
-### 延迟与模型质量分开评估
+首期范围固定为 Windows x64 CPU、四人半庄，提前声明适用范围，不要求逐巡确认；手动及用户主动开启的既有自动分析路径须通过验收，自动默认关闭。这是本项目的实验支持范围，不据此推断上游训练范围或宣称它不支持东风。东风、三麻、GPU、策略候选、AutoPlay、Tauri 集成、CDP／MITM、远程推理、多模型并行和 v2 常驻化均不包含，其他模式须有独立证据再扩展。模型性能或参考首选一致率不等于牌力、胜率、正确率；不因版本号更新就认为优于 Mortal／v2，也不宣称官网同款。
 
-在同一机器、相同冻结输入集上，分别测 v2 与 v3 的冷启动、热请求、HTTP → 校验完成端到端 p50/p95、超时率、内存及合法动作交付率。记录样本数、硬件、事件长度、模型哈希和进程重启次数。
+权重 hash 与固定 raw URL 已核；尚未完成的是该 URL 的实际下载安装验收、runtime 工件 URL／二进制 hash、最低构建工具链与平台依赖、规则适配和真实推理。它们继续标“未测／未就绪”。来源核查可以证明代码和元数据，不能代替构建、模型加载或运行验收。现有 v4 的人工 100 点／关键动作及历史 LLM 45 点评测不转作 v3 证据。
 
-v3 暂定工程目标：100 个热请求，端到端 p95 ≤ 1 秒、无串局和进程残留；该目标不是实测承诺。如未达标，报告具体瓶颈，不把重复加载或重放耗时排除后宣传实时延迟。
-
-用多个授权牌谱中预先冻结的相同决策点比较动作差异与专家／可靠参考评价；覆盖攻守、鸣牌、点棒状况和牌效率。参考首选一致率、动作合法率、解释质量分别报告，均不等于胜率。上游行为模仿验证集准确率不能当作麻将实战正确率。是否推荐 v3 作为本地首选依据安装便利性、稳定性、延迟和质量证据，不按版本号推断牌力更强。
-
-## 后续可独立推进
-
-三麻需要新的输入／动作合同和拔北、点数、赤牌及资格验证；v2 常驻化需要独立进程生命周期验收；v3 策略候选展示需要新候选合同。这些工作不作为本期首发的隐式依赖。
+参阅：[当前模型管理](MODEL_MANAGER.md)、[v0.14.0 v4 已验范围](MORTAL_V4_VALIDATION.md)、[mjai 与解释合同](MJAI.md)、[第三方参考索引](REFERENCES.md)。

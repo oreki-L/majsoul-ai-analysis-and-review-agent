@@ -1,12 +1,12 @@
 # 参考项目与已确认边界
 
-参考关系始记于 2026-10-26；当前源码版本于 2026-11-04 同步为 **v0.14.0**，历史版本范围保留。本文件集中保留用户提及的参考对象、后续补充研究与项目取舍，供其他会话接续；它不是第三方背书、兼容认证或模型能力排名。下列“已接入”仅指明确描述的范围，不表示所有上游版本、模型和线上服务均可用。
+参考关系始记于 2026-10-26；当前源码版本于 2026-11-04 同步为 **v0.15.0**，历史版本范围保留。本文件集中保留用户提及的参考对象、后续补充研究与项目取舍，供其他会话接续；它不是第三方背书、兼容认证或模型能力排名。下列“已接入”仅指明确描述的范围，不表示所有上游版本、模型和线上服务均可用。
 
 ## 产品方向与共同边界
 
 项目以**纯 LLM 运行时和可追问的实时建议**为重心，复盘为辅助，独立获取器保持独立。这里的“纯 LLM”不排斥本地向听、进张与危险证据工具，但不要求 Mortal 等专业引擎才能运行。
 
-Pi 是当前实际运行依赖；DeepSeek Harness 是设计参考。mjai 专业引擎和 NAGA 均为默认关闭的可选能力。v0.13.0 引入的 `mortal-explain` 工作流沿用独立本地 mjai 和 Chat 配置，先校验／保存引擎动作，再通过 Pi 自动解释；动作与解释合同分离，冻结追问及解释重试无需切换后端。v0.14.0 新增默认关闭的三模型按需本机管理：保留 Akagi v2 弱示例，固定 VoidShine298k 与 Yuchen582500 两个社区 v4 已通过真实权重、人工HTTP与官方动作对照；两个v4共享已验环境，保守限制逐次手动四人半庄。管理服务启动不下载或推理，详见 [模型管理](MODEL_MANAGER.md) 与 [当前验收](MORTAL_V4_VALIDATION.md)。默认bootstrap实测官方Python及全部固定wheel下载与环境安装成功，随后固定HF权重URL在本机连接失败，在线完整安装链路未通；离线成功不替代在线结果。解释HTTP仍为mock，真实游戏整场、牌力与付费教学质量未验证。官网入口及报告导入继续按版本限定，历史工作流范围见 [v0.13.0验收](MORTAL_WORKFLOW_VALIDATION.md)。
+Pi 是当前实际运行依赖；DeepSeek Harness 是设计参考。mjai 专业引擎和 NAGA 均为默认关闭的可选能力。v0.13.0 引入的 `mortal-explain` 工作流沿用独立本地 mjai 和 Chat 配置，先校验／保存引擎动作，再通过 Pi 自动解释；动作与解释合同分离，冻结追问及解释重试无需切换后端。v0.14.0 新增默认关闭的三模型按需本机管理：保留 Akagi v2 弱示例，固定 VoidShine298k 与 Yuchen582500 两个社区 v4 已通过真实权重、人工HTTP与官方动作对照；两个v4共享已验环境，限定四人半庄；v0.14.0发布包逐次手动确认，当前源码按用户要求改为提前声明范围、取消逐次勾选，自动仍须主动开启。管理服务启动不下载或推理，详见 [模型管理](MODEL_MANAGER.md) 与 [当前验收](MORTAL_V4_VALIDATION.md)。默认bootstrap实测官方Python及全部固定wheel下载与环境安装成功，随后固定HF权重URL在本机连接失败，在线完整安装链路未通；离线成功不替代在线结果。解释HTTP仍为mock，真实游戏整场、牌力与付费教学质量未验证。官网入口及报告导入继续按版本限定，历史工作流范围见 [v0.13.0验收](MORTAL_WORKFLOW_VALIDATION.md)。
 
 不能把框架开源等同于权重、在线 API 或服务额度开放；不能把本地人工局面验证等同于真实整场协议兼容或实战牌力；不能把与线上参考首选一致称为建议正确率。
 
@@ -74,8 +74,10 @@ Pi 是当前实际运行依赖；DeepSeek Harness 是设计参考。mjai 专业�
 
 2026-11-04 补充：用户提供社区模型 [VoidShine/mortal-298k](https://huggingface.co/VoidShine/mortal-298k)，已核对固定 revision `dbbea7e3d34f99ec43fc4834ab7f2aaaed70b6ee` 的 model card、配置、许可和文件元数据：公开的四麻半庄 checkpoint，配置 Mortal version=4、192通道／40 blocks，模型仓库声明 AGPL-3.0。作者自报相似度／MAKA 表现且明确不推荐排位，本项目已完成固定真实权重严格加载、四座位和100个合成HTTP→Agent请求、19组关键／官方动作对照；完整实战与牌力未测，见 [验收记录](MORTAL_V4_VALIDATION.md)。实现方案及已完成范围见 [VoidShine Mortal v4 接入方案](VOIDSHINE_MORTAL_V4_IMPLEMENTATION_PLAN.md)，保留 v2，模型及推理进程均默认关闭。它不是已取得官网 Mortal 4.1 权重的证明。
 
-同日新增 [Yuchen1457/mortal-582500](https://huggingface.co/Yuchen1457/mortal-582500)，固定 revision `7386c9f5c751a3ea75efea99737cef5a5ef950f1`。本地校验130786031字节及SHA256 `738e0d6e3c0ce9671629554ad39abd147d2ffbac676e80b194c83f2acc0fea20`，受限加载核对v4／192／40、steps582500，与298k同runtime严格推理、四座位、100个合成HTTP→Agent和19关键／官方对照通过；保守限制逐次手动四人半庄。仓库声明AGPL-3.0/upstream AGPL-3.0-or-later，作者历史比较不当作本项目牌力证据，详见 [验收记录](MORTAL_V4_VALIDATION.md)。
+同日新增 [Yuchen1457/mortal-582500](https://huggingface.co/Yuchen1457/mortal-582500)，固定 revision `7386c9f5c751a3ea75efea99737cef5a5ef950f1`。本地校验130786031字节及SHA256 `738e0d6e3c0ce9671629554ad39abd147d2ffbac676e80b194c83f2acc0fea20`，受限加载核对v4／192／40、steps582500，与298k同runtime严格推理、四座位、100个合成HTTP→Agent和19关键／官方对照通过；限定四人半庄（v0.14.0发布包仍需逐次手动确认；当前源码已取消逐次确认）。仓库声明AGPL-3.0/upstream AGPL-3.0-or-later，作者历史比较不当作本项目牌力证据，详见 [验收记录](MORTAL_V4_VALIDATION.md)。
 
-同日已研究 Akagi v3 固定提交 `1fb16453ae0b7b0a820510ea1d3dbd01b6939082` 的 `native_bot` 源码、训练说明及 Apache-2.0 LICENSE／NOTICE。其内置行为克隆模型与上述 v2 弱 Mortal 示例不同，尚未接入或完成本项目真实推理验证。[Akagi v3 模型接入方案](AKAGI_V3_MODEL_IMPLEMENTATION_PLAN.md) 已暂缓，不改变本表现有已测范围。
+同日已研究 Akagi v3 固定提交 `1fb16453ae0b7b0a820510ea1d3dbd01b6939082` 的 `native_bot` 源码、已有依赖锁、训练说明及 Apache-2.0 LICENSE／NOTICE；核对四麻 `akagi4p.safetensors` 为 2,641,816 字节，SHA-256 `33c20aaba3f349ef689df73b726224804dc4aaff99922093d8f30cc38d709a1d`，本轮未重新下载、编译或真实推理。其行为克隆模型与 v2 弱 Mortal 不同。用户重新要求将其作为第四个可选项，[Akagi v3 模型接入方案](AKAGI_V3_MODEL_IMPLEMENTATION_PLAN.md) 已按 v0.14.0 重审，记录未知牌占位／隐藏状态不变性、振听、规则及尾随事件 guard 的前置门槛；仅文档修订，尚未接入。v3 权重与专用 native runtime 拟按需准备，不要求其他三模型用户下载，不复用 Mortal Python；默认嵌入权重和含 weights 的上游源码 archive 也须从零模型分发中排除。本项目首期实验范围定为四人半庄，按用户新要求提前声明范围、不逐巡确认，手动与既有自动路径须验收，不据此推断上游训练范围，不改变现有已测范围。
 
 本文件只保存参考关系与已确认边界，不替代 [第三方公告](../THIRD_PARTY_NOTICES.md)、[许可证来源](../licenses/SOURCES.md)、[验证记录](../VALIDATION.md)，也不替代 [mjai 接入](MJAI.md)、[NAGA 接入](NAGA-INTEGRATION.md) 与 [Pi 运行时说明](pi-runtime.md)。涉及“当前可用”“兼容”“已测”时，以这些详细记录所限定的版本与条件为准。待定位服务和未确认事项在取得可靠来源前继续保留为未知。
+
+当前源码另按用户要求将本地模型管理改为可选便携包：固定官方 Node.js v22.19.0 Windows x64 随包提供，模型权重和 Python／PyTorch 仍按需准备；普通扩展不下载本机运行时。官方归档 SHA-256 已与 Node SHASUMS 核对，固定来源见 [Node 锁](../scripts/node-runtime-lock.json)。配对替代普通用户复制 Token，管理页批准后只交付所选模型的分析配置，分析保持关闭。便携流程从 v0.15.0 提供，旧 v0.14.0 的安装前提保持原记录，见 [模型管理](MODEL_MANAGER.md)。

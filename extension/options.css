@@ -17,6 +17,10 @@ input[readonly]{background:#f5f7f9;color:#63717c}
 .engine-setup ol{margin:0 0 10px;padding-left:20px;font-size:13px}
 .engine-setup li+li{margin-top:6px}
 .engine-setup a{color:#214764;text-underline-offset:3px}
+.engine-setup .actions{margin-top:12px}
+#connectRuntime{background:#214764;border-color:#214764;color:#fff}
+#manualConnection{margin-top:20px}
+#manualConnectionSummary{cursor:pointer;color:#63717c}
 .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:24px}
 button{font:inherit;min-height:38px;padding:8px 14px;border:1px solid #cbd3da;border-radius:6px;background:#fff;color:inherit;cursor:pointer}
 button:hover{background:#f5f7f9}

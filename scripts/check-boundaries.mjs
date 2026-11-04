@@ -3,6 +3,7 @@ import { posix, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 export const providers = {
+  MJLocalRuntimePairing: 'local-runtime-pairing.js',
   __MJ_OBSERVER_PROTOCOL_V1__: 'protocol.js', __MJ_OBSERVER_CAPTURE_V1__: 'capture.js',
   __MJ_OBSERVER_STATE_V1__: 'state.js', MJHistory: 'history.js', MJMahjongAnalysis: 'mahjong-analysis.js',
   MJSnapshotContract: 'contracts/snapshot.js', MJCollectorSnapshot: 'collector/snapshot-adapter.js',

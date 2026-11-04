@@ -18,6 +18,8 @@ Pi 的 `typebox/compile` 在构建时以同版本 TypeBox `Value.Check` / `Value
 
 ### 独立可选本地模型工具（不随扩展ZIP捆绑）
 
+当前源码的便携运行包附带官方 Node.js v22.19.0 Windows x64 的 `node.exe`、完整 `runtime/LICENSE`（含依赖公告）和官方校验表。固定下载来源／SHA 见 [Node 运行时锁](scripts/node-runtime-lock.json)，许可证来源见 [licenses/SOURCES.md](licenses/SOURCES.md)。此运行时仅在用户另行下载的可选包中，不进入 Agent／Collector 扩展 ZIP；便携流程从 v0.15.0 提供。
+
 社区v4工具固定使用 [Equim-chan/Mortal](https://github.com/Equim-chan/Mortal/tree/0cff2b52982be5b1163aa9a62fb01f03ce91e0d2) 的网络／引擎及本地编译libriichi，AGPL-3.0-or-later；工具包保留完整固定源码、Cargo.lock、对应vendored crate源码与构建资料。原生库涉及的Rust标准库MIT／Apache-2.0和GCC运行库例外许可公告保存在工具包 `sources/toolchain-licenses/`。`model.py`／`engine.py`未修改；项目独立wrapper与管理代码不调用训练／上传／GRP。进程分离不豁免适用许可义务。
 
 [VoidShine/mortal-298k](https://huggingface.co/VoidShine/mortal-298k/tree/dbbea7e3d34f99ec43fc4834ab7f2aaaed70b6ee) 声明AGPL-3.0；[Yuchen1457/mortal-582500](https://huggingface.co/Yuchen1457/mortal-582500/tree/7386c9f5c751a3ea75efea99737cef5a5ef950f1) 声明AGPL-3.0／upstream AGPL-3.0-or-later。模型各自许可证、model card和元数据随显式安装保存，不下载训练牌谱；发布者的牌力或授权说明作为来源声明保留，不视为本项目认证。

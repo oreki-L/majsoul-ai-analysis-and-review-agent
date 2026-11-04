@@ -42,7 +42,7 @@ A→B→A、四座位、不同游标前缀保持同一PID且A结果相同。主�
 
 显式 `scripts/validate-mortal-lifecycle.cjs` 另用真实模型1ms请求预算触发超时、重启后立即取消、再次重启并close；逐个检查旧PID不存在。CLI带换行Token及端口已占用的两种启动失败均自行退出且无worker遗留，结果保存在 `lifecycle-validation.json`。
 
-v2主代理独立 `engine:akagi check` 通过，torch2.7.0+cpu／numpy1.26.2，耗时6266ms，弃C；旧命令、文件、配置和历史保留。半庄声明在UI与后台均有检查；无法可靠绑定整场身份，两个v4暂仅逐次手动，刷新不恢复声明。known profile的model／checkpoint／revision／sourceCommit核对发生于保存动作和解释之前，runtime/native由ready固定校验。原未知本地服务迁移为legacy，不按端口猜v2；模型切换关闭、Token独立、disable/clear覆盖全部profile。
+v2主代理独立 `engine:akagi check` 通过，torch2.7.0+cpu／numpy1.26.2，耗时6266ms，弃C；旧命令、文件、配置和历史保留。v0.14.0发布时半庄声明在UI与后台均有检查，两个v4仅逐次手动，刷新不恢复声明。当前源码已按用户要求移除此交互，改为提前说明四人半庄范围；新行为验收见 [v0.15.0 记录](../VALIDATION.md#0150-社区-v4-取消逐次确认)。known profile的model／checkpoint／revision／sourceCommit核对发生于保存动作和解释之前，runtime/native由ready固定校验。原未知本地服务迁移为legacy，不按端口猜v2；模型切换关闭、Token独立、disable/clear覆盖全部profile。
 
 管理器真实离线298k安装→启动HTTP→停止→再启动→删除通过，初始零下载／零推理，两个PID退出，模型删除而runtime保留。安装并不启动；模型目录与安装状态独立。管理页token只在内存，分析token独立；无Native Messaging／自启。后续管理器共享与Yuchen验收以管理测试记录为准。
 

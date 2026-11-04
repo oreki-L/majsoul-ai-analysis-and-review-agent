@@ -91,10 +91,6 @@
           if (!payload || payload.length > 60000 || message.snapshot?.format !== 'mj-analysis-v1') throw new Error('局面数据无效或过大。');
           if (engine && (typeof c.apiKey !== 'string' || !c.apiKey.trim() || c.apiKey.length > 4096)) throw new Error('请配置本地引擎 Token。');
           if (engine && task !== 'combined') throw new Error('专业引擎仅支持综合决策，请选择综合攻守。');
-          if (engine && ['voidshine-298k', 'yuchen-582500'].includes(c.engineProfile)) {
-            const binding = JSON.stringify([message.snapshot, message.engineRequest]);
-            if (message.lane !== 'manual-review' || message.hanchanConfirmation?.format !== 'mortal-hanchan-manual-v1' || message.hanchanConfirmation.binding !== binding) throw new Error('社区 Mortal v4 仅支持四人半庄：请为当前局面逐次手动确认；自动分析暂不可用。');
-          }
           const latest = (await storage.get('modelConfig')).modelConfig;
           checkCancelled();
           if (JSON.stringify(latest) !== JSON.stringify(sourceConfig)) throw new Error('模型设置已变化，请重新发起分析。');
@@ -107,7 +103,7 @@
               infer: async (request, { signal }) => {
                 const response = await fetchModel(url.href, { method: 'POST', signal, credentials: 'omit', redirect: 'error',
                   headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + c.apiKey }, body: JSON.stringify(request) });
-                if (!response.ok) throw new Error(response.status === 422 && ['voidshine-298k','yuchen-582500'].includes(c.engineProfile) ? '当前事件以立直成立或宝牌公告结尾，固定 Mortal Bot 暂不支持此时决策；请等待下一可验证动作后重新确认并手动分析。' : '本地引擎返回 HTTP ' + response.status + '，请检查服务、Token 与支持的局面。');
+                if (!response.ok) throw new Error(response.status === 422 && ['voidshine-298k','yuchen-582500'].includes(c.engineProfile) ? '当前事件以立直成立或宝牌公告结尾，固定 Mortal Bot 暂不支持此时决策；请等待下一可验证动作后再分析。' : '本地引擎返回 HTTP ' + response.status + '，请检查服务、Token 与支持的局面。');
                 return readJson(response);
               } });
             engineStatus = 'completed';

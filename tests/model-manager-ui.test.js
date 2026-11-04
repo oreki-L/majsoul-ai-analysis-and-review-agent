@@ -6,14 +6,14 @@ const vm = require('node:vm');
 const UI = require('../agent/model-manager-ui/app.js');
 const source = fs.readFileSync(require.resolve('../agent/model-manager-ui/app.js'), 'utf8');
 const blank = () => ({ format: 'local-model-manager-v1', models: [], operation: null, bridge: { state: 'stopped', profile: null, url: null, token: null } });
-function page(respond = () => ({ ok: true, json: async () => blank() })) {
-  const nodes = new Map(), requests = [], timers = [];
+function page(respond = () => ({ ok: true, json: async () => blank() }), location) {
+  const nodes = new Map(), requests = [], timers = [], history = [];
   function node(tag = 'div') { return { tag, value: '', hidden: false, disabled: false, children: [], className: '', textContent: '', classList: { toggle() {} }, append(...items) { this.children.push(...items); }, replaceChildren(...items) { this.children = items; }, setAttribute() {}, addEventListener(name, fn) { this['on' + name] = fn; } }; }
-  for (const id of ['message', 'workspace', 'connection', 'disconnect', 'runningState', 'stop', 'analysisConfig', 'analysisEndpoint', 'analysisToken', 'dataDirectory', 'directorySummary', 'models', 'runtimes', 'refresh', 'connectForm', 'connect', 'managementToken', 'copyEndpoint', 'copyToken']) nodes.set(id, node());
+  for (const id of ['access', 'pairing', 'message', 'workspace', 'connection', 'disconnect', 'runningState', 'stop', 'analysisConfig', 'analysisEndpoint', 'analysisToken', 'dataDirectory', 'directorySummary', 'models', 'runtimes', 'refresh', 'connectForm', 'connect', 'managementToken', 'copyEndpoint', 'copyToken']) nodes.set(id, node());
   nodes.get('workspace').hidden = true;
-  const context = vm.createContext({ URL, document: { getElementById: id => nodes.get(id), createElement: node }, setTimeout(fn) { timers.push(fn); return timers.length; }, clearTimeout() {}, addEventListener() {}, fetch: async (url, options) => { requests.push({ url, options }); return respond(url, options); }, navigator: { clipboard: { writeText: async () => {} } } });
+  const context = vm.createContext({ URL, URLSearchParams, ...(location ? { location, history: { replaceState(...args) { history.push(args); } } } : {}), document: { getElementById: id => nodes.get(id), createElement: node }, setTimeout(fn) { timers.push(fn); return timers.length; }, clearTimeout() {}, addEventListener() {}, fetch: async (url, options) => { requests.push({ url, options }); return respond(url, options); }, navigator: { clipboard: { writeText: async () => {} } } });
   vm.runInContext(source, context);
-  return { requests, nodes, timers, el: id => nodes.get(id), async connect(token) { nodes.get('managementToken').value = token; nodes.get('connectForm').onsubmit({ preventDefault() {} }); await new Promise(resolve => setImmediate(resolve)); } };
+  return { requests, nodes, timers, history, el: id => nodes.get(id), async connect(token) { nodes.get('managementToken').value = token; nodes.get('connectForm').onsubmit({ preventDefault() {} }); await new Promise(resolve => setImmediate(resolve)); } };
 }
 test('zero models and pending entries are valid; no model can start without verified installation', () => {
   assert.deepEqual(UI.actions({ id: 'pending', installable: false, installed: false }, blank()), { install: false, remove: false, start: false, running: false });
@@ -52,4 +52,29 @@ test('failed API operation reports failure without changing local installation s
 test('untrusted catalog links never use script or plain HTTP URLs', () => {
   assert.equal(UI.safeLink('javascript:alert(1)'), null); assert.equal(UI.safeLink('http://example.com'), null);
   assert.equal(UI.safeLink('https://huggingface.co/a/b'), 'https://huggingface.co/a/b'); assert.equal(UI.size(null), '大小待确认');
+});
+
+
+test('launch clears fragment, exchanges one-use ticket and uses same-origin cookie for status and refresh', async () => {
+  const p = page((url, options) => ({ ok: true, json: async () => url === '/session' ? { ok: true } : blank() }), { hash: '#ticket=' + 'a'.repeat(64), pathname: '/' });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(p.history[0][2], '/');
+  assert.deepEqual(p.requests.map(r => r.url), ['/session', '/api/status']);
+  assert.equal(p.requests[0].options.headers['X-Manager-Request'], '1');
+  assert.equal(p.requests[0].options.credentials, 'same-origin');
+  assert.equal(p.requests[1].options.headers.Authorization, undefined);
+  assert.equal(p.el('workspace').hidden, false);
+  await p.el('refresh').onclick();
+  assert.equal(p.requests.at(-1).url, '/api/status');
+  const reload = page(undefined, { hash: '', pathname: '/' });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(reload.requests.map(r => r.url), ['/api/status']);
+  assert.equal(reload.requests[0].options.credentials, 'same-origin');
+});
+
+test('expired launch ticket cannot query or mutate models and gives a restart instruction', async () => {
+  const p = page(() => ({ ok: false, json: async () => ({ error: 'TICKET_EXPIRED' }) }), { hash: '#ticket=' + 'b'.repeat(64), pathname: '/' });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(p.requests.map(r => r.url), ['/session']);
+  assert.equal(p.el('workspace').hidden, true); assert.match(p.el('message').textContent, /过期|重新打开/);
 });

@@ -1,6 +1,6 @@
 # VoidShine Mortal v4 接入方案：常驻推理，保留 v2
 
-日期：2026-11-04。状态：**实验实现与真实权重验收已完成，未发布；两个社区 v4 已严格加载、通过四座位／HTTP→Agent／关键动作与官方对照，实战与牌力仍未测**。执行详情见 [验收记录](MORTAL_V4_VALIDATION.md) 与 [模型管理](MODEL_MANAGER.md)。
+日期：2026-11-04。状态：**实验实现已随 v0.14.0 提供，v0.15.0 改用可选便携运行包；两个社区 v4 已严格加载、通过四座位／HTTP→Agent／关键动作与官方对照，实战与牌力仍未测**。执行详情见 [验收记录](MORTAL_V4_VALIDATION.md) 与 [模型管理](MODEL_MANAGER.md)。
 
 本方案取代当前优先实施的 [Akagi v3 模型方案](AKAGI_V3_MODEL_IMPLEMENTATION_PLAN.md)。Akagi v3 暂缓，既有 v2 弱示例继续保留。此前 v3 准备工作仅产生未完成的源码与开发工具，不作为本期运行依赖或发布资产。
 

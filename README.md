@@ -1,78 +1,101 @@
 # Majsoul Agent
 
-**看懂每一次取舍，围绕同一个决策继续追问。**
+**让麻将建议变成可以追问的学习过程。**
 
-当前版本：**0.14.0**
+当前发布版本：**0.15.0**
 
 [简体中文](README.md) | [English](README.en.md) | [日本語](README.ja.md)
 
-面向雀魂网页版的 AI 分析助手。接入你自己的 LLM API，查看建议、候选与攻守依据，再问“为什么不打另一张？”“这巡该不该降速？”。每个决策保留冻结局面与独立讨论；新建议到来后，仍能回到原来的问题继续聊。
+雀魂网页版 AI 分析助手。可以直接用你自己的 LLM 分析局面，也可以让本地 Mortal 引擎先给出动作，再由 LLM 讲解。围绕“为什么打这张？”“换一张会损失什么？”继续追问，每个决策都有自己的局面和讨论。
 
-[**下载 v0.14.0**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.14.0) · [快速开始](#快速开始) · [本地模型管理](docs/MODEL_MANAGER.md)
+[**下载**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.15.0) · [普通使用](#普通使用) · [本地模型使用](#本地模型使用) · [详细文档](docs/README.md)
 
 ![自由悬浮分析卡，使用人工局面与模拟模型响应](docs/images/agent-floating-preview.png)
 
-## 用具体局面理解麻将
+## 从给出答案，到理解取舍
 
-| 你想做什么 | 助手提供什么 |
+**Mortal 负责决策，LLM 负责讲解，你可以接着问。** 本地引擎动作通过合法性与已知模型身份校验后先显示；LLM 随后结合当时局面、本地计算与原动作补充解释，不能修改引擎首选或立直配套弃牌。解释失败时，已校验的动作仍保留，可以只重试解释。
+
+讨论绑定当时的手牌、桌面、原建议和此前问答。新的一巡继续推进时，仍能回到旧决策追问，不混入后来的牌；追问和重试解释无需重新运行引擎。历史保留原模型来源，切换模型不会改写旧建议的身份。
+
+| 功能 | 使用体验 |
 | --- | --- |
-| 看懂当下的选择 | 首选、候选与解释，结合本地向听、进张和逐家危险证据 |
-| 连续追问一个决策 | 固定当时的手牌、桌面与原建议，保留独立讨论，刷新后可恢复 |
-| 回到之前那一巡 | 打开已记录决策，查看当时局面并继续问，不混入新的实时局面 |
-| 让专业引擎先决策 | 可选本地引擎给出经校验动作，再由 LLM 解释；解释失败可单独重试 |
-| 只记录、不调用模型 | 独立获取器提供采集、展示、结算历史与导出 |
+| 本地事实辅助 | 向听、进张与逐家危险证据，配合 LLM 只读工具，帮助解释具体取舍 |
+| 实时分析与决策回看 | 看当前局面，也可回到已记录决策继续讨论；讨论可在刷新后恢复，受本地容量限制 |
+| 分阶段用量 | 分开查看引擎调用／耗时与 LLM token／费用，支持导出；未知费用保持未知 |
+| 按需选择模型 | LLM 可独立使用；本地引擎可单独使用，也可接 LLM 讲解。权重按需下载、保留或删除 |
+| 浏览器直接采集 | 不用配置 CDP、远程调试或系统代理；只想记录时可使用独立 Collector |
 
-**普通 LLM 流程可独立运行，无需下载 Mortal、Python 或原生工具包。** 采集直接由浏览器扩展完成，不用配置 CDP、远程调试或系统代理。模型与自动分析默认关闭；不接 API 也可使用本地计算。项目不自动打牌。
-
-## 快速开始
-
-1. 下载并解压 [完整 Agent](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.14.0/majsoul-ai-analysis-and-review-agent-0.14.0.zip)。在 Edge 的 `edge://extensions` 或 Chrome 的 `chrome://extensions` 开启开发者模式，加载解压后直接包含 `manifest.json` 的文件夹。
-2. 刷新 `https://game.maj-soul.com/`，让扩展在游戏连接建立前加载，再进入牌局。打开分析卡的“分析设置 → 模型设置”。
-3. 填写支持 tools 的 **OpenAI Chat Completions 兼容接口**、模型 ID 和自己的 API Key，开启模型分析、保存并授予接口权限。例如接口可填 `https://api.openai.com/v1/chat/completions`。
-4. 在牌局面板确认自家座位与信息授权，开启“调用模型”，手动分析当前局面。需要时再开启自动分析；对某个建议发送追问，即可保留该决策的讨论。
-
-云端 API、兼容网关和本机 Chat Completions 服务均可自配；Magpie 与 CC Switch 是可选入口。配置、思考参数、费用和连接诊断见 [模型配置](docs/MODEL_CONFIGURATION.md)。模型调用可能收费，内容会发送到你配置的服务。
-
-当前游戏域名仅适配 `game.maj-soul.com`，界面为简体中文。其他地区域名、Firefox、Safari 与 Steam 桌面端未适配；英文、日文 README 不代表相应游戏服已受支持。同一游戏页面只启用 Agent 或 Collector 其中一个。
+**模型调用、本地推理和自动分析默认关闭，不自动打牌。** 不使用 Mortal，可以一个权重都不下载；只用扩展的本地计算，也无需配置 API。
 
 ## 下载
 
-| 安装内容 | 适合谁 |
+| 安装内容 | 用途 |
 | --- | --- |
-| [完整 Agent · v0.14.0](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.14.0/majsoul-ai-analysis-and-review-agent-0.14.0.zip) | 分析、追问、手牌提示、模型设置；包含获取器 |
-| [独立 Collector · v0.14.0](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.14.0/majsoul-collector-0.14.0.zip) | 只采集、展示、历史与导出；不含模型代码和模型主机权限 |
-| [本地模型管理工具包 · Windows x64 · v0.14.0](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.14.0/majsoul-model-manager-windows-x64-0.14.0.zip) | 选择使用本地麻将引擎的用户；普通 LLM 流程不需要 |
-| [源码 · v0.14.0](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.14.0/majsoul-ai-analysis-and-review-agent-source-0.14.0.zip) | 开发、检查、构建与离线复盘 |
+| [完整 Agent · v0.15.0](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.15.0/majsoul-ai-analysis-and-review-agent-0.15.0.zip) | 普通使用和本地模型使用都先安装这个；包含采集、分析、追问与设置 |
+| [独立 Collector · v0.15.0](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.15.0/majsoul-collector-0.15.0.zip) | 只采集、展示、结算历史与导出，不含模型代码和模型主机权限 |
+| [可选本地模型运行包 · Windows x64 · v0.15.0](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.15.0/majsoul-model-manager-windows-x64-0.15.0.zip) | 自带 Node，解压双击启动；模型权重与必要依赖按需安装。普通使用无需下载 |
+| [源码 · v0.15.0](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.15.0/majsoul-ai-analysis-and-review-agent-source-0.15.0.zip) | 开发、构建与离线复盘 |
 
-[发布页与 SHA-256 校验文件](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.14.0)。两个扩展包不包含权重、Python 或原生模型库。Collector 与 Agent 的本地存储独立，不自动迁移。
+[发布页与 SHA-256 校验文件](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.15.0)。扩展包不包含权重、Python 或原生模型库。Agent 与 Collector 的本地存储独立，不自动迁移；同一游戏页面只启用其中一个。
 
-## v0.14.0：按需管理本地模型
+## 快速开始
 
-可选本地引擎现在有独立管理页：按需安装、显式启停，保留已安装模型以便切换，也可删除不再需要的权重。**可以保持零模型；安装不会启动推理，一次只运行一个模型。** 已安装模型可直接切换并启动。
+### 普通使用
 
-| 模型 | 本期定位 |
+适合直接用 LLM 分析与追问的用户。**只需完整 Agent 和自己的模型接口，无需 Node.js、Python 或本地模型工具包。**
+
+1. 解压完整 Agent。在 Chrome 的 `chrome://extensions` 或 Edge 的 `edge://extensions` 开启开发者模式，选择“加载已解压的扩展程序”，加载直接包含 `manifest.json` 的文件夹。
+2. 刷新 `https://game.maj-soul.com/`，让扩展在游戏连接建立前加载，再进入牌局。
+3. 打开分析卡的“分析设置 → 模型设置”，服务类型选择 **OpenAI 兼容**。填写支持 tools 的 Chat Completions 接口、模型名称和自己的 API Key。例如接口可填 `https://api.openai.com/v1/chat/completions`。
+4. 勾选“开启模型分析”，保存设置并授予接口权限。
+5. 回到牌局，确认自家座位，授权对局信息、牌河和自家手牌，开启“调用模型”，点击分析当前局面。需要连续提示时，再自行开启自动分析。
+6. 对建议发送追问，或打开已记录决策继续讨论。
+
+可以配置云端 API、兼容网关或本机 Chat Completions 服务；支持保存多个 LLM 配置。Magpie 和实验性 CC Switch 是可选入口，详见 [模型配置](docs/MODEL_CONFIGURATION.md)。调用会把授权局面发给所配置服务，可能产生费用。
+
+### 本地模型使用
+
+适合用 Mortal 给出动作，或进一步配合 LLM 讲解的用户。**扩展独立安装；需要本地模型时，再下载 Windows x64 便携运行包，解压后双击启动。不用自行安装 Node.js、Python 或 Rust。**
+
+1. 按“普通使用”的第 1–2 步加载完整 Agent、刷新游戏。若需要 **Mortal＋LLM**，先按第 3–4 步保存一个 OpenAI 兼容 LLM 配置作为解释服务；只用本地引擎可跳过。
+2. 完整解压便携运行包到可写目录，双击 `start.cmd`。它使用自带运行环境校验文件，并自动打开模型管理页；保持运行窗口开启。
+3. 选择想用的模型，点击“安装”，完成后点击“启动分析”。仅下载所选权重和必要模型依赖，不必安装其他模型；安装本身不会启动推理。
+4. 回到扩展“模型设置”，服务类型选择 **本地 mjai**，选择对应引擎配置，点击“连接本地运行包”并授予本机接口权限。在管理页批准连接后，扩展自动填入该模型的分析配置，**无需复制 Token**。
+5. 要开启 **Mortal＋LLM**，勾选“本地 Mortal 决策 + LLM 自动解释”；只要引擎动作则不勾选。连接完成仍保持分析关闭，需自行勾选“开启模型分析”并保存。LLM 与本地引擎配置分别保存。
+6. 回到牌局，确认座位并授权对局信息、四家牌河及自家手牌，开启“调用模型”，选择“综合攻守”，分析当前局面。两个社区 v4 模型仅用于**四人半庄**，请在符合范围的牌局中使用。
+
+v0.15.0 起无需逐次确认半庄，适用范围在设置中提前说明；自动分析仍需主动开启，触发限自家出牌决策点。从 v0.14.0 升级时，请同时更新扩展和本地运行包；旧包内安装目录不会自动迁移。
+
+运行包自带管理所需的 Node，Python／PyTorch 等模型依赖由安装流程按需准备；首次安装仍需联网，失败会明确报错。可以不安装任何模型，也可保留多个已下载模型，**一次只运行一个**。资产默认保存在 `%LOCALAPPDATA%\MajsoulAgent\models`，以后重新解压运行包可复用；旧版包内安装目录不会自动搬迁。VoidShine 无需先下载 Akagi，两个 v4 共用已验证的 CPU 环境。切换模型后重新连接对应配置，再自行开启分析。
+
+用完在管理页点击“停止分析服务”，或退出运行窗口。仅关闭扩展“调用模型”会停止请求，不会退出本地服务。本地推理在本机完成；开启 LLM 讲解或追问时，授权局面仍会发给你配置的 LLM。自备 mjai 服务仍可在高级配置中手填接口与分析 Token。
+
+[模型管理完整步骤与故障排查](docs/MODEL_MANAGER.md) · [引擎与 LLM 解释](docs/MJAI.md) · [社区 v4 运行说明](docs/MORTAL_V4.md)
+
+## 可选本地模型
+
+| 模型 | 当前定位与范围 |
 | --- | --- |
-| Akagi v2 Mortal 弱示例 | 保留旧版起步与回归路径 |
-| [VoidShine/mortal-298k](https://huggingface.co/VoidShine/mortal-298k) | 实验社区 Mortal v4，四人半庄；作者不推荐排位 |
-| [Yuchen1457/mortal-582500](https://huggingface.co/Yuchen1457/mortal-582500) | 实验社区 Mortal v4，保守限制四人半庄 |
+| Akagi v2 附带的旧 Mortal 弱示例 | 保留旧版起步与回归路径 |
+| [VoidShine/mortal-298k](https://huggingface.co/VoidShine/mortal-298k) | 社区 Mortal v4，四人半庄；作者不推荐排位 |
+| [Yuchen1457/mortal-582500](https://huggingface.co/Yuchen1457/mortal-582500) | 社区 Mortal v4，本项目支持范围为四人半庄 |
 
-需要本地引擎时，另下载管理工具包，准备 Node.js 22.19+，运行包内 `start.cmd`，再在浏览器打开终端显示的本机地址。输入管理 Token、安装所选模型、明确启动，然后将生成的分析接口与**分析 Token** 填入扩展对应配置。管理 Token 与分析 Token 分开使用。[完整步骤](docs/MODEL_MANAGER.md)
+这些模型不是官网 Mortal 4.1。Akagi v3 目前仍在 [接入方案](docs/AKAGI_V3_MODEL_IMPLEMENTATION_PLAN.md) 阶段，尚未作为可用模型交付。
 
-工具包默认不含权重或完整 Python；用户点击安装后才准备所选权重与必要环境。VoidShine 无需先安装 Akagi，两个 v4 模型共享已验证的 CPU 环境。切换扩展配置会关闭分析，其他已安装资产保留。扩展不能直接启动本机程序，也不设置自启。
+## 支持范围与数据
 
-本地引擎可单独给出动作，也可使用“本地 Mortal 决策 + LLM 自动解释”：动作先经校验显示，LLM 只附加解释，冻结追问无需重跑引擎。两个 v4 模型当前仅支持**逐次手动确认四人半庄**，暂不支持自动分析。[引擎与解释配置](docs/MJAI.md) · [v4 运行说明](docs/MORTAL_V4.md)
+目前适配 `game.maj-soul.com`，扩展界面为简体中文。其他地区域名、Firefox、Safari 与 Steam 桌面端尚未适配；英文、日文 README 不代表相应游戏服已受支持。
 
-## 数据与验证边界
+模型输入限于授权的自家手牌、公开桌面与已采集历史，不发送对手暗牌、账号凭据或未来事件。API Key、讨论和用量保存在扩展本地；讨论受容量限制，不提供云同步或永久保存保证。项目没有中转服务器或遥测上传。[数据与权限](SECURITY.md) · [会话与用量](docs/AGENT_SESSIONS.md)
 
-授权输入包括自家手牌、公开桌面与已采集的小局历史，不把对手暗牌、账号凭据或未来事件发给分析服务。API Key、讨论与用量保存在扩展本地；讨论有容量上限，不提供云同步或永久保存保证。关闭模型调用后仅运行本地计算。详见 [数据与权限](SECURITY.md)、[会话与用量](docs/AGENT_SESSIONS.md)。
+两个社区 v4 已完成真实固定权重加载、四座位人工局面、合成 HTTP→Agent 和关键动作对照。本机已验证官方 Python 与固定依赖下载，但 Hugging Face 权重在线下载未完成；完整模型离线安装已验证。真实网页整场、断线恢复、实战牌力及付费 LLM 教学质量仍待验证。LLM 讲解是基于局面与结果的解释，不是模型内部思考的还原。[验证总览](VALIDATION.md) · [v4 验收](docs/MORTAL_V4_VALIDATION.md)
 
-当前完整实时协议、断线恢复及实战建议质量仍待验证。社区 v4 已完成固定权重严格加载、四座位人工局面、合成 HTTP→Agent 与关键动作对照；这些不是整场实战或牌力证明，Mortal v4 架构也不等于官网 Mortal 4.1。[验证总览](VALIDATION.md) · [v4 验收](docs/MORTAL_V4_VALIDATION.md)
-
-历史 LLM 的 45 点事实质量评审和 39 点费用／MAKA 对照分别保留在 [事实增强验收](docs/XF_VALIDATION.md) 与 [模型实验](docs/MODEL_BENCHMARK.md)。它们采用旧实验条件，不是 v0.14.0 或新社区模型的效果、速度、费用承诺；首选一致率不等于正确率或胜率。
+历史 LLM 事实质量与费用实验保留在 [事实增强验收](docs/XF_VALIDATION.md) 和 [模型实验](docs/MODEL_BENCHMARK.md)，不代表新社区模型的牌力或收益承诺。
 
 ## 开发与文档
 
-开发需要 Node.js 22.19+；只加载扩展 ZIP 不需要 Node.js。
+开发需要 Node.js 22.19+；只加载普通扩展 ZIP 不需要。
 
 ```sh
 npm ci
@@ -81,8 +104,8 @@ npm test
 npm run build
 ```
 
-Agent 使用适配 Manifest V3 的 Pi Agent 运行时，Collector 保持独立；采集数据经标准合同交给分析层。详细实现、离线复盘、记忆学习与可选 NAGA 流程见文档。
+Agent 使用适配 Manifest V3 的 Pi Agent 运行时，通过只读工具读取冻结的授权局面；采集与分析以标准合同分层，Collector 保持独立。
 
 [文档入口](docs/README.md) · [架构](ARCHITECTURE.md) · [模块解耦](docs/DECOUPLING.md) · [贡献](CONTRIBUTING.md) · [更新记录](CHANGELOG.md) · [参考索引](docs/REFERENCES.md)
 
-项目源码与 37 张原创 SVG 牌面采用 [MIT 许可证](LICENSE)。可选模型、原生组件和上游源码分别适用其自身许可，不能由本项目 MIT 声明覆盖。[第三方公告](THIRD_PARTY_NOTICES.md) · [许可来源](licenses/SOURCES.md)
+项目源码与 37 张原创 SVG 牌面采用 [MIT 许可证](LICENSE)。可选模型、原生组件和上游源码分别适用自身许可。[第三方公告](THIRD_PARTY_NOTICES.md) · [许可来源](licenses/SOURCES.md)

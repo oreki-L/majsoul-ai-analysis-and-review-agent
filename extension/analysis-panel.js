@@ -333,14 +333,9 @@
       if (external && (!available || !enabled)) throw new Error('请先在模型设置中接入并开启模型。');
       const actualProvider = external ? provider : 'local', requestedTask = automatic ? task : 'combined';
       const useEngine = external && provider === 'mjai' && (workflow !== 'mortal-explain' || !automatic || preferences.strategy);
-      if (useEngine && ['voidshine-298k', 'yuchen-582500'].includes(engineProfile) && (automatic || hanchanBinding !== fingerprint())) throw new Error('请勾选当前局面属于四人半庄，再手动分析；局面变化后需重新确认。');
       const extra = useEngine ? { engineRequest: engineRequest(requestedTask) }
         : external ? { lane: automatic ? 'live' : 'manual-review', question: automatic ? '' : questionDraft,
           context: typeof current.analysisContext === 'function' ? current.analysisContext() : undefined } : {};
-      if (useEngine && ['voidshine-298k', 'yuchen-582500'].includes(engineProfile)) {
-        extra.hanchanConfirmation = { format: 'mortal-hanchan-manual-v1', binding: JSON.stringify([data, extra.engineRequest]) };
-        hanchanBinding = null;
-      }
       const capturedContext = external && extra.context ? clone(extra.context) : (typeof current.analysisContext === 'function' ? clone(current.analysisContext()) : { identity: context?.contextIdentity, position: context?.cursor ?? data.lastStep });
       const captured = fingerprint(), seatLabels = current.seatLabels.slice();
       const capturedPosition = { round: data.game?.round, honba: data.game?.honba, lastStep: data.lastStep,
@@ -382,13 +377,12 @@
     if (!Number.isInteger(data.selfSeat) || data.game?.recentActor !== data.selfSeat || !local?.canDiscard) return;
     const key = fingerprint(); if (lastAutoKey === key) return;
     const external = usesModel(data);
-    if (external && provider === 'mjai' && ['voidshine-298k', 'yuchen-582500'].includes(engineProfile)) return;
     if (external && (!enabled || !available || autoCalls >= preferences.limit)) return;
     const delay = external ? Math.max(350, preferences.interval * 1000 - (Date.now() - lastModelAt)) : 100;
     autoTimer = setTimeout(() => { autoTimer = null; if (key !== fingerprint()) return; lastAutoKey = key; runAnalysis(true); }, delay);
   }
   let officialReport = null, officialError = '', officialShare = '', officialRed = true;
-  let workflow = 'llm', pendingCapture = null, engineProfile = 'legacy', hanchanBinding = null;
+  let workflow = 'llm', pendingCapture = null;
   let task = 'combined', enabled = false, busy = false, result = null, failure = '', preview = false, provider = 'chat';
   let pendingAutomatic = false, globalResult = null, globalFailure = '', questionDraft = '';
   let modelFailures = {}, modelFailureExpanded = {};
@@ -479,7 +473,6 @@
     try { const status = await send({ type: 'model:status' });
       if (generation !== lifecycle || id !== statusRequestId) return;
       workflow = status?.workflow || 'llm';
-      engineProfile = status?.engineProfile || 'legacy'; hanchanBinding = null;
       const nextProvider = status?.provider === 'mjai' ? 'mjai' : 'chat';
       if (enabled !== !!status?.enabled || provider !== nextProvider) { result = null; preparationKey = ''; preparation = null; }
       if (!preferencesLoaded) { preferences = { ...defaults(), ...status?.preferences }; preferencesLoaded = true; task = selectedTask(); }
@@ -619,7 +612,6 @@
       </div>` : '';
 
     const settings = `<div class="controls"><button id="model-settings" ${!available ? 'disabled' : ''}>模型设置</button><button id="model-refresh" ${!available ? 'disabled' : ''}>刷新状态</button></div>
-      ${preferences.useModel && provider === 'mjai' && ['voidshine-298k', 'yuchen-582500'].includes(engineProfile) ? `<label><input id="mortal-hanchan" type="checkbox" ${hanchanBinding === fingerprint() ? 'checked' : ''}> 我确认本次为四人半庄</label><p class="muted">仅手动分析，每次重新确认。</p>` : ''}
       ${preferences.useModel && provider === 'mjai' ? '<p class="muted">本地 mjai：使用公开牌局、自家手牌和动作记录；仅接受四麻中可验证的局面与动作；不会自动打牌。</p>' : ''}
       <label title="按自家出牌次数计巡，补牌不加巡；复盘仅手动分析。">调用时机 <select id="model-from-turn"><option value="1">每巡</option><option value="7">第 N 巡起</option></select></label>
       ${preferences.modelFromTurn > 1 ? `<label>开始巡数 <input id="model-turn-number" type="number" min="2" max="18" value="${preferences.modelFromTurn}"></label>` : ''}
@@ -706,7 +698,6 @@
     $('analysis-collector').onclick = () => current?.onCollector?.();
     $('analysis-history').onclick = () => current?.onHistory?.();
     $('model-settings').onclick = event => { if (event.isTrusted) send({ type: 'model:settings' }).catch(() => { failure = '扩展连接失效，请刷新游戏。'; render(); }); };
-    if ($('mortal-hanchan')) $('mortal-hanchan').onchange = event => { hanchanBinding = event.isTrusted && event.target.checked ? fingerprint() : null; };
     $('model-refresh').onclick = refresh;
     for (const key of ['danger', 'efficiency', 'strategy']) $('feature-' + key).onchange = e => { if (e.isTrusted) changePreferences({ [key]: e.target.checked }); };
     $('model-auto').onchange = e => { if (e.isTrusted) changePreferences({ automatic: e.target.checked }); };

@@ -36,20 +36,51 @@ function worker(config, fetcher = fetch, permission = true, schedule = {}) {
 }
 const configured = endpoint => ({ enabled: true, provider: 'mjai', model: 'mjai', endpoint, apiKey: 'test-engine-token' });
 
-test('v4 backend requires per-request manual hanchan declaration bound to exact snapshot/events before network', async()=>{
-  const config={...configured('http://127.0.0.1:17342/analyze'),engineProfile:'voidshine-298k'};
-  for(const kind of ['missing','automatic','changed']) {
-    const w=worker(config,()=>{throw new Error('must not fetch');}),m={...input(),lane:'manual-review'};
-    if(kind!=='missing')m.hanchanConfirmation={format:'mortal-hanchan-manual-v1',binding:JSON.stringify([m.snapshot,m.engineRequest])};
-    if(kind==='automatic')m.lane='live';
-    if(kind==='changed')m.snapshot.game.honba++;
-    const response=await w.call(m);assert.equal(response.ok,false);assert.match(response.error,/半庄/);assert.equal(w.requests.length,0);
+const v4Identities = {
+  'voidshine-298k': { model: 'VoidShine-mortal-v4-298k', checkpoint: 'bfb3a6c072aa0bfd4171a9cdc77cb6c02ae42cde920843f9e5784394f23447d8', modelRevision: 'dbbea7e3d34f99ec43fc4834ab7f2aaaed70b6ee' },
+  'yuchen-582500': { model: 'Yuchen1457-mortal-v4-582500', checkpoint: '738e0d6e3c0ce9671629554ad39abd147d2ffbac676e80b194c83f2acc0fea20', modelRevision: '7386c9f5c751a3ea75efea99737cef5a5ef950f1' }
+};
+test('both v4 profiles accept manual and live analysis without a per-request declaration', async () => {
+  for (const engineProfile of Object.keys(v4Identities)) for (const lane of ['manual-review', 'live']) {
+    const w = worker({ ...configured('http://127.0.0.1:17342/analyze'), engineProfile }, async () => new Response(JSON.stringify({
+      action: { type: 'dahai', actor: 0, pai: '9p', tsumogiri: true },
+      identity: { ...v4Identities[engineProfile], sourceCommit: '0cff2b52982be5b1163aa9a62fb01f03ce91e0d2', runtime: 'test-v4' }
+    })));
+    const message = { ...input(), lane };
+    assert.equal('hanchanConfirmation' in message, false);
+    const response = await w.call(message);
+    assert.equal(response.ok, true, response.error); assert.equal(w.requests.length, 1);
+    assert.equal(response.result.decision.tile, '9p');
   }
 });
-test('v4 identity mismatch is rejected before decision storage or explanation',async()=>{
-  const w=worker({...configured('http://127.0.0.1:17342/analyze'),engineProfile:'voidshine-298k'},async()=>new Response(JSON.stringify({action:{type:'dahai',actor:0,pai:'9p',tsumogiri:true},identity:{model:'v2'}}),{status:200}));
-  const m={...input(),lane:'manual-review'};m.hanchanConfirmation={format:'mortal-hanchan-manual-v1',binding:JSON.stringify([m.snapshot,m.engineRequest])};
-  const response=await w.call(m);assert.equal(response.ok,false);assert.match(response.error,/身份/);assert.equal(w.requests.length,1);
+test('both v4 profiles still reject three-player, discontinuous, mismatched and unauthorized input before network', async () => {
+  for (const engineProfile of Object.keys(v4Identities)) for (const lane of ['manual-review', 'live']) for (const options of [
+    { change: m => { m.snapshot.playerCount = 3; } },
+    { change: m => { m.engineRequest.events[2].actor = 1; m.engineRequest.events[2].pai = '?'; } },
+    { change: m => { m.snapshot.game.honba++; } },
+    { change: m => { m.snapshot.selfHand[0] = '9m'; } },
+    { change: m => { delete m.snapshot.selfHand; } },
+    { change: m => { m.engineRequest.events[1].tehais[1][0] = '9m'; } },
+    { config: { enabled: false } }, { config: { apiKey: '' } }, { permission: false }
+  ]) {
+    const w = worker({ ...configured('http://127.0.0.1:17342/analyze'), engineProfile, ...options.config }, () => { throw new Error('must not fetch'); }, options.permission);
+    const message = { ...input(), lane }; options.change?.(message);
+    const response = await w.call(message);
+    assert.equal(response.ok, false); assert.equal(w.requests.length, 0);
+  }
+});
+test('both v4 profiles still reject identity mismatches and illegal returned actions', async () => {
+  for (const engineProfile of Object.keys(v4Identities)) for (const lane of ['manual-review', 'live']) for (const invalid of ['identity', 'action']) {
+    const identity = { ...v4Identities[engineProfile], sourceCommit: '0cff2b52982be5b1163aa9a62fb01f03ce91e0d2', runtime: 'test-v4' };
+    const w = worker({ ...configured('http://127.0.0.1:17342/analyze'), engineProfile }, async () => new Response(JSON.stringify({
+      action: { type: 'dahai', actor: 0, pai: invalid === 'action' ? '9m' : '9p', tsumogiri: true },
+      identity: invalid === 'identity' ? { model: 'v2' } : identity
+    })));
+    const response = await w.call({ ...input(), lane });
+    assert.equal(response.ok, false); assert.equal(w.requests.length, 1);
+    if (invalid === 'identity') assert.match(response.error, /身份/);
+    assert.equal(response.result, undefined); assert.equal(response.engine, undefined);
+  }
 });
 
 test('extension worker -> authenticated loopback bridge -> actual child process -> validated engine advice', async t => {
