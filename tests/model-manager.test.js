@@ -145,5 +145,46 @@ for (const mode of ['abort', 'timeout']) test('installer subprocess ' + mode + '
   assert.ok(pids, 'subprocess wrote both PIDs before cancellation');
   if (mode === 'abort') controller.abort();
   await failure;
-  for (const pid of pids) assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' }, 'PID ' + pid + ' must be gone when operation settles');
+  for (const pid of pids) await assertProcessTerminated(pid);
+});
+
+async function assertProcessTerminated(pid) {
+  try { process.kill(pid, 0); }
+  catch (error) { assert.equal(error.code, 'ESRCH'); return; }
+  assert.equal(process.platform, 'linux', 'PID ' + pid + ' must be gone when operation settles');
+  let stat;
+  try { stat = await fs.readFile('/proc/' + pid + '/stat', 'utf8'); }
+  catch (error) { assert.equal(error.code, 'ENOENT'); return; }
+  const state = stat.slice(stat.lastIndexOf(')') + 2).split(' ')[0];
+  assert.ok(state === 'Z' || state === 'X', 'PID ' + pid + ' must be terminated, observed state ' + state);
+}
+
+test('Linux cleanup waits for a live group descendant after its direct child exits', { skip: process.platform !== 'linux' }, async t => {
+  const { spawn } = require('node:child_process');
+  const { once } = require('node:events');
+  const { killTree } = require('../agent/mortal-process.cjs');
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'model-group-'));
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+  const record = path.join(root, 'pid');
+  const code = "const {spawn}=require('node:child_process');const fs=require('node:fs');const child=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'ignore'});fs.writeFileSync(process.argv[1],String(child.pid));child.unref()";
+  const child = spawn(process.execPath, ['-e', code, record], { detached: true, stdio: 'ignore' });
+  await once(child, 'close');
+  const descendant = Number(await fs.readFile(record, 'utf8'));
+  const kill = process.kill.bind(process);
+  t.after(() => { try { kill(-child.pid, 'SIGKILL'); } catch {} });
+  process.kill(descendant, 0);
+  let delivered = false, signalTimer;
+  t.after(() => clearTimeout(signalTimer));
+  // Hold back the group signal to expose the period where the leader has
+  // exited but its descendant is still executing. Cleanup must await it.
+  t.mock.method(process, 'kill', (pid, signal) => {
+    if (pid === -child.pid && signal === 'SIGKILL') {
+      signalTimer = setTimeout(() => { delivered = true; kill(pid, signal); }, 60);
+      return true;
+    }
+    return kill(pid, signal);
+  });
+  await killTree(child);
+  assert.equal(delivered, true, 'cleanup must not settle while the descendant is alive');
+  await assertProcessTerminated(descendant);
 });

@@ -2,6 +2,7 @@
 
 ## 0.15.0 便携运行包与扩展配对验收（2026-11-04）
 
+- 首轮发布提交 `ec0d05f` 的 Windows 干净快照为662项、660通过、2项私有素材跳过、0失败，静态检查、双扩展构建与3/3人工向听回归通过；远端 Linux／Node24 在取消安装后的进程清理检查失败，其余矩阵被取消。原日志不能确定该PID当时是否为僵尸；POSIX 原实现只等待直接子进程，确实未确认同组后代终止。修复增加有时限的整组检查，Linux 区分仍在执行的成员与已终止但待系统回收的 Z/X 状态，权限或未知读取错误不视为成功。新增直接子进程先退出、同组后代仍活着的回归；Windows清理分支保持原样，定向管理测试11通过／1项Linux专属跳过，推理进程测试10/10通过。最终发布提交、矩阵与包校验结果见对应 Release，不把首轮失败当作通过。
 - 显式从官方 Node.js 源取得 v22.19.0 Windows x64 归档，与官方 SHASUMS256 对照 SHA-256 `ea3fad0e67a991d8477d8c01344b56e69c676ccb733f065b22436994b1253f86`；随可选包保留 `node.exe`、完整 LICENSE 与官方校验表。普通扩展构建／测试不下载此运行时。
 - 真实便携验收：候选包重新解压至含中文和空格的新路径，以系统 Temp 为工作目录、`PATH=''`、隔离 LOCALAPPDATA 执行 `start.cmd`，包内 Node 校验9049文件并自动打开管理页，页面 HTTP200，未授权状态接口401，无权重／模型环境下载。固定用户数据路径与子进程专用 Windows 工具 PATH 不修改系统环境。解压校验和无 PATH 验收位于本机 `research/evidence/portable-model-manager-candidate/`。
 - 真实 Edge 扩展＋HTTP 配对：启动票据清 hash、管理页批准当前模型、配置自动填入、保存仍 `enabled:false`、高级手填折叠、管理页刷新恢复有效会话通过；localStorage 与 sessionStorage 均无管理凭据。模型桥接为 mock，没有调用真实权重或付费 LLM。无界面浏览器的原生 optional-host 权限弹窗未覆盖：原始扩展正确等待授权，后续使用仅在测试副本 manifest 预授本机权限的方式完成真实扩展来源握手，生产 manifest 未改。截图和脱敏结果位于 `research/evidence/portable-connection-browser/`。

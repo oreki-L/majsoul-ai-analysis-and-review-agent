@@ -1,10 +1,31 @@
 'use strict';
 const { spawn } = require('node:child_process');
 const crypto = require('node:crypto');
+const fs = require('node:fs/promises');
 const Mjai = require('../extension/adapters/mjai.js');
 const source = require('./mortal-source.json');
 const {sourceForProfile}=require('./mortal-profile.cjs');
 const fail = code => Object.assign(new Error(code), { code, ...(code === 'ABORTED' ? { name: 'AbortError' } : {}) });
+
+async function processGroupRunning(pid) {
+  try { process.kill(-pid, 0); }
+  catch (error) { if (error.code === 'ESRCH') return false; throw error; }
+  if (process.platform !== 'linux') return true;
+  // A killed orphan can remain a zombie until init reaps it. It cannot execute
+  // or hold assets, but kill(pid, 0) still succeeds. Check every group member;
+  // waiting only for the direct child's close misses surviving descendants.
+  for (const entry of await fs.readdir('/proc')) {
+    if (!/^\d+$/.test(entry)) continue;
+    let stat;
+    try { stat = await fs.readFile('/proc/' + entry + '/stat', 'utf8'); }
+    catch (error) { if (error.code === 'ENOENT' || error.code === 'ESRCH') continue; throw error; }
+    const end = stat.lastIndexOf(')');
+    const fields = stat.slice(end + 2).split(' ');
+    if (end < 0 || !/^\d+$/.test(fields[2] || '') || !/^[A-Za-z]$/.test(fields[0] || '')) throw fail('CLEANUP_TIMEOUT');
+    if (Number(fields[2]) === pid && fields[0] !== 'Z' && fields[0] !== 'X') return true;
+  }
+  return false;
+}
 
 async function killTree(child) {
   if (!child?.pid) return;
@@ -24,6 +45,13 @@ async function killTree(child) {
       timer = setTimeout(() => { child.removeListener('close', done); reject(fail('CLEANUP_TIMEOUT')); }, 2000);
       child.once('close', done);
     });
+  }
+  if (process.platform !== 'win32') {
+    const deadline = Date.now() + 2000;
+    while (await processGroupRunning(child.pid)) {
+      if (Date.now() >= deadline) throw fail('CLEANUP_TIMEOUT');
+      await new Promise(resolve => setTimeout(resolve, 10));
+    }
   }
 }
 
