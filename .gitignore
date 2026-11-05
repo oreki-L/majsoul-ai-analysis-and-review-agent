@@ -1,5 +1,6 @@
 node_modules/
 .venv-akagi/
+research/.venv-mahjong/
 .playwright-cli/
 .playwright-mcp/
 .env

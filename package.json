@@ -20,6 +20,7 @@
     "engine:mortal": "node agent/mortal-local.cjs",
     "engine:manager": "node agent/model-manager.cjs",
     "engine:review": "node agent/engine-review.cjs",
+    "benchmark": "node benchmark/cli.cjs",
     "benchmark:validate": "node benchmark/cli.cjs validate --suite benchmark/examples/suite.mock.json",
     "benchmark:mock": "node benchmark/cli.cjs autonomous --suite benchmark/examples/suite.mock.json --mock --out research/evidence/benchmark/autonomous-demo",
     "engine:akagi-native": "node agent/akagi-native-local.cjs"
