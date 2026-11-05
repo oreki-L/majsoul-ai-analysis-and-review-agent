@@ -2,13 +2,13 @@
 
 **Turn mahjong advice into a conversation you can learn from.**
 
-Current release: **0.16.1**
+Current release: **0.16.2**
 
 [简体中文](README.md) | **English** | [日本語](README.ja.md)
 
 An AI analysis assistant for the Mahjong Soul web client. Use your own LLM to analyze a position, or let a local Mortal or Akagi engine choose an action and an LLM explain it. Ask “Why this discard?” or “What would another choice lose?” Each decision keeps its own position and discussion.
 
-[**Download**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.1) · [Standard use](#standard-use) · [Using local models](#using-local-models) · [Documentation](docs/README.md)
+[**Download**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.2) · [Standard use](#standard-use) · [Using local models](#using-local-models) · [Documentation](docs/README.md)
 
 ![Floating analysis card with a synthetic position and simulated model response](docs/images/agent-floating-preview.png)
 
@@ -32,12 +32,12 @@ A discussion retains the original hand, table, recommendation and previous excha
 
 | Package | Purpose |
 | --- | --- |
-| [Full Agent · v0.16.1](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.1/majsoul-ai-analysis-and-review-agent-0.16.1.zip) | Start here for either workflow: collection, analysis, follow-up questions and settings |
-| [Standalone Collector · v0.16.1](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.1/majsoul-collector-0.16.1.zip) | Collection, display, settlement history and export; no model code or model-host permissions |
-| [Optional local model runtime · Windows x64 · v0.16.1](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.1/majsoul-model-manager-windows-x64-0.16.1.zip) | Bundled Node; extract and double-click to start. Model weights and dependencies install on demand. Not needed for standard use |
-| [Source · v0.16.1](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.1/majsoul-ai-analysis-and-review-agent-source-0.16.1.zip) | Development, builds and offline review |
+| [Full Agent · v0.16.2](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.2/majsoul-ai-analysis-and-review-agent-0.16.2.zip) | Start here for either workflow: collection, analysis, follow-up questions and settings |
+| [Standalone Collector · v0.16.2](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.2/majsoul-collector-0.16.2.zip) | Collection, display, settlement history and export; no model code or model-host permissions |
+| [Optional local model runtime · Windows x64 · v0.16.2](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.2/majsoul-model-manager-windows-x64-0.16.2.zip) | Bundled Node; extract and double-click to start. Model weights and dependencies install on demand. Not needed for standard use |
+| [Source · v0.16.2](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.2/majsoul-ai-analysis-and-review-agent-source-0.16.2.zip) | Development, builds and offline review |
 
-[Release page and SHA-256 checksums](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.1). Extension packages contain no weights, Python or native model libraries. Agent and Collector use separate storage with no automatic migration; enable only one on the same game page.
+[Release page and SHA-256 checksums](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.2). Extension packages contain no weights, Python or native model libraries. Agent and Collector use separate storage with no automatic migration; enable only one on the same game page.
 
 ## Quick start
 
@@ -47,7 +47,7 @@ For LLM analysis and follow-up questions. **You need only the full Agent and you
 
 1. Extract the full Agent. Enable Developer mode at Chrome's `chrome://extensions` or Edge's `edge://extensions`, choose Load unpacked, and select the folder directly containing `manifest.json`.
 2. Refresh `https://game.maj-soul.com/` so the extension loads before the game connection, then enter a game.
-3. Open “分析设置 → 模型设置” and select **OpenAI 兼容**. Enter a Chat Completions endpoint with tools support, a model ID and your API key. Example endpoint: `https://api.openai.com/v1/chat/completions`.
+3. Open “分析设置 → 模型管理”. Enter a Chat Completions endpoint with tools support, a model ID and your API key. Example endpoint: `https://api.openai.com/v1/chat/completions`.
 4. Check “开启模型分析”, save and grant endpoint permission.
 5. Back in the game, confirm your seat, authorize game information, discards and your hand, enable “调用模型”, and analyze the current position. Enable automatic analysis separately if you want ongoing hints.
 6. Ask a follow-up question on the recommendation, or reopen a recorded decision to continue its discussion.
@@ -61,7 +61,7 @@ For local Mortal or Akagi actions, optionally with LLM explanations. **Install t
 1. Follow standard-use steps 1–2 to load the Agent and refresh the game. For **Mortal + LLM**, first save an OpenAI-compatible explanation service using steps 3–4; skip this for engine-only use.
 2. Fully extract the portable package into a writable folder and double-click `start.cmd`. It uses its bundled runtime to verify files and opens the manager automatically. Keep the runtime window open.
 3. Select the model you want, click “安装”, then “启动分析” when ready. Only the chosen weights and required model dependencies are downloaded. Installation itself does not start inference.
-4. In extension settings, select **本地 mjai**, choose the matching engine profile and click “连接本地运行包”. Grant local-endpoint permission, then approve the connection in the manager. The extension fills the model's analysis configuration automatically, **without copying tokens**.
+4. In extension settings, open “本地麻将模型”, choose the matching model and click “连接所选模型”. Grant local-endpoint permission, then approve the connection in the manager. The extension fills the model's analysis configuration automatically, **without copying tokens**.
 5. For **Mortal + LLM**, check “本地引擎决策 + LLM 自动解释”; leave it unchecked for engine-only actions. Connecting leaves analysis off: explicitly check “开启模型分析” and save. The LLM and engine configurations are saved separately.
 6. In the game, confirm your seat and authorize game information, all four discard rivers and your hand. Enable “调用模型”, select “综合攻守”, and analyze. Both community v4 models and Akagi v3 are supported here only in **four-player hanchan**; use them in games matching that scope.
 

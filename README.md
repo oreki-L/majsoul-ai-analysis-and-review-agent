@@ -2,13 +2,13 @@
 
 **让麻将建议变成可以追问的学习过程。**
 
-当前发布版本：**0.16.1**
+当前发布版本：**0.16.2**
 
 [简体中文](README.md) | [English](README.en.md) | [日本語](README.ja.md)
 
 雀魂网页版 AI 分析助手。可以直接用你自己的 LLM 分析局面，也可以让本地 Mortal 或 Akagi 引擎先给出动作，再由 LLM 讲解。围绕“为什么打这张？”“换一张会损失什么？”继续追问，每个决策都有自己的局面和讨论。
 
-[**下载**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.1) · [普通使用](#普通使用) · [本地模型使用](#本地模型使用) · [详细文档](docs/README.md)
+[**下载**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.2) · [普通使用](#普通使用) · [本地模型使用](#本地模型使用) · [详细文档](docs/README.md)
 
 ![自由悬浮分析卡，使用人工局面与模拟模型响应](docs/images/agent-floating-preview.png)
 
@@ -32,12 +32,12 @@
 
 | 安装内容 | 用途 |
 | --- | --- |
-| [完整 Agent · v0.16.1](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.1/majsoul-ai-analysis-and-review-agent-0.16.1.zip) | 普通使用和本地模型使用都先安装这个；包含采集、分析、追问与设置 |
-| [独立 Collector · v0.16.1](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.1/majsoul-collector-0.16.1.zip) | 只采集、展示、结算历史与导出，不含模型代码和模型主机权限 |
-| [可选本地模型运行包 · Windows x64 · v0.16.1](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.1/majsoul-model-manager-windows-x64-0.16.1.zip) | 自带 Node，解压双击启动；模型权重与必要依赖按需安装。普通使用无需下载 |
-| [源码 · v0.16.1](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.1/majsoul-ai-analysis-and-review-agent-source-0.16.1.zip) | 开发、构建与离线复盘 |
+| [完整 Agent · v0.16.2](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.2/majsoul-ai-analysis-and-review-agent-0.16.2.zip) | 普通使用和本地模型使用都先安装这个；包含采集、分析、追问与设置 |
+| [独立 Collector · v0.16.2](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.2/majsoul-collector-0.16.2.zip) | 只采集、展示、结算历史与导出，不含模型代码和模型主机权限 |
+| [可选本地模型运行包 · Windows x64 · v0.16.2](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.2/majsoul-model-manager-windows-x64-0.16.2.zip) | 自带 Node，解压双击启动；模型权重与必要依赖按需安装。普通使用无需下载 |
+| [源码 · v0.16.2](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.2/majsoul-ai-analysis-and-review-agent-source-0.16.2.zip) | 开发、构建与离线复盘 |
 
-[发布页与 SHA-256 校验文件](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.1)。扩展包不包含权重、Python 或原生模型库。Agent 与 Collector 的本地存储独立，不自动迁移；同一游戏页面只启用其中一个。
+[发布页与 SHA-256 校验文件](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.2)。扩展包不包含权重、Python 或原生模型库。Agent 与 Collector 的本地存储独立，不自动迁移；同一游戏页面只启用其中一个。
 
 ## 快速开始
 
@@ -47,7 +47,7 @@
 
 1. 解压完整 Agent。在 Chrome 的 `chrome://extensions` 或 Edge 的 `edge://extensions` 开启开发者模式，选择“加载已解压的扩展程序”，加载直接包含 `manifest.json` 的文件夹。
 2. 刷新 `https://game.maj-soul.com/`，让扩展在游戏连接建立前加载，再进入牌局。
-3. 打开分析卡的“分析设置 → 模型设置”，服务类型选择 **OpenAI 兼容**。填写支持 tools 的 Chat Completions 接口、模型名称和自己的 API Key。例如接口可填 `https://api.openai.com/v1/chat/completions`。
+3. 打开分析卡的“分析设置 → 模型管理”，填写支持 tools 的 Chat Completions 接口、模型名称和自己的 API Key。例如接口可填 `https://api.openai.com/v1/chat/completions`。
 4. 勾选“开启模型分析”，保存设置并授予接口权限。
 5. 回到牌局，确认自家座位，授权对局信息、牌河和自家手牌，开启“调用模型”，点击分析当前局面。需要连续提示时，再自行开启自动分析。
 6. 对建议发送追问，或打开已记录决策继续讨论。
@@ -61,7 +61,7 @@
 1. 按“普通使用”的第 1–2 步加载完整 Agent、刷新游戏。若需要 **Mortal＋LLM**，先按第 3–4 步保存一个 OpenAI 兼容 LLM 配置作为解释服务；只用本地引擎可跳过。
 2. 完整解压便携运行包到可写目录，双击 `start.cmd`。它使用自带运行环境校验文件，并自动打开模型管理页；保持运行窗口开启。
 3. 选择想用的模型，点击“安装”，完成后点击“启动分析”。仅下载所选权重和必要模型依赖，不必安装其他模型；安装本身不会启动推理。
-4. 回到扩展“模型设置”，服务类型选择 **本地 mjai**，选择对应引擎配置，点击“连接本地运行包”并授予本机接口权限。在管理页批准连接后，扩展自动填入该模型的分析配置，**无需复制 Token**。
+4. 回到扩展“本地麻将模型”，选择对应模型，点击“连接所选模型”并授予本机接口权限。在管理页批准连接后，扩展自动填入该模型的分析配置，**无需复制 Token**。
 5. 要开启 **Mortal＋LLM**，勾选“本地引擎决策 + LLM 自动解释”；只要引擎动作则不勾选。连接完成仍保持分析关闭，需自行勾选“开启模型分析”并保存。LLM 与本地引擎配置分别保存。
 6. 回到牌局，确认座位并授权对局信息、四家牌河及自家手牌，开启“调用模型”，选择“综合攻守”，分析当前局面。两个社区 v4 及 Akagi v3 的本项目支持范围为**四人半庄**，请在符合范围的牌局中使用。
 

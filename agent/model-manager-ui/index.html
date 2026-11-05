@@ -1,8 +1,8 @@
 <!doctype html>
 <html lang="zh-CN">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>本机模型管理</title><link rel="stylesheet" href="/style.css"></head>
-<body><main>
-<header><div class="mark" aria-hidden="true">雀</div><div><h1>本机模型管理</h1></div><span id="connection" class="badge">未连接</span></header>
+<body><header class="topbar"><div class="topbar-inner"><div class="brand"><span class="mark" aria-hidden="true">雀</span><span>雀魂助手</span></div><nav class="navigation" aria-label="当前位置"><span aria-current="page">本机模型管理</span></nav></div></header><main>
+<div class="page-heading"><h1>本机模型管理</h1><span id="connection" class="badge">未连接</span></div>
 <section id="access" class="access" aria-labelledby="accessTitle"><h2 id="accessTitle">高级手动连接</h2><form id="connectForm"><label for="managementToken">管理 Token</label><div class="connect-row"><input id="managementToken" type="password" autocomplete="off" spellcheck="false" placeholder="粘贴终端显示的管理 Token" required maxlength="4096"><button type="submit" id="connect">连接</button><button type="button" id="disconnect" hidden>断开</button></div></form><p class="hint">双击运行包会自动连接。若会话过期，请关闭管理终端并重新启动运行包；高级 CLI 可手填管理 Token。</p></section>
 <p id="message" role="status" aria-live="polite">未连接时不会查询目录、安装模型或启动推理。</p>
 <div id="workspace" hidden><section id="pairing" aria-label="扩展连接请求"></section>

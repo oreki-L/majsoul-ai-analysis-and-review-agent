@@ -2,13 +2,13 @@
 
 **麻雀の助言を、質問しながら学べる会話へ。**
 
-現在のリリース：**0.16.1**
+現在のリリース：**0.16.2**
 
 [简体中文](README.md) | [English](README.en.md) | **日本語**
 
 雀魂ブラウザ版向けの AI 分析アシスタントです。自分の LLM で局面を分析するほか、ローカルの Mortal または Akagi エンジンに判断させ、LLM に解説させることもできます。「なぜこの打牌？」「別の牌なら何を失う？」と質問を続けられ、判断ごとに局面と議論が保存されます。
 
-[**ダウンロード**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.1) · [通常の使い方](#通常の使い方) · [ローカルモデルの使い方](#ローカルモデルの使い方) · [ドキュメント](docs/README.md)
+[**ダウンロード**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.2) · [通常の使い方](#通常の使い方) · [ローカルモデルの使い方](#ローカルモデルの使い方) · [ドキュメント](docs/README.md)
 
 ![人工局面と模擬モデル応答を使ったフローティング分析カード](docs/images/agent-floating-preview.png)
 
@@ -32,12 +32,12 @@
 
 | パッケージ | 用途 |
 | --- | --- |
-| [完全版 Agent · v0.16.1](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.1/majsoul-ai-analysis-and-review-agent-0.16.1.zip) | どちらの使い方でも最初に導入。収集・分析・追加質問・設定を含む |
-| [独立 Collector · v0.16.1](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.1/majsoul-collector-0.16.1.zip) | 収集・表示・精算履歴・エクスポートのみ。モデルコードとモデルホスト権限を含まない |
-| [ローカルモデル用ポータブル版 · Windows x64 · v0.16.1](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.1/majsoul-model-manager-windows-x64-0.16.1.zip) | Node 同梱。展開してダブルクリックで起動し、重みと依存は必要なものだけ導入。通常利用では不要 |
-| [ソース · v0.16.1](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.1/majsoul-ai-analysis-and-review-agent-source-0.16.1.zip) | 開発・ビルド・オフライン検討 |
+| [完全版 Agent · v0.16.2](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.2/majsoul-ai-analysis-and-review-agent-0.16.2.zip) | どちらの使い方でも最初に導入。収集・分析・追加質問・設定を含む |
+| [独立 Collector · v0.16.2](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.2/majsoul-collector-0.16.2.zip) | 収集・表示・精算履歴・エクスポートのみ。モデルコードとモデルホスト権限を含まない |
+| [ローカルモデル用ポータブル版 · Windows x64 · v0.16.2](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.2/majsoul-model-manager-windows-x64-0.16.2.zip) | Node 同梱。展開してダブルクリックで起動し、重みと依存は必要なものだけ導入。通常利用では不要 |
+| [ソース · v0.16.2](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.2/majsoul-ai-analysis-and-review-agent-source-0.16.2.zip) | 開発・ビルド・オフライン検討 |
 
-[リリースと SHA-256 チェックサム](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.1)。拡張パッケージに重み・Python・ネイティブモデルライブラリは含まれません。Agent と Collector の保存領域は独立しており、自動移行しません。同じゲームページでは片方だけ有効にしてください。
+[リリースと SHA-256 チェックサム](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.2)。拡張パッケージに重み・Python・ネイティブモデルライブラリは含まれません。Agent と Collector の保存領域は独立しており、自動移行しません。同じゲームページでは片方だけ有効にしてください。
 
 ## 使い始める
 
@@ -47,7 +47,7 @@ LLM による分析と追加質問を使う場合です。**完全版 Agent と�
 
 1. 完全版 Agent を展開します。Chrome の `chrome://extensions` または Edge の `edge://extensions` でデベロッパーモードを有効にし、「パッケージ化されていない拡張機能を読み込む」で `manifest.json` を直接含むフォルダを選びます。
 2. ゲーム接続より前に拡張が読み込まれるよう、`https://game.maj-soul.com/` を再読み込みしてから対局に入ります。
-3. 分析カードの「分析设置 → 模型设置」で **OpenAI 兼容** を選び、tools 対応の Chat Completions API、モデル名、自分の API Key を入力します。API の例：`https://api.openai.com/v1/chat/completions`。
+3. 分析カードの「分析设置 → 模型管理」で、tools 対応の Chat Completions API、モデル名、自分の API Key を入力します。API の例：`https://api.openai.com/v1/chat/completions`。
 4. 「开启模型分析」を有効にし、保存して API への権限を許可します。
 5. 対局画面で自分の座席を確認し、対局情報・捨て牌・自分の手牌を許可します。「调用模型」を有効にして現在の局面を分析します。継続的な助言が必要なら自動分析を別途有効にします。
 6. 助言に追加質問するか、記録済み判断を開いて議論を続けます。
@@ -61,7 +61,7 @@ Mortal または Akagi の動作提案、LLM 解説との併用向けです。**
 1. 通常利用の手順 1–2 で Agent を読み込み、ゲームを再読み込みします。**Mortal＋LLM** を使う場合は、先に手順 3–4 で解説用 OpenAI 互換サービスを保存します。エンジン単独なら省略できます。
 2. パッケージを書き込み可能なフォルダへ完全に展開し、`start.cmd` をダブルクリックします。同梱環境でファイルを検証し、管理画面を自動で開きます。実行ウィンドウは開いたままにします。
 3. 必要なモデルの「安装」を押し、完了後に「启动分析」を押します。選んだ重みと必要な依存環境だけを取得し、インストール自体では推論しません。
-4. 拡張の設定で **本地 mjai** と対応モデルを選び、「连接本地运行包」を押してローカル API 権限を許可します。管理画面で接続を承認すると分析設定が自動入力され、**Token のコピーは不要です**。
+4. 拡張の「本地麻将模型」で対応モデルを選び、「连接所选模型」を押してローカル API 権限を許可します。管理画面で接続を承認すると分析設定が自動入力され、**Token のコピーは不要です**。
 5. **Mortal＋LLM** なら「本地引擎决策 + LLM 自动解释」を有効にし、エンジン単独なら無効のままにします。接続後も分析は無効なので、自分で「开启模型分析」を有効にして保存します。LLM とエンジンの設定は別々に保存されます。
 6. 対局画面で座席を確認し、対局情報・四家の捨て牌・自分の手牌を許可します。「调用模型」を有効にして「综合攻守」を選び、分析します。二つのコミュニティ v4 と Akagi v3 は、本プロジェクトでは **四人半荘のみ** が対象です。
 

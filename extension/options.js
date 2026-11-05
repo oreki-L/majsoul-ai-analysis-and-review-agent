@@ -54,6 +54,12 @@ function updateThinking() {
 function show(provider) {
   const c = drafts[provider] || defaults(provider), engine = provider === 'mjai';
   currentProvider = provider;
+  if ($('pageTitle')) $('pageTitle').textContent = engine ? '本地麻将模型' : '模型管理';
+  if ($('pageDescription')) $('pageDescription').textContent = engine ? '安装、启动并连接本地麻将模型。' : '连接已有的模型服务。';
+  for (const [id, active] of [['navChat', !engine], ['navEngine', engine]]) {
+    const tab = $(id);
+    if (tab) { if (active) tab.setAttribute('aria-current', 'page'); else tab.removeAttribute('aria-current'); }
+  }
   $('engineExplain').disabled = !engine; $('engineExplain').checked = c.workflow === 'mortal-explain';
   $('profilesPanel').hidden = engine;
   $('engineSetup').hidden = !engine;
@@ -63,7 +69,7 @@ function show(provider) {
   engineSelect.value = engineProfiles?.activeId || 'custom';
   $('engineGuide').href = 'https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/blob/main/docs/MJAI.md';
   $('modelManager').href = 'http://127.0.0.1:17343/';
-  if ($('runtimeDownload')) $('runtimeDownload').href = 'https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.0/majsoul-model-manager-windows-x64-0.16.0.zip';
+  if ($('runtimeDownload')) $('runtimeDownload').href = 'https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.2/majsoul-model-manager-windows-x64-0.16.2.zip';
   $('provider').value = provider; $('enabled').checked = !!c.enabled;
   $('endpoint').value = c.endpoint || ''; $('endpoint').placeholder = engine ? 'http://127.0.0.1:17341/analyze' : 'https://api.openai.com/v1';
   $('endpointHint').textContent = engine ? '仅支持 localhost / 127.0.0.1 的 HTTP /analyze 接口。' : '自动补全 /chat/completions，也可填写完整接口地址。';
@@ -95,6 +101,9 @@ $('provider').onchange = () => {
     drafts[next] = { ...(drafts[next] || defaults(next)), enabled: false }; show(next); status('');
   } catch (error) { $('provider').value = currentProvider; status(error.message); }
 };
+for (const [id, provider] of [['navChat', 'chat'], ['navEngine', 'mjai']]) {
+  if ($(id)) $(id).onclick = () => { if (currentProvider !== provider) { $('provider').value = provider; $('provider').onchange(); } };
+}
 $('engineProfile').onchange = () => {
   cancelDiagnostic(); configStore.invalidate();
   const next = $('engineProfile').value;
@@ -124,7 +133,10 @@ $('config').onsubmit = async event => {
       if (c.pricing.currency !== null && c.pricing.currency.length > 16) throw new Error('币种名称不能超过 16 个字符。');
     }
     if (!c.model.trim()) throw new Error('请填写模型名称。');
-    if (c.provider === 'mjai' && !c.apiKey) throw new Error('请填写本地桥接服务的 Bearer Token。');
+    if (c.provider === 'mjai' && !c.apiKey) {
+      if ($('manualConnection')) $('manualConnection').open = true;
+      throw new Error('请填写本地桥接服务的 Bearer Token。');
+    }
     if (c.provider === 'chat') MJModelProfiles.validateName($('profileName').value);
     // Request inside the submit gesture, before any asynchronous storage work.
     const origins = [adapter.permissionOrigin(url.href)];
@@ -148,6 +160,11 @@ $('config').onsubmit = async event => {
     }
   } catch (error) { if (generation === configStore.generation) status(error.message); }
 };
+$('config').addEventListener?.('invalid', event => {
+  for (let parent = event.target.parentElement; parent; parent = parent.parentElement) {
+    if (parent.tagName === 'DETAILS') parent.open = true;
+  }
+}, true);
 $('disable').onclick = async () => {
   let generation;
   cancelDiagnostic();

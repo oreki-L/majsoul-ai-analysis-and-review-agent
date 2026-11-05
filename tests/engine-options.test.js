@@ -9,6 +9,8 @@ const ChatEndpoint = require('../extension/adapters/model-endpoint.js');
 async function settings(initial = {}, { permission = true, beforeSet, clearResult = { ok: true }, usageResult, modelResult, pairing } = {}) {
   const data = structuredClone(initial), calls = [], elements = new Map(), downloads = [];
   for (const id of ['connectRuntime', 'cancelRuntime', 'engineProfile', 'engineExplain', 'profilesPanel', 'profile', 'profileName', 'newProfile', 'magpiePreset', 'ccSwitchPreset', 'loadCcSwitchModels', 'deleteProfile', 'discoveredModels', 'diagnosticStatus', 'diagnose', 'cancelDiagnostic', 'magpieHello', 'loadModels', 'status', 'provider', 'providerHint', 'engineSetup', 'engineGuide', 'enabled', 'endpoint', 'endpointHint', 'model', 'key', 'keyLabel', 'chatOptions', 'thinking', 'thinkingHint', 'maxTokens', 'priceCurrency', 'priceInput', 'priceOutput', 'priceCacheRead', 'priceCacheWrite', 'config', 'disable', 'clear', 'clearAgentData', 'exportUsage']) elements.set(id, { value: '', checked: false, textContent: '', children: [], replaceChildren() { this.children = []; }, appendChild(item) { this.children.push(item); } });
+  for (const id of ['navChat', 'navEngine']) elements.set(id, { attributes: {}, setAttribute(name, value) { this.attributes[name] = value; }, removeAttribute(name) { delete this.attributes[name]; } });
+  for (const id of ['pageTitle', 'pageDescription']) elements.set(id, { textContent: '' });
   const local = {
     get: async keys => { calls.push(['get']); return Object.fromEntries((Array.isArray(keys) ? keys : [keys]).filter(key => key in data).map(key => [key, structuredClone(data[key])])); },
     set: async value => { const copied = structuredClone(value); calls.push(['set']); if (beforeSet) await beforeSet(copied); Object.assign(data, copied); },
@@ -33,6 +35,22 @@ async function settings(initial = {}, { permission = true, beforeSet, clearResul
   const el = id => elements.get(id);
   return { data, calls, downloads, el, select(provider) { el('provider').value = provider; el('provider').onchange(); }, submit() { return el('config').onsubmit({ preventDefault() {} }); } };
 }
+
+test('settings navigation keeps model management first and switches the local model workflow without enabling analysis', async () => {
+  const page = await settings();
+  assert.equal(page.el('pageTitle').textContent, '模型管理');
+  assert.equal(page.el('navChat').attributes['aria-current'], 'page');
+  page.el('navEngine').onclick();
+  assert.equal(page.el('pageTitle').textContent, '本地麻将模型');
+  assert.equal(page.el('navEngine').attributes['aria-current'], 'page');
+  assert.equal(page.el('navChat').attributes['aria-current'], undefined);
+  assert.equal(page.el('engineSetup').hidden, false);
+  assert.equal(page.el('enabled').checked, false);
+  assert.equal(page.el('modelManager').href, 'http://127.0.0.1:17343/');
+  page.el('navChat').onclick();
+  assert.equal(page.el('pageTitle').textContent, '模型管理');
+  assert.equal(page.el('engineSetup').hidden, true);
+});
 
 test('v4, v2 and custom engine profiles keep separate tokens, disable on switch and clear all drafts', async () => {
   const page = await settings(); page.select('mjai');
