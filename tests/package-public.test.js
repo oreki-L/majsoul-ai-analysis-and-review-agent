@@ -22,9 +22,10 @@ test('public source allowlist and ZIP retain npm lock, runtime source and full l
   runPython(load + `
 files = packager.allowed_files()
 names = {path.relative_to(packager.ROOT).as_posix() for path in files}
-required = {'package.json', 'package-lock.json', 'licenses/pi-LICENSE.txt', 'licenses/typebox-LICENSE.txt', 'licenses/SOURCES.md', 'extension/pi-runtime.js', 'scripts/pi-runtime-entry.mjs', 'scripts/bundle-pi-runtime.mjs', 'benchmark/cli.cjs', 'benchmark/examples/suite.mock.json'}
+required = {'package.json', 'package-lock.json', 'licenses/pi-LICENSE.txt', 'licenses/typebox-LICENSE.txt', 'licenses/SOURCES.md', 'extension/pi-runtime.js', 'scripts/pi-runtime-entry.mjs', 'scripts/bundle-pi-runtime.mjs', 'benchmark/cli.cjs', 'benchmark/examples/suite.mock.json', 'docs/research/RIICHI_ECOSYSTEM_RESEARCH.md', 'docs/guides/MODEL_MANAGER.md', 'docs/validation/AKAGI_V3_VALIDATION.md', 'docs/MODEL_MANAGER.md'}
 assert required <= names, required - names
-assert not any(part in {'.git', 'node_modules', 'dist', 'research', 'target', 'weights'} for name in names for part in Path(name).parts)
+assert not any(part in {'.git', 'node_modules', 'dist', 'target', 'weights'} for name in names for part in Path(name).parts)
+assert all('research' not in Path(name).parts or (Path(name).parts[:2] == ('docs', 'research') and 'research' not in Path(name).parts[2:]) for name in names)
 assert {name for name in names if name.startswith('engines/')} == {'engines/akagi-native/' + name for name in packager.NATIVE_SOURCE_FILES}
 assert not any(Path(name).suffix.lower() in {'.exe', '.dll', '.pth', '.safetensors'} for name in names)
 with tempfile.TemporaryDirectory(prefix='majsoul-source-test-') as directory:
@@ -36,6 +37,38 @@ with tempfile.TemporaryDirectory(prefix='majsoul-source-test-') as directory:
             assert result.read(name) == (packager.ROOT / name).read_bytes()
 `);
 });
+test('public documentation research is packaged without admitting private research subtrees', { skip: !python && 'Python is not installed' }, () => {
+  runPython(load + `
+with tempfile.TemporaryDirectory(prefix='majsoul-doc-layout-') as directory:
+    packager.ROOT = Path(directory)
+    packager.ROOT_FILES = []
+    packager.SOURCE_DIRS = ['docs', 'agent']
+    document = packager.ROOT / 'docs/research/public.md'
+    document.parent.mkdir(parents=True)
+    document.write_text('# Public research', encoding='utf-8')
+    private = packager.ROOT / 'research/private.md'
+    private.parent.mkdir()
+    private.write_text('Private root research', encoding='utf-8')
+    assert packager.allowed_files() == [document]
+    for name in ['agent/research/private.md', 'docs/research/research/private.md', 'docs/research/node_modules/private.md', 'docs/research/private.log']:
+        rejected = packager.ROOT / name
+        rejected.parent.mkdir(parents=True, exist_ok=True)
+        rejected.write_text('Private or generated fixture', encoding='utf-8')
+        try:
+            packager.allowed_files()
+        except ValueError:
+            pass
+        else:
+            raise AssertionError('Accepted forbidden path: ' + name)
+        rejected.unlink()
+        # Remove empty fixture directories so the next case is independent.
+        at = rejected.parent
+        while at not in {document.parent, packager.ROOT}:
+            at.rmdir()
+            at = at.parent
+`);
+});
+
 test('legacy base-ref snapshots keep committed dependency-free package and scripts coherent', { skip: !python && 'Python is not installed' }, () => {
   runPython(load + `
 with tempfile.TemporaryDirectory(prefix='majsoul-legacy-test-') as directory:

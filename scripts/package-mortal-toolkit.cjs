@@ -12,7 +12,7 @@ const digest=data=>crypto.createHash('sha256').update(data).digest('hex');
 const REPO=path.resolve(__dirname,'..');
 const AGENT_FILES=['mortal-local.cjs','mortal-process.cjs','mortal-worker.py','mortal-source.json','mortal-profile.cjs','mortal-runtime-lock.json','mortal-catalog.json','mortal-sample.cjs','mjai-python-wrapper.py','mjai-process.cjs','engine-server.cjs','akagi-local.cjs','akagi-local.py','akagi-source.json','model-manager.cjs','manager-access.cjs','model-installation.cjs','engine-registry.cjs','akagi-native-source.json','akagi-native-local.cjs','akagi-native-process.cjs'];
 const SCRIPT_FILES=['mortal-official-reference.py','prepare-mortal-runtime.cjs','package-mortal-toolkit.cjs','verify-mortal-toolkit.cjs','build-mortal-native.ps1','prepare-node-runtime.cjs','node-runtime-lock.json','launch-model-manager.cjs','extract-native-runtime.ps1'];
-const DOC_FILES=['MORTAL_V4.md','MORTAL_V4_VALIDATION.md','MODEL_MANAGER.md','AKAGI_V3_VALIDATION.md'];
+const DOC_FILES=['guides/MORTAL_V4.md','validation/MORTAL_V4_VALIDATION.md','guides/MODEL_MANAGER.md','validation/AKAGI_V3_VALIDATION.md','MORTAL_V4.md','MORTAL_V4_VALIDATION.md','MODEL_MANAGER.md','AKAGI_V3_VALIDATION.md'];
 const TOOLCHAIN_NOTICE='Native Rust standard-library and GCC runtime notices: sources/toolchain-licenses/ (MIT/Apache-2.0 and GCC Runtime Library Exception).\n';
 async function writeLauncher(out,command){await fs.writeFile(path.join(out,command+'.cmd'),'@echo off\r\nsetlocal\r\n"%~dp0runtime\\node.exe" "%~dp0scripts\\launch-model-manager.cjs" '+command+'\r\nset "TOOLKIT_EXIT=%ERRORLEVEL%"\r\nif "%TOOLKIT_EXIT%"=="0" exit /b 0\r\necho.\r\necho Model manager failed. See the error above.\r\npause\r\nexit /b %TOOLKIT_EXIT%\r\n');}
 async function writeStart(out){await writeLauncher(out,'start');}
@@ -28,7 +28,7 @@ async function writeGuide(out,profile='bootstrap'){
 
 安装数据默认保存在 \`%LOCALAPPDATA%\\MajsoulAgent\\models\`，重新解压新版工具包后可复用受管理的下载，不搬迁旧目录或接管未知文件。启动管理服务不会下载模型或运行推理，不注册系统自启。管理凭据与分析 Bearer 凭据隔离；只在本机页面授权。首次安装需要网络，下载失败或哈希不符会明确报错。两个社区 v4 及 Akagi v3 限四人半庄，完整实战兼容和牌力未认证。Akagi v3 单独按需下载原生运行包，不需要 Python／PyTorch。
 
-详细操作见 [模型管理](docs/MODEL_MANAGER.md)，范围见 [Mortal v4](docs/MORTAL_V4.md)，验证限制见 [验收记录](docs/MORTAL_V4_VALIDATION.md)。
+详细操作见 [模型管理](docs/guides/MODEL_MANAGER.md)，范围见 [Mortal v4](docs/guides/MORTAL_V4.md)，验证限制见 [验收记录](docs/validation/MORTAL_V4_VALIDATION.md)。
 
 许可见 \`NOTICE.txt\`、\`PROJECT-LICENSE\`；固定 Mortal 完整源码与 Cargo.lock 位于 \`sources/Mortal/\`，对应 crate 源码和许可证位于 \`sources/vendor/\`，Rust／GCC 运行库公告位于 \`sources/toolchain-licenses/\`。构建说明见 \`sources/BUILDING.md\`，原生构建记录见 \`native/libriichi-build.json\`；所有分发文件哈希见 \`TOOLKIT-SHA256.json\`。Python／wheel／模型许可随显式安装保留。
 `);
@@ -61,6 +61,7 @@ async function verifyVendor(root){
   }
 }
 async function copy(from,to){await fs.mkdir(path.dirname(to),{recursive:true});await fs.cp(from,to,{recursive:true,filter:item=>!['target','.git','__pycache__'].includes(path.basename(item))&&!item.endsWith('.pyc')});}
+async function copyDocs(out){for(const file of DOC_FILES)await copy(path.join(REPO,'docs',file),path.join(out,'docs',file));}
 async function writeManifest(out,profile){
   const files=[];
   async function walk(folder){for(const item of await fs.readdir(folder,{withFileTypes:true})){const file=path.join(folder,item.name);if(item.name==='__pycache__'||item.name.endsWith('.pyc'))continue;if(item.isSymbolicLink())throw new Error('TOOLKIT_SYMLINK_REFUSED');if(item.isDirectory())await walk(file);else if(path.relative(out,file)!=='TOOLKIT-SHA256.json')files.push({path:path.relative(out,file).replaceAll('\\','/'),sha256:digest(await fs.readFile(file))});}}
@@ -77,7 +78,7 @@ async function refreshToolkit(out){
   for(const file of AGENT_FILES)await copy(path.join(REPO,'agent',file),path.join(out,'agent',file));
   await copy(path.join(REPO,'agent/model-manager-ui'),path.join(out,'agent/model-manager-ui'));
   for(const file of SCRIPT_FILES)await copy(path.join(REPO,'scripts',file),path.join(out,'scripts',file));
-  for(const file of DOC_FILES)await copy(path.join(REPO,'docs',file),path.join(out,'docs',file));
+  await copyDocs(out);
   await copy(path.join(REPO,'extension/adapters/mjai.js'),path.join(out,'extension/adapters/mjai.js'));
   const noticePath=path.join(out,'NOTICE.txt'),notice=await fs.readFile(noticePath,'utf8');
   if(!notice.includes(TOOLCHAIN_NOTICE))await fs.writeFile(noticePath,notice+TOOLCHAIN_NOTICE);
@@ -130,7 +131,7 @@ async function packageToolkit({dir,runtime,out,offlineProfile,modelDir,withWheel
   await copy(path.join(dir,'mortal-source.zip'),path.join(out,'sources/mortal-source.zip'));
   for(const file of ['mortal-source.json','mortal-runtime-lock.json'])await copy(path.join(REPO,'agent',file),path.join(out,'sources',file));
   for(const file of SCRIPT_FILES)await copy(path.join(REPO,'scripts',file),path.join(out,'scripts',file));
-  for(const file of DOC_FILES)await copy(path.join(REPO,'docs',file),path.join(out,'docs',file));
+  await copyDocs(out);
   await copy(path.join(REPO,'LICENSE'),path.join(out,'PROJECT-LICENSE'));
   await writeGuide(out,offlineProfile||'bootstrap');
   await fs.writeFile(path.join(out,'NOTICE.txt'),
@@ -148,5 +149,5 @@ async function packageToolkit({dir,runtime,out,offlineProfile,modelDir,withWheel
   console.log(JSON.stringify({out,files:await writeManifest(out,offlineProfile||'bootstrap'),profile:offlineProfile||'bootstrap',weightsIncluded:!!offlineProfile,pythonIncluded:!!offlineProfile,nodeVersion:nodeLock.version,nodeArchiveSha256:nodeLock.archive.sha256,nativeSha256:source.native.sha256}));
 }
 async function main(args){if(args.length===2&&args[0]==='--refresh')return refreshToolkit(args[1]);const options={};while(args.length){const flag=args.shift();if(flag==='--with-wheels'){options.withWheels=true;continue;}if(!['--dir','--runtime','--out','--offline-profile','--model-dir','--node-runtime'].includes(flag)||!args.length)throw new Error('INVALID_ARGUMENTS');options[({'offline-profile':'offlineProfile','model-dir':'modelDir','node-runtime':'nodeRuntime'})[flag.slice(2)]||flag.slice(2)]=args.shift();}if(!options.dir||!options.out)throw new Error('Usage: node scripts/package-mortal-toolkit.cjs --dir NATIVE_SOURCE_DIR --out NEW_DIR --node-runtime PREPARED_NODE_DIR [--with-wheels] [--offline-profile PROFILE --model-dir DIR --runtime PYTHON_DIR]');await packageToolkit(options);}
-module.exports={packageToolkit,refreshToolkit,verifyVendor,writeLauncher};
+module.exports={packageToolkit,refreshToolkit,verifyVendor,writeLauncher,copyDocs};
 if(require.main===module)main(process.argv.slice(2)).catch(error=>{console.error(error.message);process.exitCode=1;});

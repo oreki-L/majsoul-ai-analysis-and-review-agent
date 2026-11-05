@@ -52,7 +52,7 @@ For LLM analysis and follow-up questions. **You need only the full Agent and you
 5. Back in the game, confirm your seat, authorize game information, discards and your hand, enable “调用模型”, and analyze the current position. Enable automatic analysis separately if you want ongoing hints.
 6. Ask a follow-up question on the recommendation, or reopen a recorded decision to continue its discussion.
 
-Cloud APIs, compatible gateways and local Chat Completions services are configurable, with multiple saved LLM profiles. Magpie and experimental CC Switch are optional integrations. See [model configuration](docs/MODEL_CONFIGURATION.md). Calls send authorized position data to your configured service and may incur charges.
+Cloud APIs, compatible gateways and local Chat Completions services are configurable, with multiple saved LLM profiles. Magpie and experimental CC Switch are optional integrations. See [model configuration](docs/guides/MODEL_CONFIGURATION.md). Calls send authorized position data to your configured service and may incur charges.
 
 ### Using local models
 
@@ -71,7 +71,7 @@ Node is bundled; model dependencies such as Python / PyTorch are prepared automa
 
 When finished, click “停止分析服务” or close the runtime window. Disabling extension calls stops requests but leaves the local service running. Engine inference is local; LLM explanations and follow-up questions still send authorized position data to your configured LLM. Advanced configuration still accepts a manually entered endpoint and analysis token for your own mjai service.
 
-[Manager instructions and troubleshooting](docs/MODEL_MANAGER.md) · [Engine and LLM setup](docs/MJAI.md) · [Community v4 runtime](docs/MORTAL_V4.md)
+[Manager instructions and troubleshooting](docs/guides/MODEL_MANAGER.md) · [Engine and LLM setup](docs/guides/MJAI.md) · [Community v4 runtime](docs/guides/MORTAL_V4.md)
 
 ## Optional local models
 
@@ -82,17 +82,17 @@ When finished, click “停止分析服务” or close the runtime window. Disab
 | [Yuchen1457/mortal-582500](https://huggingface.co/Yuchen1457/mortal-582500) | Community Mortal v4, supported here for four-player hanchan |
 | Akagi v3 native model | Experimental opt-in, four-player hanchan; ~2.64 MB weights and a separate CPU runtime, without Python |
 
-The first three entries are not official Mortal 4.1. Akagi v3 is a separate behavior-cloning model using native Rust inference; its version number does not establish stronger play. See [v3 validation](docs/AKAGI_V3_VALIDATION.md) for the tested scope and rule adaptations.
+The first three entries are not official Mortal 4.1. Akagi v3 is a separate behavior-cloning model using native Rust inference; its version number does not establish stronger play. See [v3 validation](docs/validation/AKAGI_V3_VALIDATION.md) for the tested scope and rule adaptations.
 
 ## Support and data
 
 Currently adapted for `game.maj-soul.com`, with a Simplified Chinese extension UI. Other regional domains, Firefox, Safari and the Steam desktop client are not adapted; translated READMEs do not imply support for other game regions.
 
-Model inputs are limited to your authorized hand, public table and collected history, excluding opponents' hidden hands, account credentials and future events. API keys, discussions and usage records stay in extension storage. Discussions have capacity limits, with no cloud sync or permanent-retention guarantee. The project has no relay server or telemetry uploads. [Security and permissions](SECURITY.md) · [Sessions and usage](docs/AGENT_SESSIONS.md)
+Model inputs are limited to your authorized hand, public table and collected history, excluding opponents' hidden hands, account credentials and future events. API keys, discussions and usage records stay in extension storage. Discussions have capacity limits, with no cloud sync or permanent-retention guarantee. The project has no relay server or telemetry uploads. [Security and permissions](SECURITY.md) · [Sessions and usage](docs/guides/AGENT_SESSIONS.md)
 
-Both community v4 models have passed real fixed-weight loading, synthetic four-seat positions, synthetic HTTP→Agent requests and key-action comparisons. Official Python and pinned dependency downloads were verified locally, but the Hugging Face weight download did not complete; full offline model installation was verified. Full live games, reconnection recovery, playing strength and paid LLM teaching quality remain unverified. LLM explanations interpret positions and results; they do not expose the engine's internal reasoning. [Validation overview](VALIDATION.md) · [v4 evidence](docs/MORTAL_V4_VALIDATION.md)
+Both community v4 models have passed real fixed-weight loading, synthetic four-seat positions, synthetic HTTP→Agent requests and key-action comparisons. Official Python and pinned dependency downloads were verified locally, but the Hugging Face weight download did not complete; full offline model installation was verified. Full live games, reconnection recovery, playing strength and paid LLM teaching quality remain unverified. LLM explanations interpret positions and results; they do not expose the engine's internal reasoning. [Validation overview](VALIDATION.md) · [v4 evidence](docs/validation/MORTAL_V4_VALIDATION.md)
 
-Historical LLM fact-quality and cost experiments are in [fact-enhancement validation](docs/XF_VALIDATION.md) and [model experiments](docs/MODEL_BENCHMARK.md); they do not establish playing strength or gains for the new community models.
+Historical LLM fact-quality and cost experiments are in [fact-enhancement validation](docs/benchmark/XF_VALIDATION.md) and [model experiments](docs/benchmark/MODEL_BENCHMARK.md); they do not establish playing strength or gains for the new community models.
 
 ## Development and documentation
 
@@ -107,6 +107,6 @@ npm run build
 
 Agent uses the Pi Agent runtime adapted for Manifest V3, with read-only tools accessing frozen authorized positions. Standard data contracts separate collection from analysis, and Collector stays independent.
 
-[Documentation](docs/README.md) · [Architecture](ARCHITECTURE.md) · [Module separation](docs/DECOUPLING.md) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md) · [References](docs/REFERENCES.md)
+[Documentation](docs/README.md) · [Architecture](ARCHITECTURE.md) · [Module separation](docs/development/DECOUPLING.md) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md) · [References](docs/REFERENCES.md)
 
 Supplementary documentation is in Simplified Chinese. Project code and 37 original SVG tile faces are [MIT licensed](LICENSE). Optional models, native components and upstream code retain their own licenses. [Third-party notices](THIRD_PARTY_NOTICES.md) · [License sources](licenses/SOURCES.md)

@@ -2,7 +2,7 @@
 
 本文描述 v0.13.0 的组件关系与数据流。完整版以用户自配 LLM 的实时建议和冻结决策追问为核心，完整四麻自动综合分析使用 X-F；Mortal 决策与独立 LLM 教学为默认关闭的可选工作流。独立牌局获取器保持无模型依赖。`extension/agent.js` 编排分析任务，`extension/harness.js` 提供有界执行、取消和脱敏轨迹；`agent/` 提供离线复盘与本地引擎工具。
 
-文档分类见[文档导航](docs/README.md)，仓库与本地生成目录见[项目目录结构](docs/PROJECT_STRUCTURE.md)，有界执行细节见 [Agent 与 harness](docs/AGENT.md)。
+文档分类见[文档导航](docs/README.md)，仓库与本地生成目录见[项目目录结构](docs/development/PROJECT_STRUCTURE.md)，有界执行细节见 [Agent 与 harness](docs/development/AGENT.md)。
 
 这是 Manifest V3 扩展，完整版捆绑经浏览器适配的固定 Pi 1.4.0 运行时；collector 不含模型依赖。`extension/` 可直接加载完整版；`npm run build` 根据显式profiles生成完整版和独立获取器。采集器、标准数据合同、Agent、UI和网络访问通过组合入口接线。
 
@@ -97,17 +97,17 @@ controller独立于DOM和浏览器API；存储、时钟、ID和hash通过端口�
 
 LLM 分析与解释保持主要定位，默认 `chat` 且分析关闭。设置保留多份命名 `chat` 配置与可选 `mjai` 配置；切换不自动启用分析。用户显式启用 `mortal-explain` 后，本地引擎先产生并保存校验动作，再以独立 Chat 配置经 Pi 补充教学解释。Mortal/mjai 是自备模型的可选适配，不增加独立获取器的依赖或权限。
 
-动作与解释使用独立合同，解释无动作覆盖权。教学走 `live-selective` 与原解释 prompt，纯 Chat 自动综合分析的 X-F 走 `live-xf`，工作流和引擎身份隔离。解释重试先原子持久领取 attempt，只有该 pending attempt 能落一次终态；失败、取消或迟到响应不能覆盖新重试。撤权取消在途并清当前展示，历史问答及用量保留。官网入口与旧报告的有限导入见 [Mortal 验收范围](docs/MORTAL_WORKFLOW_VALIDATION.md)。
+动作与解释使用独立合同，解释无动作覆盖权。教学走 `live-selective` 与原解释 prompt，纯 Chat 自动综合分析的 X-F 走 `live-xf`，工作流和引擎身份隔离。解释重试先原子持久领取 attempt，只有该 pending attempt 能落一次终态；失败、取消或迟到响应不能覆盖新重试。撤权取消在途并清当前展示，历史问答及用量保留。官网入口与旧报告的有限导入见 [Mortal 验收范围](docs/validation/MORTAL_WORKFLOW_VALIDATION.md)。
 
 组合入口提供授权观察的本局连续事件，由 `adapters/mjai.js` 转换为 `majsoul-mjai-v1`：`start_game`、13张 `start_kyoku` 与游标前事件；玩家名匿名化，对手手牌/摸牌遮蔽。后台 `engine-agent.js` 执行 `request.validate → engine.infer → engine.validate`，只依赖净化 DTO，重放自家手牌并对照局数、点数、供托、宝牌、有序公开牌河及立直状态。原始获取器 state 不进入引擎 Agent。
 
 扩展经带 Bearer Token 的本机 `/analyze` 调用 `engine-server.cjs`，后者由 `mjai-process.cjs` 启动用户配置的进程，写入一行完整事件数组，读取单行动作并清理进程。Python 包装器调用用户零参数 Bot 类的 `react(events_json)`，用户模块自行加载权重和依赖。命令不是沙箱；不捆绑上游运行环境或权重，上游许可另行适用。此服务默认不启动，不接受由页面指定执行命令。
 
-页面接受连续可重放四麻中经验证的弃牌、立直、响应、鸣牌、杠与和牌动作；完整动作和资格边界见 [mjai 支持范围](docs/MJAI.md#当前支持范围与数据边界)。自家14张开局、抢杠等无法可靠证明的情况明确拒绝。无法确定立直弃牌时不输出具体牌；无可靠 Q 索引映射时候选为空，Q 值不作为放铳概率或危险牌依据。`engine:review` 从事件前缀重建快照，复用同一 Agent 的完整一致性与动作校验，输出 `engine/result/localAnalysis/trace`。HTTP 服务全局只运行一次推理，忙时429且不排队，断开后等待取消清理完成才释放。完整协议与命令见 [docs/MJAI.md](docs/MJAI.md)。固定 Akagi 弱 Mortal 示例已用四座位人工局面验证真实推理；官网4.1、连续整场及实战牌力未验证。
+页面接受连续可重放四麻中经验证的弃牌、立直、响应、鸣牌、杠与和牌动作；完整动作和资格边界见 [mjai 支持范围](docs/guides/MJAI.md#当前支持范围与数据边界)。自家14张开局、抢杠等无法可靠证明的情况明确拒绝。无法确定立直弃牌时不输出具体牌；无可靠 Q 索引映射时候选为空，Q 值不作为放铳概率或危险牌依据。`engine:review` 从事件前缀重建快照，复用同一 Agent 的完整一致性与动作校验，输出 `engine/result/localAnalysis/trace`。HTTP 服务全局只运行一次推理，忙时429且不排队，断开后等待取消清理完成才释放。完整协议与命令见 [docs/MJAI.md](docs/guides/MJAI.md)。固定 Akagi 弱 Mortal 示例已用四座位人工局面验证真实推理；官网4.1、连续整场及实战牌力未验证。
 
 ## 可选 NAGA 牌谱导出
 
-`naga-panel.js` 由完整版组合入口挂载，默认关闭且独立于 `chat` / `mjai` 后端选择。用户在 replay 模式主动确认四人喰断、东风／半庄和赤牌配置后，面板通过注入的 `exportReplay()` 端口取得完整记录，交给纯转换器 `adapters/naga-replay.js`。转换不依赖当前游标，不接受实时局面或历史快照；输出逐局 Tenhou URL 与逐局拒绝原因。支持与拒绝边界见 [NAGA 接入说明](docs/NAGA-INTEGRATION.md)。
+`naga-panel.js` 由完整版组合入口挂载，默认关闭且独立于 `chat` / `mjai` 后端选择。用户在 replay 模式主动确认四人喰断、东风／半庄和赤牌配置后，面板通过注入的 `exportReplay()` 端口取得完整记录，交给纯转换器 `adapters/naga-replay.js`。转换不依赖当前游标，不接受实时局面或历史快照；输出逐局 Tenhou URL 与逐局拒绝原因。支持与拒绝边界见 [NAGA 接入说明](docs/guides/NAGA-INTEGRATION.md)。
 
 `protocol.js` 仅对 replay 选择额外的役种、里宝牌、支付点数与流局结算字段，缺失点数保持 `null`；不保留玩家身份、未来牌山或原始报文，也不扩大 live 输出。转换器自行匿名化座位标签，不依赖 DOM、Chrome、网络、模型 Agent 或 harness。新增数据不会进入 `mj-analysis-v1`。
 
@@ -141,7 +141,7 @@ LLM 分析与解释保持主要定位，默认 `chat` 且分析关闭。设置�
 
 `npm run check`检查源码语法、依赖白名单、纯核心禁止浏览器能力及profiles。`model-profiles.js` 不允许模块依赖，`model-diagnostics.js` 仅允许 endpoint 与 transport；两者禁止直接 DOM、Chrome、网络和存储全局能力，注入端口仍可用。构建从显式入口追踪脚本和页面资源闭包，验证内容脚本、worker和设置页的加载顺序；agent profile须与默认manifest一致，collector闭包不得包含分析或模型文件。检查器支持本项目的静态引用，不是通用JavaScript解析器；新增项目全局或加载方式需同步检查规则。两个安装目录由依赖闭包复制生成，不修改共享UI源码。
 
-检查规则、依赖方向和静态扫描局限见[可执行的模块边界](docs/DECOUPLING.md)。
+检查规则、依赖方向和静态扫描局限见[可执行的模块边界](docs/development/DECOUPLING.md)。
 
 运行 `npm test`。分析测试通过 VM 中的模拟 Chrome API 和模拟 HTTP 响应覆盖开关、授权、身份、请求、错误与取消，不连接真实模型。`tests/preview.html` 用于离线界面验证，不代表真实协议采集或模型正确率。版本验证记录见 `VALIDATION.md`。
 
@@ -159,4 +159,4 @@ LLM 分析与解释保持主要定位，默认 `chat` 且分析关闭。设置�
 
 ## 实时事实投影（0.13.0）
 
-`xf-context.js` 是依赖 snapshot 合同与 analysis 的纯模块，按原冻结 X-S + 阶段三事实目录构造 X-F。`agent.js` 仅在完整四麻自动综合弃牌点使用它，其他任务回退原 NED；全局与追问继续走完整上下文。`round-context.js` 从已有基线/增量返回全部 capturedStates，界面的检查点导航仍有界。生成输入只压缩授权旧事实，不发送旧意见；原严格结果校验、工具、运行预算与 collector 能力边界保持。详见 [输入合同](docs/XF_CONTEXT.md)。
+`xf-context.js` 是依赖 snapshot 合同与 analysis 的纯模块，按原冻结 X-S + 阶段三事实目录构造 X-F。`agent.js` 仅在完整四麻自动综合弃牌点使用它，其他任务回退原 NED；全局与追问继续走完整上下文。`round-context.js` 从已有基线/增量返回全部 capturedStates，界面的检查点导航仍有界。生成输入只压缩授权旧事实，不发送旧意见；原严格结果校验、工具、运行预算与 collector 能力边界保持。详见 [输入合同](docs/guides/XF_CONTEXT.md)。

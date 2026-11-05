@@ -10,7 +10,7 @@
 | [@earendil-works/pi-ai](https://github.com/earendil-works/pi/tree/v1.4.0/packages/ai) | 1.4.0；Copyright (c) 2025 Mario Zechner | MIT；仅打入 transcript、event-stream、identity、validation 等浏览器工具代码，排除 provider 与 Node credential store；许可证同上 |
 | [TypeBox](https://github.com/sinclairzx81/typebox) | 1.3.27；Copyright (c) 2017-2026 Haydn Paterson | MIT；打入解释式 schema 校验等功能；完整文本见 [licenses/typebox-LICENSE.txt](licenses/typebox-LICENSE.txt) |
 
-Pi 的 `typebox/compile` 在构建时以同版本 TypeBox `Value.Check` / `Value.Errors` 解释执行适配层替换，以满足 MV3 禁止动态代码的要求。补丁与构建方式见 [docs/pi-runtime.md](docs/pi-runtime.md)，固定来源及许可证校验值见 [licenses/SOURCES.md](licenses/SOURCES.md)。许可证目录随两个扩展包附带；collector 包不含上述运行库代码。
+Pi 的 `typebox/compile` 在构建时以同版本 TypeBox `Value.Check` / `Value.Errors` 解释执行适配层替换，以满足 MV3 禁止动态代码的要求。补丁与构建方式见 [docs/pi-runtime.md](docs/development/pi-runtime.md)，固定来源及许可证校验值见 [licenses/SOURCES.md](licenses/SOURCES.md)。许可证目录随两个扩展包附带；collector 包不含上述运行库代码。
 
 上述列表按 esbuild 最终输出中实际贡献字节的依赖审计。`partial-json` 等安装依赖经 tree shaking 后不进入扩展产物；esbuild 只在构建期间运行，不作为浏览器运行库分发。构建脚本会拒绝未审查的新分发依赖。
 
@@ -22,7 +22,7 @@ Akagi v3 与旧 Mortal 示例是不同模型。对应推理源码固定为 [shin
 
 四麻 `akagi4p.safetensors` 仅在用户显式安装时单独下载，固定来源和 SHA-256 见 [资产锁](agent/akagi-native-source.json)。权重仓库沿用上游 Apache-2.0 声明，但未提供独立 model card 或训练数据授权证明，不据此宣称训练数据许可已验证。
 
-专用 Windows x64 CPU runtime 与扩展及默认便携引导包分开分发；不嵌入四麻／三麻权重。对应源码、Cargo 锁、依赖源码与许可证、工具链公告和构建说明随专用工件保留。安装 Akagi v3 不需要 Python／PyTorch；原三模型的许可和运行环境保持各自边界。构建、规则差异及实测范围见 [Akagi v3 验收记录](docs/AKAGI_V3_VALIDATION.md)。
+专用 Windows x64 CPU runtime 与扩展及默认便携引导包分开分发；不嵌入四麻／三麻权重。对应源码、Cargo 锁、依赖源码与许可证、工具链公告和构建说明随专用工件保留。安装 Akagi v3 不需要 Python／PyTorch；原三模型的许可和运行环境保持各自边界。构建、规则差异及实测范围见 [Akagi v3 验收记录](docs/validation/AKAGI_V3_VALIDATION.md)。
 
 ### 独立可选本地模型工具（不随扩展ZIP捆绑）
 
@@ -32,7 +32,7 @@ Akagi v3 与旧 Mortal 示例是不同模型。对应推理源码固定为 [shin
 
 [VoidShine/mortal-298k](https://huggingface.co/VoidShine/mortal-298k/tree/dbbea7e3d34f99ec43fc4834ab7f2aaaed70b6ee) 声明AGPL-3.0；[Yuchen1457/mortal-582500](https://huggingface.co/Yuchen1457/mortal-582500/tree/7386c9f5c751a3ea75efea99737cef5a5ef950f1) 声明AGPL-3.0／upstream AGPL-3.0-or-later。模型各自许可证、model card和元数据随显式安装保存，不下载训练牌谱；发布者的牌力或授权说明作为来源声明保留，不视为本项目认证。
 
-便携Python3.11.9（PSF）、CPU PyTorch2.7.0、NumPy1.26.2及其固定依赖保留各自许可证／第三方公告。完整运行环境只按需安装或显式离线导出，默认bootstrap零权重、零完整Python。固定URL／SHA与实际验证见 [来源清单](agent/mortal-source.json)、[依赖锁](agent/mortal-runtime-lock.json) 和 [验收记录](docs/MORTAL_V4_VALIDATION.md)。v2原有AGPL加Commons Clause边界不变。
+便携Python3.11.9（PSF）、CPU PyTorch2.7.0、NumPy1.26.2及其固定依赖保留各自许可证／第三方公告。完整运行环境只按需安装或显式离线导出，默认bootstrap零权重、零完整Python。固定URL／SHA与实际验证见 [来源清单](agent/mortal-source.json)、[依赖锁](agent/mortal-runtime-lock.json) 和 [验收记录](docs/validation/MORTAL_V4_VALIDATION.md)。v2原有AGPL加Commons Clause边界不变。
 
 开发时参考了以下公开资料。参考并不表示对方认可本项目，也不代表已验证当前客户端兼容性。
 

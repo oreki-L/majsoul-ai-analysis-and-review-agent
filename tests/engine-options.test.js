@@ -110,7 +110,7 @@ test('settings default to disabled chat and old configurations remain chat only'
   assert.equal(legacy.el('provider').value, 'chat'); assert.equal(legacy.el('key').value, 'CHAT_SECRET');
   legacy.select('mjai');
   assert.equal(legacy.el('engineSetup').hidden, false);
-  assert.equal(legacy.el('engineGuide').href, 'https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/blob/main/docs/MJAI.md');
+  assert.equal(legacy.el('engineGuide').href, 'https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/blob/main/docs/guides/MJAI.md');
   assert.equal(legacy.el('modelManager').href, 'http://127.0.0.1:17343/');
   assert.equal(legacy.el('enabled').checked, false); assert.equal(legacy.el('key').value, '');
   assert.equal(legacy.el('endpoint').value, 'http://127.0.0.1:17341/analyze');
@@ -408,7 +408,7 @@ test('discovered model IDs including route group whitespace are saved without re
 
 // This fixture calls property handlers directly: it does not implement native
 // DOM select behavior or automatic input/change bubbling. Actual options.html
-// browser QA is recorded in docs/MODEL_CONFIGURATION.md; explicit parent calls
+// browser QA is recorded in docs/guides/MODEL_CONFIGURATION.md; explicit parent calls
 // here exercise its guard order.
 test('model directory is scoped to profile, normalized endpoint and effective Bearer credential', async () => {
   const page = await settings(savedChat(), { modelResult: { ok: true, models: [{ id: 'old-provider/model' }] } });

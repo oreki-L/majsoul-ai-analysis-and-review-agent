@@ -1,5 +1,9 @@
 # 版本验证记录
 
+[文档导航](docs/README.md) · [发布变化](CHANGELOG.md)
+
+以下按功能引入／验收版本保留结果；发布包以对应 Release 和提交为准，本地开发补充不自动构成发布验收。当前本地源码版本以 `package.json` 为准，专项样本和未测范围不随导航整理扩大。
+
 ## 0.16.2 界面检查（2026-11-05）
 
 - 隔离目录的检查、双配置构建与 3/3 人工向听样例通过；705 项自动测试（`--test-concurrency=4`）702 通过、3 项按环境条件跳过。
@@ -17,7 +21,7 @@
 
 - 固定 `mahjong==1.4.0`，1,012组、普通型／七对子／国士及综合向听，2,999个弃牌候选与3,507个当前／弃牌后进张条目统一规则后通过；4组自家副露锁牌引起的原始差异保留并解释。
 - 对照固定Akagi及mahjong_soul_api，修复恢复明文解码、整批解析、认证座位、Blob与断线次序、旧socket隔离和加杠来源，补充合成wire→采集器→状态机回归；未改变采集架构或引入扩展Python依赖。
-- 真实事件采集与整场断线恢复验收按用户要求搁置；快照恢复仍不支持。复现、来源和边界见[专项记录](docs/RULES_EVENTS_VALIDATION.md)。
+- 真实事件采集与整场断线恢复验收按用户要求搁置；快照恢复仍不支持。复现、来源和边界见[专项记录](docs/validation/RULES_EVENTS_VALIDATION.md)。
 - 最终以 `--test-concurrency=4` 运行704项，703通过、1跳过、0失败；`npm run check`通过。首次默认并发中的既有Mortal进程时序失败及复测结果保留在专项记录，未修改进程实现。
 
 ## 0.16.0 Akagi v3 原生接入验收（2026-11-04）
@@ -28,7 +32,7 @@
 - 正式独立 runtime 已公开、匿名下载字节核对通过；全新目录从固定官方API在线安装最终runtime及权重后真实推理、停删保留runtime通过。四模型7次真实切换与旧PID回收、其他资产不变通过。
 - Edge真实扩展／管理页／native，以人工采集消息验证手动、主动自动、配对默认关闭、动作先显示及模拟LLM解释保存，停删保留runtime通过。仅测试副本预授本机权限，原生权限弹窗未覆盖；未使用真实牌局或付费LLM。
 - 首实现收尾全仓697项：696通过、1跳过、0失败，check、双profile build、3/3人工eval通过；目录开放及版本文档收尾后再次从干净发布快照核对，最终矩阵及五附件结果以 Release 回执为准。实现提交 `ef9911d` 的远端四矩阵已通过。
-- 详细固定资产、规则补丁、证据和未测范围见 [AKAGI_V3_VALIDATION.md](docs/AKAGI_V3_VALIDATION.md)。真实整场、断线恢复、干净Windows VM、实战牌力与付费LLM教学质量未验证。
+- 详细固定资产、规则补丁、证据和未测范围见 [AKAGI_V3_VALIDATION.md](docs/validation/AKAGI_V3_VALIDATION.md)。真实整场、断线恢复、干净Windows VM、实战牌力与付费LLM教学质量未验证。
 
 ## 0.15.0 便携运行包与扩展配对验收（2026-11-04）
 
@@ -57,7 +61,7 @@
 - 真实本机管理验收包含从空目录离线安装298k、鉴权HTTP推理、停止／再启动／删除，以及Yuchen→298k→v2→298k切换、身份校验与进程回收。两个 v4 可共存，一次只运行一个；删除一模型不影响另一模型，删除权重保留环境。共享环境的标记／Python哈希及修改时间在切换前后不变，结束后无管理目录所属Python进程。管理页真实人工点击与凭据不落浏览器存储另有本地截图记录。
 - 管理服务、安装和推理相互独立，默认零模型、零下载、零推理；无自启、系统服务、Native Messaging 或远程调试依赖。管理／分析 Token 分离，固定操作、Host／Origin／Bearer、大小限制、未知资产和目录链接删除拒绝，以及安装子孙进程取消／超时清理均有回归。
 - v4 常驻加载和预热后响应，热请求性能与完整环境校验／冷启动分开。后端切换补验首次冷启动51.7秒（其中环境校验47.2秒），随后298k启动6.3–8.9秒；主代理独立验收首次35.8秒、再次6.4秒。完整哈希校验保留，最多8路并发并显示启动阶段；这些本机时延不代表其他设备或实际游戏表现。
-- 社区 v4 暂仅逐次手动确认四人半庄，自动分析不开放，刷新不恢复声明；尾随立直成立／宝牌公告明确拒绝。LLM解释保持独立合同，未做付费教学质量验证。完整来源、性能、真实／mock区分及许可见 [Mortal v4验收](docs/MORTAL_V4_VALIDATION.md)，操作见 [本机模型管理](docs/MODEL_MANAGER.md)。
+- 社区 v4 暂仅逐次手动确认四人半庄，自动分析不开放，刷新不恢复声明；尾随立直成立／宝牌公告明确拒绝。LLM解释保持独立合同，未做付费教学质量验证。完整来源、性能、真实／mock区分及许可见 [Mortal v4验收](docs/validation/MORTAL_V4_VALIDATION.md)，操作见 [本机模型管理](docs/guides/MODEL_MANAGER.md)。
 - 默认bootstrap另从全新目录通过真实管理API实测在线安装，无离线fixture、download override或镜像回退。Python.org及固定PyPI／PyTorch官方wheel下载成功，全部依赖解包／校验后环境原子安装成功；约189秒进入固定VoidShine HF权重下载，约213秒以`SUBPROCESS_FAILED`失败。对同官方URL另一次限60秒请求约21.1秒后报`huggingface.co:443`连接失败，未取得HTTP状态。临时模型目录清理、已装环境保留，结束时无相关进程；报告为本地`model-manager-official-online-validation.json`与`model-manager-official-hf-retry.json`。因此官方在线部分链路已验，完整模型安装链路在本机未通，不能称在线安装成功。
 - 三模型真实推理与管理成功记录仍使用固定离线资产；开发中同revision镜像下载并校验SHA的记录单独保留，不替代上述官方在线结果。干净Windows VM、真实网页整场／断线恢复、实战牌力、GPU／三麻／东风及付费LLM教学质量尚未验证。
 
@@ -69,7 +73,7 @@
 - X-F独立版本全仓589项：587通过、0失败、2跳过；修复后的整合版全仓609项：607通过、0失败、2跳过，静态check通过。干净快照打包须重复完整检查、测试、双profile构建及3个人工回归；两项跳过为不分发的私有fixture，不视作通过。最终ZIP从本次干净提交的git archive导出构建，含自包含源码、Agent、collector及SHA256；远端四矩阵CI与匿名资产下载核对另以发布回执确认。
 - 三语README及公开脱敏汇总展示全部四组数据与限制。X-F本批31/45、均分3.30/4仅为同一牌谱四局观察；实验180秒与产品预算不同，构造等价不是产品真实在线质量复测，不承诺跨牌谱、牌力、速度或费用收益。原始报告校验值见 [来源摘要](docs/xf-provenance.json)。
 
-- Mortal源35文件按快照/hash核定迁入，保留X-F、版本和本版Pi bundle。固定 Akagi v2 弱示例四座位人工局面真实推理与 EngineAgent 校验已独立复核，整合发布树亦实际执行四座位验证（10374/6730/6552/6421ms，均dahai C，仅为本机样本）；解释阶段使用真实Pi loop和mock transport。旧Classic 1.5.3/Mortal3公开报告205条中130条解析支持不等于本地牌谱对齐。未取得当前4.1/KillerDucky报告，也没有付费LLM教学质量或真实整场验收，详见 [Mortal验证](docs/MORTAL_WORKFLOW_VALIDATION.md)。
+- Mortal源35文件按快照/hash核定迁入，保留X-F、版本和本版Pi bundle。固定 Akagi v2 弱示例四座位人工局面真实推理与 EngineAgent 校验已独立复核，整合发布树亦实际执行四座位验证（10374/6730/6552/6421ms，均dahai C，仅为本机样本）；解释阶段使用真实Pi loop和mock transport。旧Classic 1.5.3/Mortal3公开报告205条中130条解析支持不等于本地牌谱对齐。未取得当前4.1/KillerDucky报告，也没有付费LLM教学质量或真实整场验收，详见 [Mortal验证](docs/validation/MORTAL_WORKFLOW_VALIDATION.md)。
 - 发布前修复两项独立复审发现的问题：跨标签并发重试通过持久原子claim和attempt终态校验，防重复解释及迟到覆盖；撤权取消请求而不删除历史问答/用量。回归包含在飞拒绝、并发唯一owner、取消迟到/旧token/重复终态、真实permissions.onRemoved。
 - 整合首次全量609项为606通过、1失败、2跳过：旧建议保留时缺少“暂无当前可用建议”文案。修复保留旧时点/历史卡，补充非当前提示，面板44/44通过，既有及新增测试同时检查旧卡保留、overlay撤下、迟到响应不覆盖。后续完整批次另暴露既有benchmark的220ms真实调度断言；仅以mock单调时钟替代40ms实际等待，220ms合同及原次数/失败断言保留，定向17/17通过，未改执行代码、实验预算或冻结证据。两次失败日志均保留供本地验收。
 - 整合版Edge离线人工fixture冒烟：动作先展示，解释失败保留1m动作及“仅LLM”重试按钮，点击后仅分派Chat解释请求，推进事件后历史卡标明非当前；控制台只有本地favicon.ico 404，无脚本错误/警告。不是游戏/MV3完整加载或真实收费LLM联调。
@@ -93,7 +97,7 @@
 ## 0.11.1 架构与两种网关联调发布验收（2026-10-31）
 
 - 整合命名配置持久化 store、后台分析 worker、CC Switch 可选实验预设／显式 Codex 目录，以及两份已独立验收的真实网关联调文档与 JSON 证据；不包含 benchmark、Mortal 或其他工作区改动；发布版本统一为 0.11.1，依赖与 Pi bundle 保持不变。
-- 官方 CC Switch v4.0.22 与两个本地人工上游、官方 Windows Magpie v0.1.2204 与本地人工上游均完成限定真实程序链路验证，分别见 [CC Switch](docs/CC_SWITCH_VALIDATION.md) 和 [Magpie](docs/MAGPIE_VALIDATION.md)。Magpie 按本次固定 v0.1.2204 验收，不因后续发布而追更或改变结论。
+- 官方 CC Switch v4.0.22 与两个本地人工上游、官方 Windows Magpie v0.1.2204 与本地人工上游均完成限定真实程序链路验证，分别见 [CC Switch](docs/validation/CC_SWITCH_VALIDATION.md) 和 [Magpie](docs/validation/MAGPIE_VALIDATION.md)。Magpie 按本次固定 v0.1.2204 验收，不因后续发布而追更或改变结论。
 - 两份证据均使用人工上游和合成 Chrome 权限，没有调用真实云模型／收费服务或上传牌局；不是完整 MV3 扩展网络链路、真实模型质量／费用、实战牌力或上游官方认证。
 - 整合回归：`npm run check`、`npm test`（472/472）、`npm run build`、`git diff --check`；Agent 包包含 store／worker，Collector 闭包排除。此次 Magpie 整合仅修改文档与证据，沿用先前真实 Chrome DOM＋合成 Chrome API 对 CC 预设、目录身份、权限顺序、保存竞态及配置保留的验证，未重新启动网关或运行付费请求。
 - 发行资产从合入整合分支后的干净提交 `git archive` 快照生成，执行锁依赖安装、源码检查和测试、双 profile 构建及人工向听回归；源码包只包含已提交授权范围，不包含网关二进制、临时证据目录、用户配置或忽略文件。
@@ -105,7 +109,7 @@
 - `npm run check`、468/468 全仓自动测试与 `npm run build` 通过；collector 构建目录不包含新增模型逻辑或设置页，现有架构边界测试通过。
 - 随机回环端口人工 HTTP 服务器通过真实 fetch 验证 Codex 目录和通用非流式 function tool → 固定结果 → 最小 JSON；该服务器不是 CC Switch。单元测试覆盖显式 schema、空目录、响应／条数限制、鉴权／路径错误、取消、过期结果、手填模型与目录身份隔离。
 - 使用 playwright-cli、真实 Chrome DOM 的 `options.html` 和合成 Chrome API 验证新增预设不启用／不继承密钥、原生模型选择与事件冒泡、失败刷新保留、成功空目录保留手填值、凭据变化阻止过期回填；没有 pageerror，没有真实服务请求。
-- 后续已运行官方 v4.0.22 portable，并通过实测 Windows Known Folder API 配合子进程专属 profile／AppData／CC_SWITCH_TEST_HOME 隔离。项目模块经真实 CC Switch 到两个本地人工上游验证目录／空目录、工具／JSON、鉴权替换、聚合、Codex 用量分类、路由服务关闭／恢复、错误与取消；结束时测试配置回到直连、测试进程／端口清理，现有路径／窗口设置元数据不变。未读取真实密钥／账号、调用真实云模型或上传牌局。故障转移、完整应用退出后的自动恢复、OAuth／订阅和真实费用仍未验证，详见 [真实联调记录](docs/CC_SWITCH_VALIDATION.md)。
+- 后续已运行官方 v4.0.22 portable，并通过实测 Windows Known Folder API 配合子进程专属 profile／AppData／CC_SWITCH_TEST_HOME 隔离。项目模块经真实 CC Switch 到两个本地人工上游验证目录／空目录、工具／JSON、鉴权替换、聚合、Codex 用量分类、路由服务关闭／恢复、错误与取消；结束时测试配置回到直连、测试进程／端口清理，现有路径／窗口设置元数据不变。未读取真实密钥／账号、调用真实云模型或上传牌局。故障转移、完整应用退出后的自动恢复、OAuth／订阅和真实费用仍未验证，详见 [真实联调记录](docs/validation/CC_SWITCH_VALIDATION.md)。
 - 真实联调后仅修改验证范围文案和证据，未改传输代码；重验相关 55/55、`check` 和 `build` 通过。全仓 468/468 为前次同一 CC 实现的验证结果，该独立联调轮次没有重复长跑；后续完整整合的全仓结果见上方记录。
 
 ## 0.11.0 模型配置与可选网关验收（2026-10-30）
@@ -211,7 +215,7 @@
 
 - 协议定向回归 `node --test tests/protocol.test.js tests/naga-protocol.test.js`：16/16通过。人工 protobuf 覆盖役种标签限长、里宝牌、支付点数缺失为 `null`、役满／包牌标志、多和牌不伪造逐赢家分差、荒牌流局结算证据、特殊流局标志、隐私字段过滤、live 输出保持及 LLM snapshot 隔离。
 - `npm test`：224/224通过；`npm run check`、`npm run build`及`git diff --check`通过。转换器19项人工回归覆盖从protobuf牌谱解码到Tenhou输出、吃碰明暗加杠、立直成立与里宝牌、普通荒牌流局、本场与供托结算交叉验证、未知役种及信息不足拒绝；面板覆盖默认关闭、规则确认、复制失败降级及异步生命周期。相同记录数的新牌谱会撤销导出，移动游标不复制全量牌谱。
-- 首版默认关闭，只在完整 replay 中提供本地逐局转换、规则确认、选局预览、复制／下载及固定官方链接。支持标准四麻明确规则下的单家和牌和普通荒牌流局，不支持的局单独拒绝；范围见 [docs/NAGA-INTEGRATION.md](docs/NAGA-INTEGRATION.md)。
+- 首版默认关闭，只在完整 replay 中提供本地逐局转换、规则确认、选局预览、复制／下载及固定官方链接。支持标准四麻明确规则下的单家和牌和普通荒牌流局，不支持的局单独拒绝；范围见 [docs/NAGA-INTEGRATION.md](docs/guides/NAGA-INTEGRATION.md)。
 - 实际Edge 155.0.4283.62与Chrome 156.0.8078.47在临时配置中加载完整版，使用游戏域路由替换的人工页面与人工牌谱：默认关闭、规则确认、本地转换及下载内容、游标移动保留导出、同长度换谱撤销导出、320×240视窗均通过。真实扩展后台使用模拟权限与引擎响应，mjai建议显示为9筒牌面，无未捕获页面异常；NAGA转换未产生外站请求。忽略目录证据：`research/current-web/naga-extension-smoke.cjs`与`naga-{edge,chrome}-results.json`。
 - 两浏览器再次加载Agent／Collector，回归默认收起获取器、Canvas全屏、LLM模拟后台链路、校准手牌标记、过期清除与窄屏，均通过。没有连接雀魂账号、真实模型权重或NAGA账号；没有真实雀魂整场或NAGA官方提交受理证据，没有自动上传、扣费或回读报告。本地人工验证不能称为官方兼容或已完成服务分析。
 - Mortal/mjai 提交 `adeed4f` 已在 `main`，无需重复合并；该路径仍无真实 Mortal/Akagi 权重加载或牌力验证。
@@ -225,7 +229,7 @@
 - 实际扩展后台脚本在 VM 中连接真实本机 HTTP 服务和模拟 Bot 子进程，通过请求、推理与最终动作校验。受控时序测试验证服务切换时拒绝旧 provider、存储及权限预检期间取消不发请求、关闭或清除设置不会被待授权保存恢复；HTTP 并发返回429，取消清理完成后释放推理占用。
 - 独立 Chrome 的实际 DOM 页面配合 mock Chrome API，验证默认 `chat`/disabled、首次选择 mjai 不带聊天 Key 且保持关闭、手动保存两类独立配置、切回恢复 chat model/key、关闭两类均 false，以及清除后存储为空。未测试真实权限弹窗，未操作用户游戏浏览器；该结果不等同真实扩展权限和服务接入验收。
 - LLM 保持主要定位，默认选择 `chat` 且分析关闭；设置分别保存 `chat` / `mjai` 配置，一次只选一种。获取器不引入引擎模块或第三方依赖。配置程序按当前用户权限运行，不是沙箱；用户自备模型、依赖和适用上游许可。
-- 没有加载真实 Mortal/Akagi 权重，没有验证真实模型依赖、启动耗时、模型输出质量、线上完整对局或实战牌力。模拟成功不证明任意上游 `bot.py` 可直接运行；Python 模块必须自行初始化并加载权重。当前页面仅支持完整无副露四麻，不受支持动作明确失败，不自动打牌。接入细节见 [docs/MJAI.md](docs/MJAI.md)。
+- 没有加载真实 Mortal/Akagi 权重，没有验证真实模型依赖、启动耗时、模型输出质量、线上完整对局或实战牌力。模拟成功不证明任意上游 `bot.py` 可直接运行；Python 模块必须自行初始化并加载权重。当前页面仅支持完整无副露四麻，不受支持动作明确失败，不自动打牌。接入细节见 [docs/MJAI.md](docs/guides/MJAI.md)。
 
 ## 自由悬浮分析卡（2026-10-23，未发布）
 
@@ -242,13 +246,13 @@
 - 10个版本的当时测试全部通过：26、26、34、38、48、57、57、91、99、116项；全部脚本语法和Manifest资源检查通过。最近版本的检查、构建和3个人工评测通过。
 - 两个原仓库的当前文件已比较，旧公开仓库没有需要另行补入的独有源码。原始bundle、逐提交映射与验收日志仅保存在本地忽略目录。
 - 全部历史和旧ZIP文本扫描未检出真实凭据；净化后198个可达blob再次复查，旧素材不可达、仅保留人工预览PNG。模式扫描不是对所有格式秘密的绝对证明。
-- GitHub迁移目标为`1342446/majsoul-agent`。完整过程见[历史说明](docs/HISTORY.md)；以下旧验证记录描述的是各自当时的发布方式。
+- GitHub迁移目标为`1342446/majsoul-agent`。完整过程见[历史说明](docs/research/HISTORY.md)；以下旧验证记录描述的是各自当时的发布方式。
 
 ## 0.4.0 模块解耦验收（2026-10-23）
 
 - `npm test`：116/116通过；`npm run check`、`npm run build`、`npm run eval`通过。评测仍仅为3个人工向听样例，不代表模型质量或实战牌力。
 - 新增覆盖外部采集器标准DTO直接驱动Agent、合同白名单、无DOM控制器、消息来源与去重、独立应用组合、历史继续采集、异步存储、面板销毁与重新挂载，以及25000条牌谱下通知和显示视图不复制完整事件数组。
-- 边界负例覆盖静态模块引用、项目global、浏览器能力、动态模块路径、加载顺序、缺失资源和默认manifest漂移。此检查针对约定写法，不能证明任意动态JavaScript依赖；限制见[模块边界](docs/DECOUPLING.md)。
+- 边界负例覆盖静态模块引用、项目global、浏览器能力、动态模块路径、加载顺序、缺失资源和默认manifest漂移。此检查针对约定写法，不能证明任意动态JavaScript依赖；限制见[模块边界](docs/development/DECOUPLING.md)。
 - 实际Edge在两个独立临时配置中分别加载完整版与仅获取器构建产物：两种Service Worker启动正常；模拟开局、摸打更新、标题拖动、默认折叠、牌谱游标前进、历史查看与返回均通过，各57个牌面图片全部加载，页面无未捕获异常。
 - 实际Chrome 156.0.8078.47在独立临时配置中加载两版构建产物，同样通过上述功能与57个牌面资源检查。通过浏览器调试接口加载本地扩展，未修改用户日常浏览器配置；此结果不覆盖浏览器商店安装和其他版本。
 - 完整版发送预览为`mj-analysis-v2`，默认不含自家手牌，设置页正常打开；仅获取器没有模型入口。安装包资源检查确认其不含Agent、harness、分析、模型endpoint或设置页。
@@ -390,7 +394,7 @@
 - 设置页仅选择 mjai 时显示起步引导与文档链接，默认仍为关闭的 chat。定向 `node --test tests/engine-options.test.js` 16/16 通过；本轮八个 Markdown 文档的 104 个本地链接检查通过。
 - 最终串行运行 `npm test`：411/411 通过，失败、跳过、取消均为 0，总时 73929.7992 ms；`npm run check` 通过 37 种 SVG 牌面、manifest、脚本语法与版本检查；`npm run build` 成功生成完整版与独立获取器两个 0.9.0 目录。此为当前源码的本地构建验收，不表示重新发布了 0.9.0。日志为同一证据目录中的 `final-npm-test.log`、`final-npm-check.log`、`final-npm-build.log`。
 
-本机证据保存在 ignored 目录 `research/evidence/bot-onboarding-20261026/`：`real-http-acceptance.log`、`real-http-engineagent-result.json`、`independent-check.log`、`independent-neural-audit.log`、`independent-diagnostics.log`、`missing-dependencies.log`。它们是本地验收证据，不随源码发布。普通用户复现步骤见 [docs/MJAI.md](docs/MJAI.md)。
+本机证据保存在 ignored 目录 `research/evidence/bot-onboarding-20261026/`：`real-http-acceptance.log`、`real-http-engineagent-result.json`、`independent-check.log`、`independent-neural-audit.log`、`independent-diagnostics.log`、`missing-dependencies.log`。它们是本地验收证据，不随源码发布。普通用户复现步骤见 [docs/MJAI.md](docs/guides/MJAI.md)。
 
 该结果仅证明指定文件与环境可将真实示例模型动作送过本地 HTTP 和 Agent 校验；输入为人工无副露四麻局面。未连接真实雀魂账号、未调用付费 API，不证明线上整场协议、其他 Mortal/Akagi 版本、mjai-reviewer 权重、强模型兼容或实战牌力。模型选择不支持动作时仍明确失败，不自动替换动作或操作游戏。
 

@@ -2,7 +2,7 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs/promises'),path=require('node:path'),os=require('node:os');
 const {verifyShasums,verifyRuntime,prepare}=require('../scripts/prepare-node-runtime.cjs');
-const {packageToolkit,refreshToolkit,writeLauncher}=require('../scripts/package-mortal-toolkit.cjs');
+const {packageToolkit,refreshToolkit,writeLauncher,copyDocs}=require('../scripts/package-mortal-toolkit.cjs');
 const {defaultRoot,childEnvironment}=require('../scripts/launch-model-manager.cjs');
 const lock=require('../scripts/node-runtime-lock.json');
 async function temporary(t){const dir=await fs.mkdtemp(path.join(os.tmpdir(),'portable-model-'));t.after(()=>fs.rm(dir,{recursive:true,force:true}));return dir;}
@@ -38,4 +38,19 @@ test('packaging does not silently obtain a runtime and refresh refuses old unkno
 test('all command launchers quote package-local Node and preserve readable failure',async t=>{
   const dir=await temporary(t);
   for(const name of ['start','check','serve']){await writeLauncher(dir,name);const text=await fs.readFile(path.join(dir,name+'.cmd'),'utf8');assert.match(text,/"%~dp0runtime\\node.exe" "%~dp0scripts\\launch-model-manager.cjs"/);assert.match(text,/pause\r\nexit \/b %TOOLKIT_EXIT%/);assert.doesNotMatch(text,/\r\nnode /);}
+});
+
+test('portable documentation includes canonical bodies and working legacy entry points',async t=>{
+  const dir=await temporary(t);
+  await copyDocs(dir);
+  for(const [name,group] of [['MODEL_MANAGER','guides'],['MORTAL_V4','guides'],['MORTAL_V4_VALIDATION','validation'],['AKAGI_V3_VALIDATION','validation']]){
+    const target=path.join('docs',group,name+'.md');
+    assert.equal(await fs.readFile(path.join(dir,target),'utf8'),await fs.readFile(path.join(__dirname,'..',target),'utf8'));
+    const entry=await fs.readFile(path.join(dir,'docs',name+'.md'),'utf8');
+    assert.ok(entry.includes(']('+group+'/'+name+'.md)'));
+    // Every retained old-section link must resolve to a body shipped in the package.
+    for(const match of entry.matchAll(/\]\(([^)#]+)(?:#[^)]*)?\)/g)){
+      assert.ok((await fs.stat(path.resolve(dir,'docs',match[1]))).isFile());
+    }
+  }
 });

@@ -55,7 +55,7 @@ async function setup(dir, { profile = source.profile } = {}) {
     } finally { await fs.rm(temporary, { force: true }); }
     console.log('Verified: ' + item.name);
   }
-  console.log('Model/source setup complete. Runtime/native library must be explicitly prepared separately; see docs/MORTAL_V4.md.');
+  console.log('Model/source setup complete. Runtime/native library must be explicitly prepared separately; see docs/guides/MORTAL_V4.md.');
 }
 async function check(options, keep = false) {
   await verifyFiles(options.dir, options.profile);

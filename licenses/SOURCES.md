@@ -2,7 +2,7 @@
 
 Reviewed on 2026-10-24. The complete license files in this directory accompany the distributed extension archives.
 
-Optional native model toolkits are separate from the extension archives. Their pinned Mortal/model/Python/wheel sources and hashes are in [agent/mortal-source.json](../agent/mortal-source.json) and [agent/mortal-runtime-lock.json](../agent/mortal-runtime-lock.json); see [MORTAL_V4.md](../docs/MORTAL_V4.md) for corresponding source, crate vendor, build and notice packaging. Upstream AGPL/model/runtime licenses are retained under their own terms and are not re-licensed as project MIT.
+Optional native model toolkits are separate from the extension archives. Their pinned Mortal/model/Python/wheel sources and hashes are in [agent/mortal-source.json](../agent/mortal-source.json) and [agent/mortal-runtime-lock.json](../agent/mortal-runtime-lock.json); see [MORTAL_V4.md](../docs/guides/MORTAL_V4.md) for corresponding source, crate vendor, build and notice packaging. Upstream AGPL/model/runtime licenses are retained under their own terms and are not re-licensed as project MIT.
 
 ## Optional Akagi v3 native engine
 
@@ -10,7 +10,7 @@ Optional native model toolkits are separate from the extension archives. Their p
 - Local JSONL wrapper is MIT. Local replay/rule patches are identified in the corresponding source and build documentation; upstream code retains its own license.
 - Four-player external weight: `akagi4p.safetensors`, 2,641,816 bytes, SHA-256 `33c20aaba3f349ef689df73b726224804dc4aaff99922093d8f30cc38d709a1d`. The upstream repository declaration is retained; no separate weight model card or training-data authorization attestation was found.
 - The fixed runtime archive, individual files and weight URL are locked in [agent/akagi-native-source.json](../agent/akagi-native-source.json). The optional native archive carries corresponding source, locked dependency sources/licenses and toolchain notices, without embedded or standalone weights. Neither extension ZIP nor default bootstrap carries this native model binary.
-- Actual validation and remaining limits: [AKAGI_V3_VALIDATION.md](../docs/AKAGI_V3_VALIDATION.md). This is a behavior-cloning model, not Mortal v4.
+- Actual validation and remaining limits: [AKAGI_V3_VALIDATION.md](../docs/validation/AKAGI_V3_VALIDATION.md). This is a behavior-cloning model, not Mortal v4.
 
 ## Optional portable Node.js runtime
 

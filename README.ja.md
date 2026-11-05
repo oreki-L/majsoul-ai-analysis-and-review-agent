@@ -52,7 +52,7 @@ LLM による分析と追加質問を使う場合です。**完全版 Agent と�
 5. 対局画面で自分の座席を確認し、対局情報・捨て牌・自分の手牌を許可します。「调用模型」を有効にして現在の局面を分析します。継続的な助言が必要なら自動分析を別途有効にします。
 6. 助言に追加質問するか、記録済み判断を開いて議論を続けます。
 
-クラウド API・互換ゲートウェイ・ローカル Chat Completions サービスを設定でき、複数の LLM 設定を保存できます。Magpie と実験的な CC Switch は任意です。[モデル設定](docs/MODEL_CONFIGURATION.md) を参照してください。許可した局面は設定先へ送信され、料金が発生する場合があります。
+クラウド API・互換ゲートウェイ・ローカル Chat Completions サービスを設定でき、複数の LLM 設定を保存できます。Magpie と実験的な CC Switch は任意です。[モデル設定](docs/guides/MODEL_CONFIGURATION.md) を参照してください。許可した局面は設定先へ送信され、料金が発生する場合があります。
 
 ### ローカルモデルの使い方
 
@@ -71,7 +71,7 @@ Node は同梱し、Python／PyTorch などはモデル導入時に自動で準�
 
 終了時は「停止分析服务」を押すか実行ウィンドウを閉じます。拡張の呼び出しを無効にするだけではローカルサービスは終了しません。推論はローカルですが、LLM 解説や追加質問では許可した局面を設定先 LLM に送信します。自前の mjai サービスには詳細設定で URL と分析 Token を手入力できます。
 
-[管理手順とトラブル対処](docs/MODEL_MANAGER.md) · [エンジンと LLM の設定](docs/MJAI.md) · [コミュニティ v4 実行ガイド](docs/MORTAL_V4.md)
+[管理手順とトラブル対処](docs/guides/MODEL_MANAGER.md) · [エンジンと LLM の設定](docs/guides/MJAI.md) · [コミュニティ v4 実行ガイド](docs/guides/MORTAL_V4.md)
 
 ## 選べるローカルモデル
 
@@ -82,17 +82,17 @@ Node は同梱し、Python／PyTorch などはモデル導入時に自動で準�
 | [Yuchen1457/mortal-582500](https://huggingface.co/Yuchen1457/mortal-582500) | コミュニティ Mortal v4。本プロジェクトでは四人半荘が対象 |
 | Akagi v3 ネイティブモデル | 任意の実験機能、四人半荘。重みは約 2.64 MB、独立 CPU 環境で Python は不要 |
 
-最初の三項目は公式 Mortal 4.1 ではありません。Akagi v3 は Rust で推論する別の行動模倣モデルで、バージョン番号だけで強さは判断できません。[v3 検証](docs/AKAGI_V3_VALIDATION.md) に対応範囲とルール調整を記録しています。
+最初の三項目は公式 Mortal 4.1 ではありません。Akagi v3 は Rust で推論する別の行動模倣モデルで、バージョン番号だけで強さは判断できません。[v3 検証](docs/validation/AKAGI_V3_VALIDATION.md) に対応範囲とルール調整を記録しています。
 
 ## 対応範囲とデータ
 
 現在は `game.maj-soul.com` に対応し、拡張 UI は簡体字中国語です。他地域ドメイン・Firefox・Safari・Steam デスクトップ版は未対応です。翻訳 README は他地域サーバーへの対応を意味しません。
 
-モデル入力は許可した自分の手牌・公開情報・収集済み履歴に限定し、相手の伏せた手牌・アカウント認証情報・未来のイベントは送りません。API Key・議論・使用量は拡張にローカル保存します。議論には容量制限があり、クラウド同期や永久保存は保証しません。本プロジェクトの中継サーバーやテレメトリー送信はありません。[データと権限](SECURITY.md) · [会話と使用量](docs/AGENT_SESSIONS.md)
+モデル入力は許可した自分の手牌・公開情報・収集済み履歴に限定し、相手の伏せた手牌・アカウント認証情報・未来のイベントは送りません。API Key・議論・使用量は拡張にローカル保存します。議論には容量制限があり、クラウド同期や永久保存は保証しません。本プロジェクトの中継サーバーやテレメトリー送信はありません。[データと権限](SECURITY.md) · [会話と使用量](docs/guides/AGENT_SESSIONS.md)
 
-二つの v4 は実際の固定重み読み込み・四座席の人工局面・合成 HTTP→Agent・主要動作比較を検証済みです。公式 Python と固定依存のダウンロードは検証できましたが、Hugging Face の重みダウンロードは完了していません。完全なオフライン導入は検証済みです。実ゲーム全体・再接続・実戦の強さ・有料 LLM の解説品質は未検証です。LLM の解説は局面と結果の解釈であり、エンジン内部の思考の再現ではありません。[検証一覧](VALIDATION.md) · [v4 検証](docs/MORTAL_V4_VALIDATION.md)
+二つの v4 は実際の固定重み読み込み・四座席の人工局面・合成 HTTP→Agent・主要動作比較を検証済みです。公式 Python と固定依存のダウンロードは検証できましたが、Hugging Face の重みダウンロードは完了していません。完全なオフライン導入は検証済みです。実ゲーム全体・再接続・実戦の強さ・有料 LLM の解説品質は未検証です。LLM の解説は局面と結果の解釈であり、エンジン内部の思考の再現ではありません。[検証一覧](VALIDATION.md) · [v4 検証](docs/validation/MORTAL_V4_VALIDATION.md)
 
-過去の LLM 事実品質・費用実験は [事実強化の検証](docs/XF_VALIDATION.md) と [モデル実験](docs/MODEL_BENCHMARK.md) にあります。新コミュニティモデルの強さや改善を保証するものではありません。
+過去の LLM 事実品質・費用実験は [事実強化の検証](docs/benchmark/XF_VALIDATION.md) と [モデル実験](docs/benchmark/MODEL_BENCHMARK.md) にあります。新コミュニティモデルの強さや改善を保証するものではありません。
 
 ## 開発とドキュメント
 
@@ -107,6 +107,6 @@ npm run build
 
 Agent は Manifest V3 に適応した Pi Agent ランタイムを使い、読み取り専用ツールで固定した許可済み局面を参照します。標準データ契約で収集と分析を分離し、Collector は独立しています。
 
-[ドキュメント](docs/README.md) · [アーキテクチャ](ARCHITECTURE.md) · [モジュール分離](docs/DECOUPLING.md) · [コントリビューション](CONTRIBUTING.md) · [変更履歴](CHANGELOG.md) · [参考資料](docs/REFERENCES.md)
+[ドキュメント](docs/README.md) · [アーキテクチャ](ARCHITECTURE.md) · [モジュール分離](docs/development/DECOUPLING.md) · [コントリビューション](CONTRIBUTING.md) · [変更履歴](CHANGELOG.md) · [参考資料](docs/REFERENCES.md)
 
 補足ドキュメントは簡体字中国語です。コードとオリジナル SVG 牌面 37 枚は [MIT ライセンス](LICENSE) です。任意モデル・ネイティブ部品・上流コードには個別のライセンスが適用されます。[第三者告知](THIRD_PARTY_NOTICES.md) · [ライセンス出典](licenses/SOURCES.md)

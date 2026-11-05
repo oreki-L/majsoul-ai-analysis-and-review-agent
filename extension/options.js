@@ -67,7 +67,7 @@ function show(provider) {
   const engineSelect = $('engineProfile'); engineSelect.replaceChildren();
   for (const item of engineProfiles?.profiles || []) { const option = document.createElement('option'); option.value = item.id; option.textContent = item.name; engineSelect.appendChild(option); }
   engineSelect.value = engineProfiles?.activeId || 'custom';
-  $('engineGuide').href = 'https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/blob/main/docs/MJAI.md';
+  $('engineGuide').href = 'https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/blob/main/docs/guides/MJAI.md';
   $('modelManager').href = 'http://127.0.0.1:17343/';
   if ($('runtimeDownload')) $('runtimeDownload').href = 'https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.2/majsoul-model-manager-windows-x64-0.16.2.zip';
   $('provider').value = provider; $('enabled').checked = !!c.enabled;

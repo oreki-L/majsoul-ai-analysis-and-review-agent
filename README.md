@@ -52,7 +52,7 @@
 5. 回到牌局，确认自家座位，授权对局信息、牌河和自家手牌，开启“调用模型”，点击分析当前局面。需要连续提示时，再自行开启自动分析。
 6. 对建议发送追问，或打开已记录决策继续讨论。
 
-可以配置云端 API、兼容网关或本机 Chat Completions 服务；支持保存多个 LLM 配置。Magpie 和实验性 CC Switch 是可选入口，详见 [模型配置](docs/MODEL_CONFIGURATION.md)。调用会把授权局面发给所配置服务，可能产生费用。
+可以配置云端 API、兼容网关或本机 Chat Completions 服务；支持保存多个 LLM 配置。Magpie 和实验性 CC Switch 是可选入口，详见 [模型配置](docs/guides/MODEL_CONFIGURATION.md)。调用会把授权局面发给所配置服务，可能产生费用。
 
 ### 本地模型使用
 
@@ -71,7 +71,7 @@ v0.15.0 起无需逐次确认半庄，适用范围在设置中提前说明；自
 
 用完在管理页点击“停止分析服务”，或退出运行窗口。仅关闭扩展“调用模型”会停止请求，不会退出本地服务。本地推理在本机完成；开启 LLM 讲解或追问时，授权局面仍会发给你配置的 LLM。自备 mjai 服务仍可在高级配置中手填接口与分析 Token。
 
-[模型管理完整步骤与故障排查](docs/MODEL_MANAGER.md) · [引擎与 LLM 解释](docs/MJAI.md) · [社区 v4 运行说明](docs/MORTAL_V4.md)
+[模型管理完整步骤与故障排查](docs/guides/MODEL_MANAGER.md) · [引擎与 LLM 解释](docs/guides/MJAI.md) · [社区 v4 运行说明](docs/guides/MORTAL_V4.md)
 
 ## 可选本地模型
 
@@ -82,17 +82,17 @@ v0.15.0 起无需逐次确认半庄，适用范围在设置中提前说明；自
 | [Yuchen1457/mortal-582500](https://huggingface.co/Yuchen1457/mortal-582500) | 社区 Mortal v4，本项目支持范围为四人半庄 |
 | Akagi v3 原生模型 | 实验可选，四人半庄；约 2.64 MB 权重，独立 CPU 运行包，无需 Python |
 
-前三项不是官网 Mortal 4.1。Akagi v3 是另一套行为克隆模型，采用 Rust 本地推理，不能因版本号更新就推断牌力更强。详细范围与规则适配见 [v3 验收](docs/AKAGI_V3_VALIDATION.md)。
+前三项不是官网 Mortal 4.1。Akagi v3 是另一套行为克隆模型，采用 Rust 本地推理，不能因版本号更新就推断牌力更强。详细范围与规则适配见 [v3 验收](docs/validation/AKAGI_V3_VALIDATION.md)。
 
 ## 支持范围与数据
 
 目前适配 `game.maj-soul.com`，扩展界面为简体中文。其他地区域名、Firefox、Safari 与 Steam 桌面端尚未适配；英文、日文 README 不代表相应游戏服已受支持。
 
-模型输入限于授权的自家手牌、公开桌面与已采集历史，不发送对手暗牌、账号凭据或未来事件。API Key、讨论和用量保存在扩展本地；讨论受容量限制，不提供云同步或永久保存保证。项目没有中转服务器或遥测上传。[数据与权限](SECURITY.md) · [会话与用量](docs/AGENT_SESSIONS.md)
+模型输入限于授权的自家手牌、公开桌面与已采集历史，不发送对手暗牌、账号凭据或未来事件。API Key、讨论和用量保存在扩展本地；讨论受容量限制，不提供云同步或永久保存保证。项目没有中转服务器或遥测上传。[数据与权限](SECURITY.md) · [会话与用量](docs/guides/AGENT_SESSIONS.md)
 
-Akagi v3 已完成固定权重与专用运行包的在线空目录安装、真实推理及四模型切换；浏览器人工局面的手动／自动分析与模拟 LLM 解释联调通过。两个社区 v4 已完成真实固定权重加载、四座位人工局面、合成 HTTP→Agent 和关键动作对照。本机已验证官方 Python 与固定依赖下载，但 Hugging Face 权重在线下载未完成；完整模型离线安装已验证。真实网页整场、断线恢复、实战牌力及付费 LLM 教学质量仍待验证。LLM 讲解是基于局面与结果的解释，不是模型内部思考的还原。[验证总览](VALIDATION.md) · [v4 验收](docs/MORTAL_V4_VALIDATION.md)
+Akagi v3 已完成固定权重与专用运行包的在线空目录安装、真实推理及四模型切换；浏览器人工局面的手动／自动分析与模拟 LLM 解释联调通过。两个社区 v4 已完成真实固定权重加载、四座位人工局面、合成 HTTP→Agent 和关键动作对照。本机已验证官方 Python 与固定依赖下载，但 Hugging Face 权重在线下载未完成；完整模型离线安装已验证。真实网页整场、断线恢复、实战牌力及付费 LLM 教学质量仍待验证。LLM 讲解是基于局面与结果的解释，不是模型内部思考的还原。[验证总览](VALIDATION.md) · [v4 验收](docs/validation/MORTAL_V4_VALIDATION.md)
 
-历史 LLM 事实质量与费用实验保留在 [事实增强验收](docs/XF_VALIDATION.md) 和 [模型实验](docs/MODEL_BENCHMARK.md)，不代表新社区模型的牌力或收益承诺。
+历史 LLM 事实质量与费用实验保留在 [事实增强验收](docs/benchmark/XF_VALIDATION.md) 和 [模型实验](docs/benchmark/MODEL_BENCHMARK.md)，不代表新社区模型的牌力或收益承诺。
 
 ## 开发与文档
 
@@ -107,6 +107,6 @@ npm run build
 
 Agent 使用适配 Manifest V3 的 Pi Agent 运行时，通过只读工具读取冻结的授权局面；采集与分析以标准合同分层，Collector 保持独立。
 
-[文档入口](docs/README.md) · [架构](ARCHITECTURE.md) · [模块解耦](docs/DECOUPLING.md) · [贡献](CONTRIBUTING.md) · [更新记录](CHANGELOG.md) · [参考索引](docs/REFERENCES.md)
+[文档入口](docs/README.md) · [架构](ARCHITECTURE.md) · [模块解耦](docs/development/DECOUPLING.md) · [贡献](CONTRIBUTING.md) · [更新记录](CHANGELOG.md) · [参考索引](docs/REFERENCES.md)
 
 项目源码与 37 张原创 SVG 牌面采用 [MIT 许可证](LICENSE)。可选模型、原生组件和上游源码分别适用自身许可。[第三方公告](THIRD_PARTY_NOTICES.md) · [许可来源](licenses/SOURCES.md)
