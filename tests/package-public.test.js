@@ -40,7 +40,8 @@ with tempfile.TemporaryDirectory(prefix='majsoul-source-test-') as directory:
 test('public documentation research is packaged without admitting private research subtrees', { skip: !python && 'Python is not installed' }, () => {
   runPython(load + `
 with tempfile.TemporaryDirectory(prefix='majsoul-doc-layout-') as directory:
-    packager.ROOT = Path(directory)
+    # Windows runner temp paths can use an 8.3 alias; production ROOT is resolved too.
+    packager.ROOT = Path(directory).resolve()
     packager.ROOT_FILES = []
     packager.SOURCE_DIRS = ['docs', 'agent']
     document = packager.ROOT / 'docs/research/public.md'
