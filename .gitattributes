@@ -3,3 +3,4 @@
 licenses/*.txt text eol=lf
 *.png binary
 *.zip binary
+benchmark/prompts/mortal-teaching-20261105/*.txt text eol=lf

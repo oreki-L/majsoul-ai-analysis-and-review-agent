@@ -1,0 +1,95 @@
+'use strict';
+const fs = require('node:fs');
+const path = require('node:path');
+const { stableHash } = require('../core.cjs');
+const { journal, readEvents, acquireLock } = require('../durable.cjs');
+const { createCredentialResolver, redact } = require('../accounting.cjs');
+const { createHarness } = require('./harness.cjs');
+const { createQueue } = require('./review.cjs');
+const { openBudget } = require('./budget.cjs');
+const { loadPrompts } = require('./prompts.cjs');
+const { read, freeze, factsFor, delivery } = require('./runner.cjs');
+const QUESTIONS = ['说明这个动作最关键的可见依据，以及哪些判断仍不确定。', '为什么不选择另一个合法动作？如果没有有意义的备选，请直接说明。'];
+function supplementPlan(data) {
+  // Two earliest compatible decisions per round: 6 rounds x 2 = 12.
+  // Freeze before observing any new answers; the 3 follow-up anchors are spread
+  // across those rounds and get the same two explicit questions.
+  const ids = [...new Set(data.nodes.filter(n => n.compatible).map(n => n.roundId))].flatMap(round =>
+    data.nodes.filter(n => n.compatible && n.roundId === round).sort((a, b) => a.position - b.position).slice(0, 2).map(n => n.id));
+  return { repeatNodes: ids, followupNodes: [ids[0], ids[4], ids[8]].filter(Boolean), questions: QUESTIONS };
+}
+async function runSupplement({ output, winner, engineConfig, fetchImpl = fetch, mock = false }) {
+  const data = read(path.join(output, 'dataset.json')), plan = read(path.join(output, 'supplement-plan.json'));
+  const variant = loadPrompts().variants.find(v => v.id === winner);
+  if (!variant) throw new Error('Unknown selected variant');
+  const authorization = read(path.join(output, 'authorization.local.json')), pricing = read(path.join(output, 'pricing.json'));
+  const unlock = acquireLock(path.join(output, 'experiment.lock'), true); let budget;
+  try {
+    if (!mock && read(path.join(output, 'selection.json')).winner !== winner) throw new Error('Supplement must use selected variant');
+    const directory = path.join(output, mock ? 'mock' : 'live', 'supplement');
+    const records = ['development', 'validation'].flatMap(stage => readEvents(path.join(output, mock ? 'mock' : 'live', stage, 'results.jsonl')))
+      .filter(e => e.kind === 'result' && e.payload.variant === winner).map(e => e.payload);
+    const anchors = new Map(records.map(r => [r.nodeId, r]));
+    const batchId = fs.existsSync(path.join(output, 'contract.json')) ? read(path.join(output, 'contract.json')).batchId : 'fixture';
+    const jobs = [...plan.repeatNodes.map(nodeId => ({ id: batchId + ':repeat:' + nodeId + ':' + winner, kind: 'repeat', nodeId })),
+      ...plan.followupNodes.flatMap(nodeId => plan.questions.map((question, index) => ({ id: batchId + ':followup:' + nodeId + ':' + winner + ':' + index, kind: 'followup', nodeId, question, index })))];
+    freeze(path.join(directory, 'schedule.json'), { winner, datasetHash: data.datasetHash, jobs });
+    const log = journal(path.join(directory, 'results.jsonl')), queue = createQueue(path.join(output, mock ? 'mock-review' : 'review'), data.datasetHash);
+    const key = mock ? 'mock-secret' : await createCredentialResolver({ credentialsFile: authorization.credentialsFile, authorization })(authorization.allowedReferences[0]);
+    if (!mock) budget = openBudget({ directory: authorization.budgetDirectory || path.join(output, 'billing'), authorization, pricing, fetchImpl, secrets: [key, engineConfig.apiKey] });
+    const branches = new Map();
+    for (const job of jobs) {
+      const old = log.events.find(e => e.kind === 'start' && e.payload.id === job.id);
+      if (old) {
+        const finished = log.events.find(e => e.kind === 'result' && e.payload.id === job.id)?.payload;
+        if (!finished) throw new Error('Unfinished supplemental job; audit required');
+        if (finished.reviewSource) queue.add(finished.reviewSource);
+        if (job.kind === 'followup') branches.set(job.nodeId, finished.stateAfter);
+        continue;
+      }
+      if (budget && (budget.snapshot().reservationCount || budget.snapshot().unknownLiability || budget.snapshot().budgetCommitted + pricing.fullContextReservationCny > 50)) break;
+      const source = anchors.get(job.nodeId), node = data.nodes.find(n => n.id === job.nodeId);
+      if (!source?.delivered || !source.firstPiInput || !source.stateAfter) {
+        log.write('start', job); log.write('result', { ...job, delivered: false, reason: 'original anchor not delivered; no replacement selected' }); continue;
+      }
+      log.write('start', job);
+      let ordinal = 0;
+      const traces = [], started = performance.now();
+      const state = job.kind === 'repeat' ? source.stateBefore : branches.get(job.nodeId) || source.stateAfter;
+      const harness = createHarness({ variant, engineConfig, initialState: state,
+        llmConfig: { endpoint: pricing.endpoint, model: pricing.model, apiKey: key },
+        persist: (kind, value) => {
+          if (kind === 'pi-input' && job.kind === 'repeat' && (stableHash(value.messages) !== stableHash(source.firstPiInput.messages) || value.promptHash !== source.firstPiInput.promptHash)) throw new Error('Repeat input differs from original first request');
+          traces.push({ kind, value }); log.write('trace', { jobId: job.id, kind, value: redact(value, [key, engineConfig.apiKey]) });
+        },
+        fetchModel: async (url, options) => {
+          if (url === engineConfig.endpoint) {
+            if (job.kind === 'followup') throw new Error('Follow-up must not rerun engine');
+            const e = source.outcome.engine;
+            return Response.json({ action: e.action, ...(e.followUp ? { followUp: e.followUp } : {}), identity: e.identity });
+          }
+          ordinal++; const body = JSON.parse(options.body); body.temperature = 0;
+          const wire = { ...options, body: JSON.stringify(body) };
+          return mock ? fetchImpl(url, wire) : budget.request(url, wire, { jobId: job.id, role: job.kind === 'followup' ? 'follow-up' : ordinal === 1 ? 'repeat' : 'tool-continuation', ordinal });
+        } });
+      let message = structuredClone(node.message);
+      if (job.kind === 'followup') {
+        const id = source.outcome.discussionRecord.id, token = job.id;
+        await harness.discussions.ask(id, job.question, token);
+        message = { provider: 'chat', discussionId: id, discussionToken: token, question: job.question, selection: { hand: true, game: true, rivers: 'all' } };
+      }
+      const outcome = await harness.worker.analyze(message, 'benchmark');
+      const elapsedMs = performance.now() - started, delivered = delivery(outcome) && elapsedMs <= 25000;
+      const result = { ...job, variant: winner, mock, delivered, elapsedMs, physicalLlmAttempts: ordinal,
+        outcome: redact(outcome, [key, engineConfig.apiKey]), stateAfter: harness.publicState() };
+      if (job.kind === 'followup') branches.set(job.nodeId, result.stateAfter);
+      if (delivered) result.reviewSource = { resultId: (mock ? 'mock:' : '') + job.id, answer: harness.traces.at(-1).text,
+        facts: factsFor(node, outcome.engine, harness, job.question || ''), questionRequiresComparison: job.kind === 'followup' && job.index === 1 };
+      log.write('result', result);
+      if (result.reviewSource) queue.add(result.reviewSource);
+    }
+    queue.exportPackets();
+    return { planned: jobs.length, attempted: log.events.filter(e => e.kind === 'start').length, delivered: log.events.filter(e => e.kind === 'result' && e.payload.delivered).length, mock, billing: budget?.snapshot() || null };
+  } finally { budget?.close(); unlock(); }
+}
+module.exports = { supplementPlan, runSupplement, QUESTIONS };

@@ -75,6 +75,7 @@
 | 文档 | 类型与范围 |
 | --- | --- |
 | [自主 benchmark](benchmark/BENCHMARK_AUTONOMOUS.md) | **使用说明**：新实验的启动、冻结、监督、恢复、预算与独立评审 |
+| [Mortal＋LLM 提示词比较方案](benchmark/MORTAL_LLM_PROMPT_EXPERIMENT_20261105.md) | **准备与mock已验、真实API未运行**：四套候选、独立评分、50元总预算、执行器与结果迭代 |
 | [benchmark 基础说明](benchmark/BENCHMARK.md) | **合同参考**：数据结构、人工示例及旧 `run/resume`；不替代新实验入口 |
 | [执行器改进计划与实施记录](benchmark/BENCHMARK_EXECUTION_IMPROVEMENT_PLAN.md) | **实施记录**：2026-10-30 至 31 的设计与完成状态 |
 | [X-F 公开汇总与移植验证](benchmark/XF_VALIDATION.md) | **历史结果**：同一牌谱四局 45 点的比较与局限；附[来源锁](xf-provenance.json) |

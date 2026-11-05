@@ -1,0 +1,57 @@
+{
+  "format": "mortal-teaching-prompt-candidates-v1",
+  "status": "offline-mock-verified; real-api-unrun",
+  "date": "2026-11-05",
+  "baselineSource": {
+    "commit": "782378acdd4615d97039aa586aa2f5132d71b32e",
+    "path": "extension/contracts/engine-explanation.js",
+    "promptVersion": 2,
+    "sha256": "05aadaea682b7910f1586de646fe4232e3f26252840a033f0e6b58ea3f449a8f"
+  },
+  "construction": "Each candidate is the exact released prompt plus one emphasis suffix; P0 is byte-identical to the released prompt, without a trailing newline.",
+  "outputFields": [
+    "summary",
+    "reasons",
+    "limitations"
+  ],
+  "alternativeComparison": "optional unless explicitly requested by user",
+  "evaluator": {
+    "model": "gpt-6.1-sol",
+    "reasoningEffort": "medium"
+  },
+  "productionDefaultChanged": false,
+  "variants": [
+    {
+      "id": "p0-release-v2",
+      "focus": "已发布解释提示词，原样基线",
+      "file": "p0-release-v2.txt",
+      "sha256": "05aadaea682b7910f1586de646fe4232e3f26252840a033f0e6b58ea3f449a8f",
+      "utf8Bytes": 2826,
+      "characters": 1182
+    },
+    {
+      "id": "p1-grounding",
+      "focus": "具体陈述与可见证据一致，减少错误合理化",
+      "file": "p1-grounding.txt",
+      "sha256": "2c06a677ae370382fb7ea0a5ea6713f0f70d9cb6103d433c494471d8b6f1c704",
+      "utf8Bytes": 3482,
+      "characters": 1416
+    },
+    {
+      "id": "p2-coaching",
+      "focus": "先解释关键取舍，减少套话并提升可读性",
+      "file": "p2-coaching.txt",
+      "sha256": "4d8aa41a0e467f9204b841eb9d4918cfa849b33a08b54acbfca51262cee30ce0",
+      "utf8Bytes": 3487,
+      "characters": 1413
+    },
+    {
+      "id": "p3-economical",
+      "focus": "按缺项使用工具，控制解释延迟与冗余",
+      "file": "p3-economical.txt",
+      "sha256": "9f78b5b6cb00d45287c9de7c5b167bfa93b2be89686170bad91acd10f002f121",
+      "utf8Bytes": 3634,
+      "characters": 1476
+    }
+  ]
+}
