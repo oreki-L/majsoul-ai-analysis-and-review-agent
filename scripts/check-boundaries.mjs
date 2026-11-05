@@ -130,7 +130,7 @@ export function checkSourceBoundary(file, source) {
   else if (file === 'postgame-review.js') { allowed = new Set(); pure = true; }
   else if (file === 'decision-discussions.js') { allowed = new Set(['contracts/snapshot.js']); pure = true; }
   else if (file === 'round-context.js') { allowed = new Set(['contracts/snapshot.js']); pure = true; }
-  else if (file === 'model-analysis-worker.js') { allowed = new Set(['contracts/snapshot.js', 'adapters/mjai.js', 'analysis.js', 'adapters/engine-endpoint.js', 'adapters/model-endpoint.js', 'engine-agent.js', 'model-usage.js', 'agent.js', 'model-session-transport.js']); pure = true; }
+  else if (file === 'model-analysis-worker.js') { allowed = new Set(['contracts/snapshot.js', 'contracts/engine-explanation.js', 'adapters/mjai.js', 'analysis.js', 'adapters/engine-endpoint.js', 'adapters/model-endpoint.js', 'engine-agent.js', 'model-usage.js', 'agent.js', 'model-session-transport.js']); pure = true; }
   else if (file === 'model-config-store.js') { allowed = new Set(['model-profiles.js']); pure = true; }
   else if (file === 'model-diagnostics.js') { allowed = new Set(['adapters/model-endpoint.js', 'model-session-transport.js']); pure = true; }
   else if (['model-profiles.js', 'model-usage.js', 'model-session-transport.js', 'agent-run-store.js'].includes(file)) { allowed = new Set(); pure = true; }

@@ -169,7 +169,7 @@ def main(output=None):
     version = manifest['version']
     if version != package['version'] or not re.fullmatch(r'\d+\.\d+\.\d+', version):
         raise ValueError('Invalid or inconsistent version')
-    if not re.search(r'\*\*' + re.escape(version) + r'(?:\s|\*\*)', (ROOT / 'README.md').read_text(encoding='utf-8')):
+    if not re.search(r'\*\*v?' + re.escape(version) + r'(?:\s|\*\*)', (ROOT / 'README.md').read_text(encoding='utf-8')):
         raise ValueError('README must describe the selected snapshot version')
     tiles = ROOT / 'extension/tiles'
     if len(list(tiles.glob('*.svg'))) != 37 or any(tiles.glob('*.png')):
