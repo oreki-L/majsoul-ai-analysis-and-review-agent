@@ -8,6 +8,21 @@ const make = options => C.create({ state: S, history: H, clock: () => 1700000000
 const send = (c, event) => c.receive({ type: 'event', payload: event });
 const end = c => send(c, { source: 'live', kind: 'NoTile', step: 1, scores: [25000,25000,25000,25000] });
 
+test('new socket recovery ignores old socket actions and late close', async () => {
+  const c = make();
+  send(c, opening('live', { socketId: 1 }));
+  c.receive({ type: 'connection', payload: { socketId: 1, state: 'closed' } });
+  send(c, opening('live', { socketId: 2 }));
+  const recovered = c.getView().live;
+  send(c, { source: 'live', kind: 'DiscardTile', seat: 1, tile: '7m', step: 9, socketId: 1 });
+  c.receive({ type: 'connection', payload: { socketId: 1, state: 'closed' } });
+  assert.deepEqual(c.getView().live, recovered);
+  send(c, { source: 'live', kind: 'DealTile', seat: 1, tile: '1m', step: 1, socketId: 3 });
+  assert.equal(c.getView().live.complete, false);
+  assert.equal(c.getView().live.availableActions, null);
+  await c.flush();
+});
+
 test('collection failures invalidate turns until the next observed opening', async () => {
   for (const [message, reason] of [
     [{ type: 'diagnostic', payload: { stage: '动作解码' } }, 'collection_error'],

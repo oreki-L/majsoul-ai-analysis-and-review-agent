@@ -44,6 +44,7 @@
   function apply(state, e) {
     let s = structuredClone(state);
     if (e.source !== s.source) return s;
+    if (e.kind === 'Seat') return selectSelfSeat(s, e.seat);
     if (['DealTile', 'DiscardTile', 'ChiPengGang', 'AnGangAddGang', 'BaBei'].includes(e.kind) &&
         (!Number.isInteger(e.seat) || e.seat < 0 || e.seat >= (s.scores.length === 3 ? 3 : 4))) throw new Error('无效动作座位');
     if (e.kind === 'MJStart') return initial(e.source);
@@ -106,7 +107,7 @@
         // Liqi meld type: 2 = added kan, 3 = concealed kan.
         if (e.meldType === 2) {
           const meld = p.melds.find(m => m.tiles.length === 3 && m.tiles.every(t => canonical(t) === canonical(e.tile)));
-          if (meld) { meld.tiles.push(e.tile); meld.type = 2; if (hand) remove(s, hand, e.tile); }
+          if (meld) { meld.tiles.push(e.tile); meld.froms.push(e.seat); meld.type = 2; if (hand) remove(s, hand, e.tile); }
           else { s.complete = false; warn(s, '加杠未找到原碰牌'); }
         } else if (e.meldType === 3) {
           const removed = [];

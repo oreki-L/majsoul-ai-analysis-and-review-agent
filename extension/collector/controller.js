@@ -15,6 +15,7 @@
   let writeQueue = Promise.resolve();
   const contextInstance = `${now()}-${Math.random().toString(36).slice(2)}`;
   let liveRoundStart = null, liveRoundSequence = 0;
+  let liveSocketId = null;
   function schedule() { for (const listener of listeners) listener(); }
   function viewedState() {
     return historyView ? historyMatches.find(m => m.id === historyView.match)?.rounds.find(r => r.key === historyView.round)?.snapshot : null;
@@ -102,6 +103,14 @@
     const m = clone(message);
     try {
       if (m.type === 'event' && m.payload?.source === 'live' && typeof m.payload.kind === 'string') {
+        const socketId = m.payload.socketId;
+        if (Number.isInteger(socketId)) {
+          if (liveSocketId !== null && socketId < liveSocketId) return;
+          if (liveSocketId !== null && socketId !== liveSocketId) {
+            live = S.invalidateTurns(live, 'disconnected'); live.complete = false;
+          }
+          liveSocketId = socketId;
+        }
         const before = live; live = S.apply(live, m.payload); recordLive(before, m.payload, live);
         log.push({ ...m.payload, ...(m.payload.seat === undefined ? {} : { seatWind: S.seatWind(live, m.payload.seat) }), observedAt: new Date(now()).toISOString() });
         if (log.length > 1000) log.shift();
@@ -120,7 +129,8 @@
       }
       else if (m.type === 'connection') {
         connections.set(m.payload.socketId, m.payload.state);
-        if (m.payload.state === 'closed' && live.phase === 'playing') { live = S.invalidateTurns(live, 'disconnected'); live.complete = false; }
+        if (m.payload.state === 'closed' && live.phase === 'playing' &&
+            (liveSocketId === null || m.payload.socketId === liveSocketId)) { live = S.invalidateTurns(live, 'disconnected'); live.complete = false; }
       }
 
       schedule();

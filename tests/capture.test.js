@@ -2,6 +2,8 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const vm = require('node:vm'), fs = require('node:fs');
 const F = require('./fixtures.js'), P = require('../extension/protocol.js');
+const makeController = () => require('../extension/collector/controller').create({
+  state: require('../extension/state'), history: require('../extension/history') });
 function harness() {
   class Socket {
     static OPEN = 1;
@@ -23,6 +25,69 @@ function harness() {
   return { context, Socket, messages, requests, timers };
 }
 const flush = () => new Promise(resolve => setImmediate(resolve));
+const action = (step, name, body, masked = false) => F.cat(F.n(1, step), F.t(2, name), F.b(3, masked ? P.unmask(body) : body));
+const restoreResponse = actions => F.b(4, F.cat(...actions.map(a => F.b(2, a))));
+
+test('authGame resolves nondealer seat without exporting account, token or session', async () => {
+  const h = harness(), socket = new h.context.WebSocket('wss://route-1.maj-soul.com/gateway');
+  socket.send(F.frame(2, '.lq.FastTest.authGame', F.cat(F.n(1, 987654), F.t(2, 'SECRET_TOKEN'), F.t(4, 'SECRET_SESSION')), 4));
+  socket.emit('message', { data: F.frame(3, '', F.packed(3, [100001, 100002, 987654, 100004]), 4) });
+  socket.emit('message', { data: F.frame(1, '.lq.ActionPrototype', action(0, 'ActionNewRound', F.cat(F.strings(4, F.hand), F.packed(6, [25000,25000,25000,25000])), true)) });
+  await flush();
+  const c = makeController();
+  for (const m of h.messages) c.receive(m);
+  assert.equal(c.getView().live.selfSeat, 2);
+  assert.equal(c.getView().live.complete, true);
+  assert.doesNotMatch(JSON.stringify(h.messages), /987654|100001|SECRET_/);
+  await c.flush();
+});
+
+test('enter/sync restoration decodes plain bodies, preserves order and deduplicates incremental actions', async () => {
+  for (const method of ['enterGame', 'syncGame']) {
+    const h = harness(), socket = new h.context.WebSocket('wss://route-1.maj-soul.com/gateway');
+    const opening = action(0, 'ActionNewRound', F.liveRound());
+    const draw = action(1, 'ActionDealTile', F.cat(F.n(1, 1), F.t(2, '1m'), F.n(3, 68)));
+    socket.send(F.frame(2, '.lq.FastTest.' + method, [], 3));
+    socket.emit('message', { data: F.frame(3, '', restoreResponse([opening, draw]), 3) });
+    socket.send(F.frame(2, '.lq.FastTest.syncGame', [], 4));
+    socket.emit('message', { data: F.frame(3, '', restoreResponse([draw]), 4) });
+    await flush();
+    const events = h.messages.filter(m => m.type === 'event');
+    assert.deepEqual(events.map(m => m.payload.encoding), ['plain', 'plain', 'plain']);
+    const c = makeController();
+    for (const m of h.messages) c.receive(m);
+    assert.equal(c.getView().live.selfHand.length, 14);
+    assert.equal(c.getView().live.lastStep, 1);
+    assert.equal(c.getView().live.complete, true);
+    await c.flush();
+  }
+});
+
+test('snapshot-only recovery remains incomplete and malformed restore publishes no partial opening', async () => {
+  for (const body of [F.b(4, F.cat(F.b(1, F.n(1, 0)), F.b(2, action(5, 'ActionDealTile', F.n(1, 1))))),
+    restoreResponse([action(0, 'ActionNewRound', F.liveRound()), F.cat(F.n(1, 1), F.t(2, 'ActionDealTile'), F.b(3, [255]))])]) {
+    const h = harness(), socket = new h.context.WebSocket('wss://route-1.maj-soul.com/gateway');
+    socket.send(F.frame(2, '.lq.FastTest.syncGame', [], 1));
+    socket.emit('message', { data: F.frame(3, '', body, 1) }); await flush();
+    const c = makeController();
+    for (const m of h.messages) c.receive(m);
+    assert.equal(c.getView().live.complete, false);
+    assert.equal(h.messages.some(m => m.type === 'event' && m.payload.kind === 'NewRound'), false);
+    await c.flush();
+  }
+});
+
+test('close follows queued Blob action so delayed decoding cannot resurrect a complete connection', async () => {
+  const h = harness(), socket = new h.context.WebSocket('wss://route-1.maj-soul.com/gateway');
+  socket.emit('message', { data: new Blob([F.frame(1, '.lq.ActionPrototype', action(0, 'ActionNewRound', F.liveRound(), true))]) });
+  socket.emit('close'); await flush(); await flush();
+  assert.equal(h.messages.filter(m => ['event', 'connection'].includes(m.type)).at(-1).payload.state, 'closed');
+  const c = makeController();
+  for (const m of h.messages) c.receive(m);
+  assert.equal(c.getView().live.complete, false);
+  assert.equal(c.getView().live.turnProgress.reason, 'disconnected');
+  await c.flush();
+});
 test('wrapper preserves WebSocket instance, constants, send payload and native exceptions', () => {
   const h = harness(), socket = new h.context.WebSocket('wss://route-1.maj-soul.com/gateway');
   assert.ok(socket instanceof h.Socket); assert.ok(socket instanceof h.context.WebSocket);

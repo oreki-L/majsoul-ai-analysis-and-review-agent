@@ -2,13 +2,13 @@
 
 **Turn mahjong advice into a conversation you can learn from.**
 
-Current release: **0.16.0**
+Current release: **0.16.1**
 
 [简体中文](README.md) | **English** | [日本語](README.ja.md)
 
 An AI analysis assistant for the Mahjong Soul web client. Use your own LLM to analyze a position, or let a local Mortal or Akagi engine choose an action and an LLM explain it. Ask “Why this discard?” or “What would another choice lose?” Each decision keeps its own position and discussion.
 
-[**Download**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.0) · [Standard use](#standard-use) · [Using local models](#using-local-models) · [Documentation](docs/README.md)
+[**Download**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.1) · [Standard use](#standard-use) · [Using local models](#using-local-models) · [Documentation](docs/README.md)
 
 ![Floating analysis card with a synthetic position and simulated model response](docs/images/agent-floating-preview.png)
 
@@ -32,12 +32,12 @@ A discussion retains the original hand, table, recommendation and previous excha
 
 | Package | Purpose |
 | --- | --- |
-| [Full Agent · v0.16.0](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.0/majsoul-ai-analysis-and-review-agent-0.16.0.zip) | Start here for either workflow: collection, analysis, follow-up questions and settings |
-| [Standalone Collector · v0.16.0](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.0/majsoul-collector-0.16.0.zip) | Collection, display, settlement history and export; no model code or model-host permissions |
-| [Optional local model runtime · Windows x64 · v0.16.0](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.0/majsoul-model-manager-windows-x64-0.16.0.zip) | Bundled Node; extract and double-click to start. Model weights and dependencies install on demand. Not needed for standard use |
-| [Source · v0.16.0](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.0/majsoul-ai-analysis-and-review-agent-source-0.16.0.zip) | Development, builds and offline review |
+| [Full Agent · v0.16.1](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.1/majsoul-ai-analysis-and-review-agent-0.16.1.zip) | Start here for either workflow: collection, analysis, follow-up questions and settings |
+| [Standalone Collector · v0.16.1](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.1/majsoul-collector-0.16.1.zip) | Collection, display, settlement history and export; no model code or model-host permissions |
+| [Optional local model runtime · Windows x64 · v0.16.1](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.1/majsoul-model-manager-windows-x64-0.16.1.zip) | Bundled Node; extract and double-click to start. Model weights and dependencies install on demand. Not needed for standard use |
+| [Source · v0.16.1](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.1/majsoul-ai-analysis-and-review-agent-source-0.16.1.zip) | Development, builds and offline review |
 
-[Release page and SHA-256 checksums](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.0). Extension packages contain no weights, Python or native model libraries. Agent and Collector use separate storage with no automatic migration; enable only one on the same game page.
+[Release page and SHA-256 checksums](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.1). Extension packages contain no weights, Python or native model libraries. Agent and Collector use separate storage with no automatic migration; enable only one on the same game page.
 
 ## Quick start
 

@@ -175,11 +175,12 @@
     if ('seat' in e && e.seat !== null && (e.seat < 0 || e.seat > 3)) throw new Error('无效座位');
     return e;
   }
-  function action(input) {
+  function action(input, bodyEncoding = 'auto') {
     const f = wire(input), name = str(f, 2), body = blob(f, 3);
     if (!/^Action[A-Za-z]+$/.test(name) || !body) throw new Error('动作封装不符合预期');
     const errors = [];
-    for (const [encoding, data] of [['masked', unmask(body)], ['plain', body]]) {
+    const encodings = bodyEncoding === 'plain' ? [['plain', body]] : [['masked', unmask(body)], ['plain', body]];
+    for (const [encoding, data] of encodings) {
       try { return { ...decodeEvent(name, data, 'live'), step: num(f, 1), encoding }; }
       catch (error) { errors.push(error.message); }
     }

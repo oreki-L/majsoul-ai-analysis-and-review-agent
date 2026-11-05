@@ -81,7 +81,7 @@
           const old = melds[actor].find(m => m.type === 1 && m.tiles.every(t => canon(t) === canon(R.fromMjai(event.pai))));
           if (!old || !same([...old.tiles].sort(), event.consumed.map(R.fromMjai).sort())) stop('加杠缺少一致的原碰牌。');
           if (actor === request.seat) remove(event.pai);
-          sizes[actor]--; old.type = 2; old.tiles.push(R.fromMjai(event.pai));
+          sizes[actor]--; old.type = 2; old.tiles.push(R.fromMjai(event.pai)); old.froms.push(actor);
         }
         if (actor === request.seat) drawn = null;
         pendingDiscard = null; replacement = actor; lastDiscard = null; lastDiscardActor = null; forbidden = []; phase = 'kan-response'; trigger = event; kanCount++; kanActors.add(actor);

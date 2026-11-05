@@ -12,8 +12,8 @@
     return c;
   }
   // Complete-hand oracle does not treat an impossible fifth copy as a waiting tile.
-  function winning(c, melds) {
-    if (!melds) {
+  function winning(c, melds, handType = 'all') {
+    if (!melds && handType === 'all') {
       if (c.filter(n => n === 2).length === 7) return true;
       const terminals = [0, 8, 9, 17, 18, 26, 27, 28, 29, 30, 31, 32, 33];
       if (terminals.every(i => c[i] > 0) && terminals.some(i => c[i] === 2)) return true;
@@ -29,8 +29,8 @@
     for (let i = 0; i < 34; i++) if (c[i] >= 2) { c[i] -= 2; const ok = groups(); c[i] += 2; if (ok) return true; }
     return false;
   }
-  function calculate(c, melds, meldTiles = Array(34).fill(0)) {
-    const cacheKey = melds + ':' + c.join('') + ':' + meldTiles.join('');
+  function calculate(c, melds, meldTiles = Array(34).fill(0), handType = 'all') {
+    const cacheKey = handType + ':' + melds + ':' + c.join('') + ':' + meldTiles.join('');
     if (calculationCache.has(cacheKey)) return calculationCache.get(cacheKey);
     let best = 8;
     const lowerBound = c.reduce((sum, n) => sum + n, 0) + 3 * melds === 14 ? -1 : 0;
@@ -54,16 +54,17 @@
       }
       c[start]--; visit(start, m, t, pair); c[start]++;
     }
-    visit(0, melds, 0, 0);
-    if (!melds) {
+    if (handType === 'all' || handType === 'regular') visit(0, melds, 0, 0);
+    if (handType === 'chiitoitsu' || handType === 'kokushi') best = Infinity;
+    if (!melds && handType !== 'regular') {
       const pairs = c.filter(n => n >= 2).length, kinds = c.filter(Boolean).length;
-      best = Math.min(best, 6 - pairs + Math.max(0, 7 - kinds));
+      if (handType !== 'kokushi') best = Math.min(best, 6 - pairs + Math.max(0, 7 - kinds));
       const terminals = [0, 8, 9, 17, 18, 26, 27, 28, 29, 30, 31, 32, 33];
-      best = Math.min(best, 13 - terminals.filter(i => c[i]).length - Number(terminals.some(i => c[i] >= 2)));
+      if (handType !== 'chiitoitsu') best = Math.min(best, 13 - terminals.filter(i => c[i]).length - Number(terminals.some(i => c[i] >= 2)));
     }
-    if (best === 0) {
+    if (best === 0 && (handType === 'all' || handType === 'regular')) {
       const hasWinningDraw = () => {
-        for (let i = 0; i < 34; i++) if (c[i] + meldTiles[i] < 4) { c[i]++; const ok = winning(c, melds); c[i]--; if (ok) return true; }
+        for (let i = 0; i < 34; i++) if (c[i] + meldTiles[i] < 4) { c[i]++; const ok = winning(c, melds, handType); c[i]--; if (ok) return true; }
         return false;
       };
       let liveWait = false;
@@ -88,6 +89,15 @@
     if (!c || ![3, 4].includes(m.tiles.length)) return false;
     const ids = m.tiles.map(index).sort((a, b) => a - b);
     return ids.every(i => i === ids[0]) || (count !== 3 && ids.length === 3 && ids[0] < 27 && Math.floor(ids[0] / 9) === Math.floor(ids[2] / 9) && ids[1] === ids[0] + 1 && ids[2] === ids[0] + 2);
+  }
+  // Structural values for independent development-time differential checks.
+  // Ordinary tenpai uses the same own-four-copy correction as shanten().
+  function shantenByType(tiles, meldCount = 0, playerCount = 4, ownMeldTiles = []) {
+    if (shanten(tiles, meldCount, playerCount, ownMeldTiles) === null) return null;
+    const c = countsOf(tiles, playerCount), exposed = countsOf(ownMeldTiles, playerCount);
+    return { regular: calculate(c, meldCount, exposed, 'regular'),
+      chiitoitsu: meldCount ? null : calculate(c, 0, exposed, 'chiitoitsu'),
+      kokushi: meldCount ? null : calculate(c, 0, exposed, 'kokushi') };
   }
   function visibleCounts(s) {
     const counts = Array(34).fill(0), reasons = [];
@@ -172,6 +182,6 @@
     if (analysisCache.size >= 8) analysisCache.delete(analysisCache.keys().next().value);
     analysisCache.set(analysisKey, JSON.stringify(result)); return result;
   }
-  const api = { canonical, shanten, visibleCounts, analyze };
+  const api = { canonical, shanten, shantenByType, visibleCounts, analyze };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.MJMahjongAnalysis = api;
 })(globalThis);

@@ -2,13 +2,13 @@
 
 **让麻将建议变成可以追问的学习过程。**
 
-当前发布版本：**0.16.0**
+当前发布版本：**0.16.1**
 
 [简体中文](README.md) | [English](README.en.md) | [日本語](README.ja.md)
 
 雀魂网页版 AI 分析助手。可以直接用你自己的 LLM 分析局面，也可以让本地 Mortal 或 Akagi 引擎先给出动作，再由 LLM 讲解。围绕“为什么打这张？”“换一张会损失什么？”继续追问，每个决策都有自己的局面和讨论。
 
-[**下载**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.0) · [普通使用](#普通使用) · [本地模型使用](#本地模型使用) · [详细文档](docs/README.md)
+[**下载**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.1) · [普通使用](#普通使用) · [本地模型使用](#本地模型使用) · [详细文档](docs/README.md)
 
 ![自由悬浮分析卡，使用人工局面与模拟模型响应](docs/images/agent-floating-preview.png)
 
@@ -32,12 +32,12 @@
 
 | 安装内容 | 用途 |
 | --- | --- |
-| [完整 Agent · v0.16.0](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.0/majsoul-ai-analysis-and-review-agent-0.16.0.zip) | 普通使用和本地模型使用都先安装这个；包含采集、分析、追问与设置 |
-| [独立 Collector · v0.16.0](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.0/majsoul-collector-0.16.0.zip) | 只采集、展示、结算历史与导出，不含模型代码和模型主机权限 |
-| [可选本地模型运行包 · Windows x64 · v0.16.0](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.0/majsoul-model-manager-windows-x64-0.16.0.zip) | 自带 Node，解压双击启动；模型权重与必要依赖按需安装。普通使用无需下载 |
-| [源码 · v0.16.0](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.0/majsoul-ai-analysis-and-review-agent-source-0.16.0.zip) | 开发、构建与离线复盘 |
+| [完整 Agent · v0.16.1](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.1/majsoul-ai-analysis-and-review-agent-0.16.1.zip) | 普通使用和本地模型使用都先安装这个；包含采集、分析、追问与设置 |
+| [独立 Collector · v0.16.1](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.1/majsoul-collector-0.16.1.zip) | 只采集、展示、结算历史与导出，不含模型代码和模型主机权限 |
+| [可选本地模型运行包 · Windows x64 · v0.16.1](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.1/majsoul-model-manager-windows-x64-0.16.1.zip) | 自带 Node，解压双击启动；模型权重与必要依赖按需安装。普通使用无需下载 |
+| [源码 · v0.16.1](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.1/majsoul-ai-analysis-and-review-agent-source-0.16.1.zip) | 开发、构建与离线复盘 |
 
-[发布页与 SHA-256 校验文件](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.0)。扩展包不包含权重、Python 或原生模型库。Agent 与 Collector 的本地存储独立，不自动迁移；同一游戏页面只启用其中一个。
+[发布页与 SHA-256 校验文件](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.1)。扩展包不包含权重、Python 或原生模型库。Agent 与 Collector 的本地存储独立，不自动迁移；同一游戏页面只启用其中一个。
 
 ## 快速开始
 

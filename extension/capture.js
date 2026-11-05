@@ -47,7 +47,12 @@
     const restored = P.wire(restoreBytes), snapshot = P.blob(restored, 1);
     // A snapshot must not be treated as an empty fresh game.
     if (snapshot?.length) emit('diagnostic', { stage: '断线恢复', message: '收到局面快照，首版尚不支持；请重新从开局采集。' });
-    for (const b of P.blobs(restored, 2)) gameEvent(P.action(b), socketId);
+    // Fixed Akagi 91cc2993 parse_syncGameActions uses unmasked protobuf here.
+    // This upstream behavior has not been verified against a current live trace.
+    // Decode the whole batch before publishing, so a malformed tail cannot
+    // leave a partially rebuilt opening marked complete.
+    const actions = P.blobs(restored, 2).map(b => P.action(b, 'plain'));
+    for (const event of actions) gameEvent(event, socketId);
   }
   function inspect(buffer, direction, pending, socketId) {
     if (direction === 'sent') stats.outgoing++; else stats.incoming++;
@@ -57,18 +62,30 @@
     catch (_) { return; } // Unrelated envelopes are not retained.
     if (f.type === 2 && direction === 'sent') {
       pending.delete(f.id);
+      if (f.name === '.lq.FastTest.authGame') {
+        // Retain only the numeric identity needed for the paired response;
+        // tokens, sessions and the account id never leave this socket closure.
+        pending.set(f.id, { method: f.name, account: P.num(P.wire(f.data), 1) >>> 0 });
+      }
       if (['.lq.Lobby.fetchGameRecord', '.lq.FastTest.syncGame', '.lq.FastTest.enterGame'].includes(f.name)) {
         pending.set(f.id, f.name);
-        if (pending.size > 256) pending.delete(pending.keys().next().value);
       }
+      if (pending.size > 256) pending.delete(pending.keys().next().value);
     } else if (f.type === 1 && direction === 'received' && f.name === '.lq.ActionPrototype') {
       try { gameEvent(P.action(f.data), socketId); }
       catch (e) { error('动作解码', e); }
     } else if (f.type === 3 && direction === 'received') {
-      const method = pending.get(f.id); pending.delete(f.id);
+      const request = pending.get(f.id); pending.delete(f.id);
+      const method = typeof request === 'string' ? request : request?.method;
       if (!method) return;
       try {
-        if (method === '.lq.Lobby.fetchGameRecord') {
+        if (method === '.lq.FastTest.authGame') {
+          const response = P.wire(f.data), seats = P.nums(response, 3).map(n => n >>> 0);
+          if (P.blob(response, 1)?.length) throw new Error('服务器返回认证错误');
+          const seat = seats.indexOf(request.account);
+          if (![3, 4].includes(seats.length) || request.account <= 0 || seat < 0 || seats.lastIndexOf(request.account) !== seat) throw new Error('认证座位无法识别');
+          gameEvent({ kind: 'Seat', source: 'live', seat }, socketId);
+        } else if (method === '.lq.Lobby.fetchGameRecord') {
           const record = P.recordResponse(f.data);
           if (record.url) safeRecordUrl(record.url);
           if (record.data?.length) readReplay(record.data);
@@ -106,7 +123,10 @@
         }).catch(e => error('消息读取', e));
       });
       socket.addEventListener('open', () => emit('connection', { socketId, state: 'open' }));
-      socket.addEventListener('close', () => { pending.clear(); emit('connection', { socketId, state: 'closed' }); });
+      socket.addEventListener('close', () => {
+        // Blob decoding already queued before close must precede invalidation.
+        receiveQueue = receiveQueue.then(() => { pending.clear(); emit('connection', { socketId, state: 'closed' }); });
+      });
       status();
       return socket;
     }

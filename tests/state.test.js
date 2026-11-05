@@ -2,6 +2,27 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const S = require('../extension/state.js'), P = require('../extension/protocol.js'), F = require('./fixtures.js');
 const round = () => ({ ...P.decodeEvent('ActionNewRound', F.liveRound(), 'live'), step: 0 });
+
+test('wire riichi confirmation, pon to added kan, red identity and delayed dora stay coherent', () => {
+  let s = S.initial('live', 1);
+  const opening = { ...round(), hand: ['0p','5p','5p','1m','2m','3m','1s','2s','3s','1z','1z','2z','2z'] };
+  s = S.apply(s, opening);
+  const apply = (name, body, step) => { s = S.apply(s, { ...P.decodeEvent(name, body, 'live'), step }); };
+  apply('ActionDiscardTile', F.cat(F.n(1, 2), F.t(2, '5p'), F.n(3, 1)), 1);
+  assert.equal(s.players[2].riichi, true); assert.equal(s.scores[2], 25000);
+  apply('ActionChiPengGang', F.cat(F.n(1, 1), F.n(2, 1), F.strings(3, ['0p','5p','5p']), F.packed(4, [1,1,2]),
+    F.b(5, F.cat(F.n(1, 2), F.n(2, 24000), F.n(3, 1)))), 2);
+  assert.equal(s.scores[2], 24000); assert.equal(s.sticks, 1);
+  assert.equal(s.players[2].discards[0].called, true);
+  assert.deepEqual(s.players[1].melds[0].tiles, ['0p','5p','5p']);
+  apply('ActionAnGangAddGang', F.cat(F.n(1, 1), F.n(2, 2), F.t(3, '5p')), 3);
+  assert.deepEqual(s.players[1].melds[0].froms, [1,1,2,1]);
+  assert.equal(s.selfHand.includes('5p'), false);
+  apply('ActionDealTile', F.cat(F.n(1, 1), F.t(2, '3z'), F.strings(6, ['7p','2m'])), 4);
+  assert.deepEqual(s.doras, ['7p','2m']);
+  assert.equal(s.complete, true);
+  assert.deepEqual(S.apply(s, { ...P.decodeEvent('ActionDealTile', F.cat(F.n(1, 1), F.t(2, '3z')), 'live'), step: 4 }), s);
+});
 const evt = (kind, more) => ({ kind, source: 'live', ...more });
 test('own seat and hand are initialized; concealed opponent draws are not added to self hand', () => {
   const s = S.apply(S.initial(), round());

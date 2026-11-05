@@ -21,6 +21,7 @@
       if (message.type !== 'event' || message.payload?.source !== 'live' || after.mode !== 'live' || after.historical) return;
       const event = message.payload, state = after.live;
       if (event.kind === 'MJStart') { trustedSeat = null; return; }
+      if (event.kind === 'Seat') { trustedSeat = event.seat; return; }
       if (event.operation?.types?.length && Number.isInteger(event.operation.seat)) trustedSeat = event.operation.seat;
       const identity = after.contextIdentity;
       if (!identity.matchId || !identity.roundStartId || !Number.isInteger(event.step)) return;
