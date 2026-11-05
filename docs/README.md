@@ -59,6 +59,7 @@
 | 文档 | 职责 |
 | --- | --- |
 | [项目目录结构](development/PROJECT_STRUCTURE.md) | 文件位置、新增文件归属、本地数据与构建产物 |
+| [功能与实现核查](development/FEATURE_AUDIT.md) | v0.16.2 的功能入口、源码、回归测试与支持边界；维护首页表述的依据 |
 | [贡献指南](../CONTRIBUTING.md) | 环境准备、修改入口、检查命令和多语言维护 |
 | [项目架构](../ARCHITECTURE.md) | 模块职责与采集、Chat、引擎数据流 |
 | [Agent 与 harness](development/AGENT.md) | 获取器、任务计划、有界执行与离线复盘 |
