@@ -20,6 +20,8 @@
 | [shinkuan/Akagi](https://github.com/shinkuan/Akagi) | 本地引擎与协议桥接参考；保留固定 V2 弱 Mortal 示例，v0.16.0 提供独立 V3 Native 实验选项 | V2 与 V3 的模型、环境、许可分别处理；V3 不是 Mortal，未接入上游 Tauri／CDP／系统代理。见[V2 路径](guides/MJAI.md)、[V3 验收](validation/AKAGI_V3_VALIDATION.md) |
 | [Equim-chan/mjai-reviewer](https://github.com/Equim-chan/mjai-reviewer) | 复盘与报告组织参考；未作为依赖或在线后端接入，仅支持有限旧版离线报告 | 不提供其模型／权重，不据此宣称支持当前线上全部报告或开放 API；版本范围见[工作流验收](validation/MORTAL_WORKFLOW_VALIDATION.md) |
 | [Equim-chan/Mortal](https://github.com/Equim-chan/Mortal)及[issue #116](https://github.com/Equim-chan/Mortal/issues/116) | 专业框架参考；可选 mjai 支持满足合同的用户引擎，已有限接入两个固定社区 v4 | 社区权重不是官网 Mortal 4.1；issue 不是服务承诺。来源与许可见[v4 运行说明](guides/MORTAL_V4.md)，已测范围见[v4 验收](validation/MORTAL_V4_VALIDATION.md) |
+| [guangdexingfang 的 Agent 设想](https://github.com/Equim-chan/mjai-reviewer/issues/166) | Mortal issue #116 发起者的中文教学／复盘规划；未接入 | 2026-10-24 核查时公开仓库为 0；需求设想不代表已实现，也不是 Mortal 官方 Agent。详见[讨论与启发](research/RIICHI_ECOSYSTEM_RESEARCH.md#mortal-issue-116-相关项目与启发) |
+| [2621532542/nq：芝麻分析器](https://github.com/2621532542/nq) | issue #116 评论者提供的独立工具；候选解释、教练显示和复盘转练习参考，未接入 | 与 issue 发起者不是同一作者；抽查到本地计算和模板解释，未确认 Mortal／LLM 接入。详见[讨论与启发](research/RIICHI_ECOSYSTEM_RESEARCH.md#mortal-issue-116-相关项目与启发) |
 | [tzp1021/mj_helper](https://github.com/tzp1021/mj_helper) | 采集与状态机分层参考；未捆绑其 Python 引擎、数据或报告 | 不宣称协议、实现或牌力等价；产品对照见[研究](research/RIICHI_ECOSYSTEM_RESEARCH.md#直接同类与相近产品) |
 | [earendil-works/pi](https://github.com/earendil-works/pi) | 实际分发固定 1.4.0 的 `pi-agent-core`／`pi-ai` 审计后浏览器代码，作 MV3／CSP 适配；collector 不含 Pi | 不代表支持全部原生 provider SDK；canonical 来源、版本与许可见[运行库来源](../licenses/SOURCES.md)，实现见[Pi 运行时](development/pi-runtime.md) |
 | DeepSeek Harness：确切仓库／文章 URL **待定位** | 有界执行与轨迹校验的设计参考；不是运行依赖 | 不编造 canonical URL，不等同于 DeepSeek 模型 API，也不宣称移植其实现 |
