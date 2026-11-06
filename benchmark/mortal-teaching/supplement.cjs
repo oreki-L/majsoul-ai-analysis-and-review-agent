@@ -10,13 +10,17 @@ const { openBudget } = require('./budget.cjs');
 const { loadPrompts } = require('./prompts.cjs');
 const { read, freeze, factsFor, delivery } = require('./runner.cjs');
 const QUESTIONS = ['说明这个动作最关键的可见依据，以及哪些判断仍不确定。', '为什么不选择另一个合法动作？如果没有有意义的备选，请直接说明。'];
+const REPEAT_ROUNDS = ['east4-h0', 'south3-h0', 'south4-h0', 'south1-h0', 'south1-h1', 'south4-h1'];
 function supplementPlan(data) {
-  // Two earliest compatible decisions per round: 6 rounds x 2 = 12.
-  // Freeze before observing any new answers; the 3 follow-up anchors are spread
-  // across those rounds and get the same two explicit questions.
-  const ids = [...new Set(data.nodes.filter(n => n.compatible).map(n => n.roundId))].flatMap(round =>
-    data.nodes.filter(n => n.compatible && n.roundId === round).sort((a, b) => a.position - b.position).slice(0, 2).map(n => n.id));
-  return { repeatNodes: ids, followupNodes: [ids[0], ids[4], ids[8]].filter(Boolean), questions: QUESTIONS };
+  // Preserve the six previously selected rounds when opening support expands.
+  // Selection depends only on frozen coordinates, never new answers or scores.
+  const ids = REPEAT_ROUNDS.flatMap(round => {
+    const selected = data.nodes.filter(n => n.compatible && n.roundId === round).sort((a, b) => a.position - b.position).slice(0, 2);
+    if (selected.length !== 2) throw new Error('Fixed repeat round lacks two compatible decisions: ' + round);
+    return selected.map(n => n.id);
+  });
+  return { selection: 'fixed-six-original-compatible-rounds-v1', roundIds: REPEAT_ROUNDS, repeatNodes: ids,
+    followupNodes: [ids[0], ids[4], ids[8]], questions: QUESTIONS };
 }
 async function runSupplement({ output, winner, engineConfig, fetchImpl = fetch, mock = false }) {
   const data = read(path.join(output, 'dataset.json')), plan = read(path.join(output, 'supplement-plan.json'));
@@ -92,4 +96,4 @@ async function runSupplement({ output, winner, engineConfig, fetchImpl = fetch, 
     return { planned: jobs.length, attempted: log.events.filter(e => e.kind === 'start').length, delivered: log.events.filter(e => e.kind === 'result' && e.payload.delivered).length, mock, billing: budget?.snapshot() || null };
   } finally { budget?.close(); unlock(); }
 }
-module.exports = { supplementPlan, runSupplement, QUESTIONS };
+module.exports = { supplementPlan, runSupplement, QUESTIONS, REPEAT_ROUNDS };

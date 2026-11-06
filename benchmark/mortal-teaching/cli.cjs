@@ -12,6 +12,7 @@ const { FILES } = require('./harness.cjs');
 function fingerprint() {
   return Object.fromEntries([...FILES.map(f => path.resolve(__dirname, '../../extension', f)),
     'extension/round-context.js', 'extension/decision-discussions.js', 'benchmark/accounting.cjs', 'benchmark/durable.cjs', 'benchmark/core.cjs',
+    'extension/state.js', 'extension/collector/snapshot-adapter.js',
     ...fs.readdirSync(__dirname).filter(f => f.endsWith('.cjs')).map(f => path.join(__dirname, f))]
     .map(f => { const absolute = path.resolve(__dirname, '../..', f); return [path.relative(path.resolve(__dirname, '../..'), absolute).replace(/\\/g, '/'), sha256(fs.readFileSync(absolute))]; }));
 }
@@ -53,13 +54,15 @@ async function main(argv) {
       supplementPlanHash: stableHash(supplementPlan),
       sampling: { temperature: 0, maxTokens: 4096, thinking: false }, runtime: 'released product Worker + Pi 1.4.0; replay simulation; benchmark-only prompt substitution',
       historicalControl: 'X-F original first pass only; no concurrent pure LLM',
-      openingCompatibility: 'deferred; never bypass validation' });
+      openingCompatibility: 'dealer final tile normalized in new input version; original snapshots preserved; no validation bypass',
+      historicalSnapshotDifferences: history.rows.filter(r => !r.inputComparison.identicalSnapshot).map(r => ({ nodeId: r.nodeId, ...r.inputComparison })) });
     const budget = require('./budget.cjs').openBudget({ directory: authorization.budgetDirectory, authorization, pricing,
       fetchImpl: async () => { throw new Error('Preparation must never dispatch'); } });
     budget.close();
     return { prepared: true, total: data.nodes.length, compatible: data.nodes.filter(n => n.compatible).length,
       development: data.nodes.filter(n => n.compatible && n.split === 'development').length,
       validation: data.nodes.filter(n => n.compatible && n.split === 'validation').length,
+      normalizedSnapshots: data.nodes.filter(n => n.snapshotProvenance.changes.length).length,
       historicalXf: { opportunities: history.rows.length, delivered: history.rows.filter(r => r.answer).length, repeatedAnswersUsed: 0 },
       credentialResolvable: true, credentialValuesCopied: false, paidRequests: 0, capCny: 50 };
   }

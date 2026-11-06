@@ -5,6 +5,8 @@ const { stableHash } = require('../core.cjs');
 const { sha256 } = require('./prompts.cjs');
 const Mjai = require('../../extension/adapters/mjai.js');
 const Engine = require('../../extension/engine-agent.js');
+const State = require('../../extension/state.js');
+const Snapshot = require('../../extension/collector/snapshot-adapter.js');
 const DEV = ['south1-h0', 'south1-h1', 'south3-h0'];
 const SOURCES = [
   ['realtime-quality-20261031/preparation/dataset.new45.frozen.json', '477224b5e5c9c8d7b6fb5e754f4983c485b103c84b0269aeee1232cb9f0d27d6'],
@@ -29,6 +31,30 @@ function contextEvents(prefix, seat) {
     return e;
   });
 }
+function normalizeSnapshot(original, prefix, position) {
+  const state = prefix.reduce((s, e) => State.apply(s, e), State.initial('replay', original.selfSeat));
+  const snapshot = Snapshot.snapshot(state, { game: true, rivers: 'all', hand: true });
+  snapshot.lastStep = original.lastStep;
+  const changes = [];
+  if (stableHash(original) !== stableHash(snapshot)) {
+    const opening = prefix[0], own = opening.hands?.[original.selfSeat];
+    if (position !== 0 || prefix.length !== 1 || original.selfSeat !== opening.round || own?.length !== 14 || original.selfDrawnTile !== null || snapshot.selfDrawnTile !== own[13] || stableHash({ ...original, selfDrawnTile: own[13] }) !== stableHash(snapshot)) throw new Error('Unexpected historical snapshot change');
+    changes.push({ field: 'selfDrawnTile', before: null, after: own[13] });
+  }
+  return { snapshot, provenance: { method: 'dealer-opening-final-tile-v1', originalSnapshot: structuredClone(original),
+    originalSnapshotHash: stableHash(original), testSnapshotHash: stableHash(snapshot), changes } };
+}
+function validateSnapshotProvenance(node) {
+  const p = node.snapshotProvenance, snapshot = node.message.snapshot;
+  if (!p || p.method !== 'dealer-opening-final-tile-v1' || stableHash(p.originalSnapshot) !== p.originalSnapshotHash || stableHash(snapshot) !== p.testSnapshotHash || !Array.isArray(p.changes)) throw new Error('Snapshot provenance hash mismatch');
+  if (!p.changes.length) {
+    if (p.originalSnapshotHash !== p.testSnapshotHash) throw new Error('Unrecorded snapshot change');
+  } else {
+    const change = p.changes[0], original = p.originalSnapshot;
+    if (p.changes.length !== 1 || change.field !== 'selfDrawnTile' || change.before !== null || change.after !== snapshot.selfDrawnTile || original.selfDrawnTile !== null || node.position !== 0 || original.selfHand?.length !== 14 || original.selfSeat !== original.game?.round?.index || original.selfHand[13] !== change.after || stableHash({ ...original, selfDrawnTile: change.after }) !== p.testSnapshotHash) throw new Error('Unapproved snapshot normalization');
+  }
+  return p;
+}
 async function prepareDataset(evidenceRoot) {
   const read = index => {
     const [relative, expected] = SOURCES[index], bytes = fs.readFileSync(path.join(evidenceRoot, relative));
@@ -45,8 +71,9 @@ async function prepareDataset(evidenceRoot) {
       // original consumed cursor separately. No event is inserted or reordered.
       const prefix = raw.replayRecords.slice(openingConsumedCursor - 1, cursor).map((e, recordIndex) => ({ ...mask(e, node.snapshot.selfSeat), recordIndex }));
       if (prefix.length !== node.position + 1 || prefix.some((e, i) => i > 0 && e.kind === 'NewRound')) throw new Error('Decision prefix crosses a round');
+      const normalized = normalizeSnapshot(node.snapshot, prefix, node.position);
       const message = { provider: 'mjai', task: 'combined', lane: 'live', clientRunId: node.id,
-        snapshot: node.snapshot, context: { identity: { matchId: set.sessionId, roundStartId: round.id }, position: node.position,
+        snapshot: normalized.snapshot, context: { identity: { matchId: set.sessionId, roundStartId: round.id }, position: node.position,
           events: contextEvents(prefix, node.snapshot.selfSeat), historyComplete: true, eventWindowStart: 0 } };
       let compatible = false, reason = null, reachedInfer = false;
       try {
@@ -59,17 +86,21 @@ async function prepareDataset(evidenceRoot) {
       nodes.push({ id: node.id, roundId: round.id, position: node.position, type: node.type,
         split: DEV.includes(round.id) ? 'development' : 'validation', compatible, reason,
         sourceConsumedCursor: cursor, inputHash: stableHash(message), message,
+        snapshotProvenance: normalized.provenance,
         legalActions: node.legalActions, decisionContext: node.decisionContext, discardConstraints: node.discardConstraints });
     }
   }
   if (nodes.length !== 84 || new Set(nodes.map(n => n.id)).size !== 84) throw new Error('Expected original 84 unique decisions');
-  const data = { format: 'mortal-teaching-inputs-v1', simulation: 'authorized replay prefixes; not online live capture', sources: SOURCES.map(([file, sha256]) => ({ file, sha256 })), nodes };
+  const data = { format: 'mortal-teaching-inputs-v2', simulation: 'authorized replay prefixes; not online live capture', sources: SOURCES.map(([file, sha256]) => ({ file, sha256 })), nodes };
   return { ...data, datasetHash: stableHash(data) };
 }
 function checkDataset(data) {
   const { datasetHash, ...body } = data;
   if (stableHash(body) !== datasetHash) throw new Error('Frozen dataset hash mismatch');
-  for (const n of data.nodes) if (stableHash(n.message) !== n.inputHash) throw new Error('Frozen node input hash mismatch');
+  for (const n of data.nodes) {
+    if (stableHash(n.message) !== n.inputHash) throw new Error('Frozen node input hash mismatch');
+    if (data.format === 'mortal-teaching-inputs-v2') validateSnapshotProvenance(n);
+  }
   return data;
 }
-module.exports = { prepareDataset, checkDataset, contextEvents, mask, DEV, SOURCES };
+module.exports = { prepareDataset, checkDataset, contextEvents, mask, DEV, SOURCES, normalizeSnapshot, validateSnapshotProvenance };

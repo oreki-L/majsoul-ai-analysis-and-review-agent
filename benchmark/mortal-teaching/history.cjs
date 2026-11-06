@@ -7,6 +7,7 @@ const { stableHash } = require('../core.cjs');
 const { readEvents } = require('../durable.cjs');
 const { sha256 } = require('./prompts.cjs');
 const { stripAttribution } = require('./runner.cjs');
+const { validateSnapshotProvenance } = require('./dataset.cjs');
 const ROOTS = [
   'realtime-quality-20261031/phase2-planning/holdout45-preparation-20261102/runs',
   'realtime-quality-20261031/same-match-remaining-20261102/preparation/runs'
@@ -28,7 +29,11 @@ function prepareHistory(evidenceRoot, data) {
       const matches = run.results.filter(r => r.schemeId === 'X-F' && r.decisionId === node.id && r.repeat === 0 && r.channel === 'main');
       if (matches.length !== 1) throw new Error('Original X-F first answer missing or ambiguous');
       const result = matches[0], request = run.requests[result.id];
-      if (stableHash(request.frozenInput.node.snapshot) !== stableHash(node.message.snapshot)) throw new Error('Historical frozen snapshot differs');
+      const originalSnapshot = request.frozenInput.node.snapshot;
+      const provenance = data.format === 'mortal-teaching-inputs-v2' ? validateSnapshotProvenance(node) : null;
+      if (stableHash(originalSnapshot) !== (provenance?.originalSnapshotHash || stableHash(node.message.snapshot))) throw new Error('Historical frozen snapshot differs');
+      const inputComparison = { historicalSnapshotHash: stableHash(originalSnapshot), testSnapshotHash: stableHash(node.message.snapshot),
+        identicalSnapshot: stableHash(originalSnapshot) === stableHash(node.message.snapshot), changes: provenance?.changes || [] };
       const answer = result.status === 'success' ? request.response?.text : null;
       if (result.status === 'success' && !answer) throw new Error('Successful history has no original raw answer');
       const observedTools = new Map();
@@ -39,12 +44,13 @@ function prepareHistory(evidenceRoot, data) {
           observedTools.set(stableHash(tool), tool);
         }
       }
-      const facts = { snapshot: node.message.snapshot, legalActions: node.legalActions, decisionContext: node.decisionContext,
+      const facts = { snapshot: originalSnapshot, legalActions: node.legalActions, decisionContext: node.decisionContext,
         discardConstraints: node.discardConstraints,
         contextMessages: request.frozenInput.messages.filter(m => m.role !== 'system').map(m => ({ role: m.role, content: stripAttribution(m.content) })),
         toolResults: [...observedTools.values()],
         question: '' };
       rows.push({ nodeId: node.id, roundId, resultId: result.id, status: result.status, answer, facts,
+        inputComparison,
         sourceIndex: sources.length - 1, originalReview: reviews.get(result.id)?.review || null });
     }
   }

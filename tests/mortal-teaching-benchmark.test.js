@@ -11,9 +11,9 @@ const { createQueue, validateReview, COMMON } = require('../benchmark/mortal-tea
 const { createHarness } = require('../benchmark/mortal-teaching/harness.cjs');
 const { createMock } = require('../benchmark/mortal-teaching/mock.cjs');
 const { schedule, factsFor, runStage, cacheEngines } = require('../benchmark/mortal-teaching/runner.cjs');
-const { mask } = require('../benchmark/mortal-teaching/dataset.cjs');
+const { mask, normalizeSnapshot, validateSnapshotProvenance } = require('../benchmark/mortal-teaching/dataset.cjs');
 const { buildReport } = require('../benchmark/mortal-teaching/report.cjs');
-const { runSupplement, QUESTIONS } = require('../benchmark/mortal-teaching/supplement.cjs');
+const { runSupplement, QUESTIONS, supplementPlan, REPEAT_ROUNDS } = require('../benchmark/mortal-teaching/supplement.cjs');
 const State = require('../extension/state.js');
 const Snapshot = require('../extension/collector/snapshot-adapter.js');
 const Mjai = require('../extension/adapters/mjai.js');
@@ -210,4 +210,29 @@ test('changed exported blind packet is rejected instead of silently reused', t =
   const p = q.add({ resultId: 'r', answer: '测试回答', facts: { snapshot: {} } }); q.exportPackets();
   fs.writeFileSync(path.join(directory, 'blind', p.blindId + '.json'), JSON.stringify({ ...p, answer: '篡改回答' }));
   assert.throws(() => q.exportPackets(), /packet changed/);
+});
+test('opening normalization preserves original facts and records only the missing exact dealer draw', () => {
+  const hand = fixture().message.snapshot.selfHand;
+  const opening = { kind: 'NewRound', source: 'replay', recordIndex: 0, wind: 0, round: 0, honba: 0, sticks: 0, scores: [25000, 25000, 25000, 25000], remaining: 69, doras: ['4p'],
+    hands: [hand, Array(13).fill('?'), Array(13).fill('?'), Array(13).fill('?')] };
+  const current = Snapshot.snapshot(State.apply(State.initial('replay', 0), opening), { game: true, rivers: 'all', hand: true });
+  const historical = { ...current, selfDrawnTile: null }, original = structuredClone(historical);
+  const normalized = normalizeSnapshot(historical, [opening], 0);
+  assert.deepEqual(historical, original); assert.equal(normalized.snapshot.selfDrawnTile, hand[13]);
+  assert.deepEqual(normalized.provenance.changes, [{ field: 'selfDrawnTile', before: null, after: hand[13] }]);
+  const node = { position: 0, message: { snapshot: normalized.snapshot }, snapshotProvenance: normalized.provenance };
+  assert.equal(validateSnapshotProvenance(node).originalSnapshotHash, stableHash(historical));
+  assert.deepEqual(normalizeSnapshot(current, [opening], 0).provenance.changes, []);
+  assert.throws(() => normalizeSnapshot({ ...historical, game: { ...historical.game, scores: [26000, 24000, 25000, 25000] } }, [opening], 0), /Unexpected/);
+  assert.throws(() => validateSnapshotProvenance({ ...node, position: 1 }), /Unapproved/);
+  const tampered = structuredClone(node); tampered.message.snapshot.selfDrawnTile = '1m';
+  assert.throws(() => validateSnapshotProvenance(tampered), /hash mismatch/);
+});
+test('expanded nine-round support keeps exactly twelve repeats and three fixed follow-up anchors', () => {
+  const rounds = ['east2-h0', ...REPEAT_ROUNDS, 'south2-h0', 'south2-h1'];
+  const nodes = rounds.flatMap(roundId => [3, 1, 2].map(position => ({ roundId, position, id: roundId + ':' + position, compatible: true })));
+  const all = supplementPlan({ nodes }), old = supplementPlan({ nodes: nodes.filter(n => REPEAT_ROUNDS.includes(n.roundId)) });
+  assert.equal(all.repeatNodes.length, 12); assert.equal(all.followupNodes.length, 3); assert.equal(all.questions.length, 2);
+  assert.deepEqual(all, old); assert.deepEqual(all.repeatNodes.slice(0, 2), ['east4-h0:1', 'east4-h0:2']);
+  assert.throws(() => supplementPlan({ nodes: nodes.filter(n => n.roundId !== 'south4-h1') }), /Fixed repeat round/);
 });
