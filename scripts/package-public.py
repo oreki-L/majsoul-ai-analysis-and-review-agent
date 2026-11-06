@@ -83,7 +83,7 @@ def write_zip(destination, entries):
 def verify():
     subprocess.run(['node', str(ROOT / 'scripts/check.mjs')], check=True)
     tests = sorted(str(path.relative_to(ROOT)) for path in (ROOT / 'tests').glob('*.test.js'))
-    result = subprocess.run(['node', '--test', *tests], cwd=ROOT, capture_output=True, text=True, encoding='utf-8')
+    result = subprocess.run(['node', '--test', '--test-concurrency=2', *tests], cwd=ROOT, capture_output=True, text=True, encoding='utf-8')
     if result.returncode:
         raise RuntimeError(result.stdout + result.stderr)
     print('\n'.join(result.stdout.splitlines()[-8:]).encode('ascii', errors='replace').decode('ascii'))

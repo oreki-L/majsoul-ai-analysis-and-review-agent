@@ -6,7 +6,7 @@
 
 **導入も設定も手軽に。ローカル牌効率は拡張を読み込むだけで使えます。AI 解説は接続先・モデル名・API Key を設定し、任意のローカルエンジンは実行パッケージを展開してダブルクリックで始められます。**
 
-[**v0.16.3 をダウンロード**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.3) · [使い始める](#使い始める) · [特徴](#majsoul-agent-の特徴) · [ローカルモデル](#ローカルモデルの使い方) · [よくある質問](#よくある質問) · [ドキュメント](docs/README.md)
+[**v0.16.4 をダウンロード**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.4) · [使い始める](#使い始める) · [特徴](#majsoul-agent-の特徴) · [ローカルモデル](#ローカルモデルの使い方) · [よくある質問](#よくある質問) · [ドキュメント](docs/README.md)
 
 [简体中文](README.md) | [English](README.en.md) | **日本語**
 
@@ -43,16 +43,16 @@
 
 ## ダウンロード
 
-現在のリリース：**v0.16.3**。初めて使う場合は完全版 Agent から始めてください。
+現在のリリース：**v0.16.4**。初めて使う場合は完全版 Agent から始めてください。
 
 | パッケージ | 用途 |
 | --- | --- |
-| [**完全版 Agent 拡張**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.3/majsoul-ai-analysis-and-review-agent-0.16.3.zip) | 推奨の入口。ローカル計算・モデル分析・追加質問・履歴・設定を含む |
-| [任意のローカルモデル実行パッケージ · Windows x64](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.3/majsoul-model-manager-windows-x64-0.16.3.zip) | 本機で Mortal / Akagi を使う場合に取得。管理用の Node を同梱 |
-| [独立 Collector](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.3/majsoul-collector-0.16.3.zip) | AI 分析を使わず、収集・表示・エクスポートだけを利用 |
-| [ソースパッケージ](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.3/majsoul-ai-analysis-and-review-agent-source-0.16.3.zip) | 開発・ビルド・オフライン検討 |
+| [**完全版 Agent 拡張**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.4/majsoul-ai-analysis-and-review-agent-0.16.4.zip) | 推奨の入口。ローカル計算・モデル分析・追加質問・履歴・設定を含む |
+| [任意のローカルモデル実行パッケージ · Windows x64](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.4/majsoul-model-manager-windows-x64-0.16.4.zip) | 本機で Mortal / Akagi を使う場合に取得。管理用の Node を同梱 |
+| [独立 Collector](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.4/majsoul-collector-0.16.4.zip) | AI 分析を使わず、収集・表示・エクスポートだけを利用 |
+| [ソースパッケージ](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.4/majsoul-ai-analysis-and-review-agent-source-0.16.4.zip) | 開発・ビルド・オフライン検討 |
 
-[全リリースファイルと SHA-256 チェックサム](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.3)。拡張にはモデルの重みを含みません。Agent と Collector の保存領域は独立しており、同じゲームページでは片方だけ有効にしてください。
+[全リリースファイルと SHA-256 チェックサム](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.4)。拡張にはモデルの重みを含みません。Agent と Collector の保存領域は独立しており、同じゲームページでは片方だけ有効にしてください。
 
 ## 使い始める
 
