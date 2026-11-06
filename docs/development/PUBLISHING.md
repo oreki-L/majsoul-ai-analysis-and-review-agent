@@ -35,7 +35,7 @@ python scripts/package-public.py
 
 白名单排除`.git`、`research/`、旧安装包、HAR、日志与浏览器配置，并扫描部分常见凭据格式。它不能替代人工审查。完整源码中的截图是离线模拟，牌面为37张原创SVG，不打包早期游戏截图。
 
-当前正式发布沿用自 v0.8.0 起的干净 Git 提交快照流程：先用 `git archive` 将选定提交解压至独立目录，在快照目录执行 `npm ci`、检查／测试／构建、`python scripts/package-public.py` 和 `npm run eval`。不要直接打包带有未提交修改的工作区；源码、构建脚本、README、工具包脚本与文档都应取自同一选定提交。核对五个资产、四份 ZIP 的 SHA-256，以及源码／manifest／profile／锁文件版本一致后，再上传 Release。
+当前正式发布沿用自 v0.8.0 起的干净 Git 提交快照流程：先用 `git -c core.autocrlf=false -c core.eol=lf archive` 将选定提交解压至独立目录，在快照目录执行 `npm ci`、检查／测试／构建、`python scripts/package-public.py` 和 `npm run eval`。不要直接打包带有未提交修改的工作区；源码、构建脚本、README、工具包脚本与文档都应取自同一选定提交。核对五个资产、四份 ZIP 的 SHA-256，以及源码／manifest／profile／锁文件版本一致后，再上传 Release。
 
 ## 可选模型管理工具包
 
@@ -49,7 +49,7 @@ node scripts/verify-mortal-toolkit.cjs NEW_TOOLKIT_DIR
 
 默认发布 bootstrap，不传 `--offline-profile`，不捆绑模型权重或完整 Python。Python、固定 wheels 和用户所选模型只在用户明确安装时准备；模型进程仍需另行点击启动。不要将开发验收时的 `installations/`、完整运行环境、权重、Token 或日志混入发布包。
 
-打包前后必须核对固定 `agent/mortal-source.json`、运行时锁、native SHA-256／ABI／构建记录。包内保留完整固定 Mortal 源码、`Cargo.lock`、匹配的完整 vendored crate 源码及原许可、Rust／GCC 运行库公告、项目许可和 native 构建说明；不能只分发 `.pyd` 而省略对应源码与许可证，也不能用本项目 MIT 覆盖第三方许可。逐文件清单为 `TOOLKIT-SHA256.json`，验证脚本通过后再将目录内容压缩为 `majsoul-model-manager-windows-x64-<version>.zip`，解压后直接包含 `start.cmd`。
+打包前后必须核对固定 `agent/mortal-source.json`、运行时锁、native SHA-256／ABI／构建记录。包内保留完整固定 Mortal 源码、`Cargo.lock`、匹配的完整 vendored crate 源码及原许可、Rust／GCC 运行库公告、项目许可和 native 构建说明；不能只分发 `.pyd` 而省略对应源码与许可证，也不能用本项目 MIT 覆盖第三方许可。完整 vendored crate 复制前后均须通过 Cargo 的 `.cargo-checksum.json` 复核；依赖源码中也可能包含名为 `target` 的目录，不得套用构建产物过滤。逐文件清单为 `TOOLKIT-SHA256.json`，验证脚本通过后再将目录内容压缩为 `majsoul-model-manager-windows-x64-<version>.zip`，解压后直接包含 `start.cmd`。
 
 若在最后审查时更新管理 UI、后端或文档，应从同一最终提交重新生成工具包，再重算清单和 ZIP 哈希。`--refresh` 只能刷新已经识别且没有安装数据的工具包，不替代发布来源一致性审查。首次在线下载链路、干净环境和真实推理的已测／未测范围必须保留在包内指南与 [验收记录](../validation/MORTAL_V4_VALIDATION.md)，不得用离线复制成功替代在线安装验收。
 

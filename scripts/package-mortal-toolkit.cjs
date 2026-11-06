@@ -61,6 +61,13 @@ async function verifyVendor(root){
   }
 }
 async function copy(from,to){await fs.mkdir(path.dirname(to),{recursive:true});await fs.cp(from,to,{recursive:true,filter:item=>!['target','.git','__pycache__'].includes(path.basename(item))&&!item.endsWith('.pyc')});}
+async function copyVendor(from,to){
+  // Crates may contain source directories named target; Cargo checksums, not build-directory filters, define this closure.
+  await verifyVendor(from);
+  await fs.mkdir(path.dirname(to),{recursive:true});
+  await fs.cp(from,to,{recursive:true});
+  await verifyVendor(to);
+}
 async function copyDocs(out){for(const file of DOC_FILES)await copy(path.join(REPO,'docs',file),path.join(out,'docs',file));}
 async function writeManifest(out,profile){
   const files=[];
@@ -126,7 +133,7 @@ async function packageToolkit({dir,runtime,out,offlineProfile,modelDir,withWheel
   const expand='Expand-Archive -LiteralPath '+escapePs(path.join(dir,'mortal-source.zip'))+' -DestinationPath '+escapePs(path.join(out,'sources'));
   execFileSync('powershell.exe',['-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(expand,'utf16le').toString('base64')],{windowsHide:true,stdio:'pipe'});
   await fs.rename(path.join(out,'sources','Mortal-'+source.sourceCommit),path.join(out,'sources/Mortal'));
-  await copy(path.join(dir,'vendor'),path.join(out,'sources/vendor'));
+  await copyVendor(path.join(dir,'vendor'),path.join(out,'sources/vendor'));
   await copy(path.join(dir,'toolchain-licenses'),path.join(out,'sources/toolchain-licenses'));
   await copy(path.join(dir,'mortal-source.zip'),path.join(out,'sources/mortal-source.zip'));
   for(const file of ['mortal-source.json','mortal-runtime-lock.json'])await copy(path.join(REPO,'agent',file),path.join(out,'sources',file));
@@ -149,5 +156,5 @@ async function packageToolkit({dir,runtime,out,offlineProfile,modelDir,withWheel
   console.log(JSON.stringify({out,files:await writeManifest(out,offlineProfile||'bootstrap'),profile:offlineProfile||'bootstrap',weightsIncluded:!!offlineProfile,pythonIncluded:!!offlineProfile,nodeVersion:nodeLock.version,nodeArchiveSha256:nodeLock.archive.sha256,nativeSha256:source.native.sha256}));
 }
 async function main(args){if(args.length===2&&args[0]==='--refresh')return refreshToolkit(args[1]);const options={};while(args.length){const flag=args.shift();if(flag==='--with-wheels'){options.withWheels=true;continue;}if(!['--dir','--runtime','--out','--offline-profile','--model-dir','--node-runtime'].includes(flag)||!args.length)throw new Error('INVALID_ARGUMENTS');options[({'offline-profile':'offlineProfile','model-dir':'modelDir','node-runtime':'nodeRuntime'})[flag.slice(2)]||flag.slice(2)]=args.shift();}if(!options.dir||!options.out)throw new Error('Usage: node scripts/package-mortal-toolkit.cjs --dir NATIVE_SOURCE_DIR --out NEW_DIR --node-runtime PREPARED_NODE_DIR [--with-wheels] [--offline-profile PROFILE --model-dir DIR --runtime PYTHON_DIR]');await packageToolkit(options);}
-module.exports={packageToolkit,refreshToolkit,verifyVendor,writeLauncher,copyDocs};
+module.exports={packageToolkit,refreshToolkit,verifyVendor,copyVendor,writeLauncher,copyDocs};
 if(require.main===module)main(process.argv.slice(2)).catch(error=>{console.error(error.message);process.exitCode=1;});

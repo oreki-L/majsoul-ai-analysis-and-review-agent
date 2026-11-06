@@ -2,7 +2,7 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs/promises'),path=require('node:path'),os=require('node:os');
 const {verifyShasums,verifyRuntime,prepare}=require('../scripts/prepare-node-runtime.cjs');
-const {packageToolkit,refreshToolkit,writeLauncher,copyDocs}=require('../scripts/package-mortal-toolkit.cjs');
+const {packageToolkit,refreshToolkit,writeLauncher,copyDocs,copyVendor}=require('../scripts/package-mortal-toolkit.cjs');
 const {defaultRoot,childEnvironment}=require('../scripts/launch-model-manager.cjs');
 const lock=require('../scripts/node-runtime-lock.json');
 async function temporary(t){const dir=await fs.mkdtemp(path.join(os.tmpdir(),'portable-model-'));t.after(()=>fs.rm(dir,{recursive:true,force:true}));return dir;}
@@ -53,4 +53,18 @@ test('portable documentation includes canonical bodies and working legacy entry 
       assert.ok((await fs.stat(path.resolve(dir,'docs',match[1]))).isFile());
     }
   }
+});
+
+
+test('vendored crate copies preserve target source directories and reject missing pinned files',async t=>{
+  const dir=await temporary(t),source=path.join(dir,'vendor'),crate=path.join(source,'cc'),out=path.join(dir,'copied');
+  const relative='src/target/parser.rs',body='// pinned crate source\n';
+  await fs.mkdir(path.join(crate,'src/target'),{recursive:true});
+  await fs.writeFile(path.join(crate,relative),body);
+  const hash=require('node:crypto').createHash('sha256').update(body).digest('hex');
+  await fs.writeFile(path.join(crate,'.cargo-checksum.json'),JSON.stringify({files:{[relative]:hash},package:null}));
+  await copyVendor(source,out);
+  assert.equal(await fs.readFile(path.join(out,'cc',relative),'utf8'),body);
+  await fs.rm(path.join(crate,relative));
+  await assert.rejects(copyVendor(source,path.join(dir,'missing')),/VENDOR_MISSING_FILE/);
 });
