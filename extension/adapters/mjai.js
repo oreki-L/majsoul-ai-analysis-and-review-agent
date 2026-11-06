@@ -93,30 +93,35 @@
     if (!Array.isArray(first.scores) || first.scores.length !== 4) fail('unsupported: 仅支持四麻');
     const own = replay ? first.hands?.[seat] : first.hand;
     if (!player(first.round)) fail('无效庄家座位');
-    if (!Array.isArray(own) || own.length !== 13) fail('自家开局需13张；14张庄家开局无法可靠分离摸牌，unsupported');
+    const ownDealerDraw = seat === first.round && own?.length === 14;
+    if (!Array.isArray(own) || (own.length !== 13 && !ownDealerDraw)) fail('自家开局需13张配牌或庄家14张含首摸');
     let initialDealerDraw = false;
     if (replay) {
-      if (!Array.isArray(first.hands) || first.hands.length !== 4 || first.hands.some((h, i) => !Array.isArray(h) || (h.length !== 13 && !(i === first.round && i !== seat && h.length === 14)))) fail('开局手牌张数不一致');
-      // A recorded opponent dealer's 14 tiles prove that its first draw is
-      // already included. Both the thirteen hidden tiles and the draw stay '?';
-      // no choice of an actual concealed tile or later record is needed.
+      if (!Array.isArray(first.hands) || first.hands.length !== 4 || first.hands.some((h, i) => !Array.isArray(h) || (h.length !== 13 && !(i === first.round && h.length === 14)))) fail('开局手牌张数不一致');
+      // Fourteen dealer tiles include the opening draw. For an opponent,
+      // both the thirteen concealed tiles and that draw remain '?'.
       initialDealerDraw = first.hands[first.round].length === 14;
-      if (initialDealerDraw && records[1] && (records[1].kind === 'DealTile' ||
-          (records[1].kind === 'DiscardTile' && records[1].seat !== first.round))) fail('庄家开局摸牌与首动作不一致');
     } else {
       // Live NewRound exposes only our hand. Infer the hidden initial dealer
       // draw only after the visible first discard confirms it, with the normal
       // four-player opening wall count. Do not inspect events beyond cursor.
-      initialDealerDraw = seat !== first.round && first.remaining === 69 &&
-        records[1]?.kind === 'DiscardTile' && records[1].seat === first.round;
+      initialDealerDraw = ownDealerDraw || (seat !== first.round && first.remaining === 69 &&
+        records[1]?.kind === 'DiscardTile' && records[1].seat === first.round);
     }
+    if (initialDealerDraw && records[1] && (records[1].kind === 'DealTile' ||
+        (records[1].kind === 'DiscardTile' && records[1].seat !== first.round))) fail('庄家开局摸牌与首动作不一致');
     if (!Array.isArray(first.doras) || first.doras.length !== 1) fail('缺少唯一开局宝牌');
-    let ownHand = own.map(tile), doras = first.doras.map(tile), ended = false, lastStep = null, lastDiscard = null;
+    // The dealer's opening array contains thirteen dealt tiles followed by its first draw.
+    const openingDraw = ownDealerDraw ? tile(own[13]) : null;
+    let ownHand = own.slice(0, 13).map(tile), doras = first.doras.map(tile), ended = false, lastStep = null, lastDiscard = null;
     const scores = first.scores.slice(); let sticks = first.sticks;
     const pons = new Map(), pendingReach = new Set(), declaredReach = new Set();
     const events = [{ type: 'start_game', id: seat, names: [0, 1, 2, 3].map(i => 'Player ' + i) },
       { type: 'start_kyoku', bakaze: ['E', 'S', 'W', 'N'][first.wind], dora_marker: doras[0], kyoku: first.round + 1, honba: first.honba, kyotaku: first.sticks, oya: first.round, scores: first.scores.slice(), tehais: [0, 1, 2, 3].map(i => i === seat ? ownHand.slice() : Array(13).fill('?')) }];
-    if (initialDealerDraw) events.push({ type: 'tsumo', actor: first.round, pai: '?' });
+    if (initialDealerDraw) {
+      events.push({ type: 'tsumo', actor: first.round, pai: openingDraw ?? '?' });
+      if (ownDealerDraw) ownHand.push(openingDraw);
+    }
     function remove(tiles) { for (const t of tiles) { const i = ownHand.indexOf(t); if (i < 0) fail('自家手牌与事件不一致'); ownHand.splice(i, 1); } }
     function accept(e) {
       const r = e.riichiSuccess;

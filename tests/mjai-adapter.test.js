@@ -56,7 +56,9 @@ test('real replay opening supports dealer discard without an extra recorded draw
   o.replayCursor = 1; o.replayRecords[0].hands[2] = hand.concat('1s');
   assert.throws(() => convert(o), /张数/);
   o.state.selfSeat = 0;
-  assert.throws(() => convert(o), /自家开局需13张/);
+  assert.throws(() => convert(o), /张数/);
+  o.replayRecords[0].hands[2] = hand;
+  assert.deepEqual(convert(o).events.at(-1), { type: 'tsumo', actor: 0, pai: 'C' });
 });
 test('live normal wall count and visible first dealer discard establish hidden initial draw', () => {
   const actions = [{ kind: 'DiscardTile', seat: 0, tile: '1m', riichi: false, tsumogiri: false },
@@ -69,6 +71,59 @@ test('live normal wall count and visible first dealer discard establish hidden i
   assert.deepEqual(convert(o).events.slice(2).map(e => e.type), ['dahai', 'tsumo']);
   const explicitDraw = live([{ kind: 'DealTile', seat: 0, tile: '?' }]); explicitDraw.events[0].remaining = 69;
   assert.equal(convert(explicitDraw).events.filter(e => e.type === 'tsumo').length, 1);
+});
+
+for (const mode of ['live', 'replay']) for (const tsumogiri of [false, true]) {
+  test(`${mode} dealer opening uses the last exact red tile and validates first discard, chi and later draw (${tsumogiri})`, async () => {
+    const State = require('../extension/state.js');
+    const Snapshot = require('../extension/collector/snapshot-adapter.js');
+    const Engine = require('../extension/engine-agent.js');
+    const opening = { ...structuredClone(newRound), source: mode, remaining: 69,
+      ...(mode === 'live' ? { hand: hand.concat('0p'), step: 0 } : { hands: [hand.concat('0p'), hand, hand, hand], recordIndex: 0 }) };
+    let remaining = 69;
+    const actions = [];
+    const discard = (seat, t, drawn = true) => actions.push({ kind: 'DiscardTile', seat, tile: t, tsumogiri: drawn, riichi: false });
+    const draw = (seat, t) => actions.push({ kind: 'DealTile', seat, tile: t, remaining: --remaining });
+    discard(0, tsumogiri ? '0p' : '1z', tsumogiri);
+    draw(1, '9s'); discard(1, '9s'); draw(2, '9s'); discard(2, '9s'); draw(3, '2m'); discard(3, '2m');
+    actions.push({ kind: 'ChiPengGang', seat: 0, meldType: 0, tiles: ['1m', '2m', '3m'], froms: [0, 3, 0] });
+    discard(0, '4m', false);
+    for (const seat of [1, 2, 3]) { const t = (seat + 3) + 'z'; draw(seat, t); discard(seat, t); }
+    draw(0, '9p');
+    const records = [opening, ...actions.map((e, i) => ({ ...e, source: mode, [mode === 'live' ? 'step' : 'recordIndex']: i + 1 }))];
+    const original = structuredClone(records);
+    for (const [cursor, expectedDraw, discardTile] of [[1, '0p', tsumogiri ? '0p' : '1z'], [9, null, '4m'], [records.length, '9p', '9p']]) {
+      let state = State.initial(mode, 0);
+      for (const e of records.slice(0, cursor)) state = State.apply(state, e);
+      const observation = { format: 'mj-observer-v1', mode, state,
+        ...(mode === 'live' ? { events: records.slice(0, cursor) } : { replayRecords: records, replayCursor: cursor }) };
+      const request = convert(observation);
+      assert.deepEqual(request.events[1].tehais[0], hand.map(tile));
+      assert.deepEqual(request.events[2], { type: 'tsumo', actor: 0, pai: '5pr' });
+      const snapshot = Snapshot.snapshot(state, { game: true, rivers: 'all', hand: true });
+      assert.equal(snapshot.selfDrawnTile, expectedDraw);
+      const result = await Engine.run({ snapshot, request, infer: async () => ({ action: {
+        type: 'dahai', actor: 0, pai: tile(discardTile), tsumogiri: cursor === 1 ? tsumogiri : cursor === records.length
+      } }) });
+      assert.equal(result.result.decision.tile, discardTile);
+    }
+    assert.deepEqual(records, original);
+  });
+}
+
+test('self dealer opening preserves normal five versus red five, ignores future records and rejects duplicate draws', () => {
+  const o = { format: 'mj-observer-v1', mode: 'replay', state: { selfSeat: 0 }, replayCursor: 1,
+    replayRecords: [{ ...newRound, source: 'replay', recordIndex: 0, hands: [hand.concat('5m'), hand, hand, hand] }] };
+  Object.defineProperty(o.replayRecords, 1, { configurable: true, get() { throw Error('future record read'); } });
+  const request = convert(o);
+  assert.equal(request.events[1].tehais[0][4], '5mr');
+  assert.equal(request.events[2].pai, '5m');
+  Object.defineProperty(o.replayRecords, 1, { value: { kind: 'DealTile', source: 'replay', recordIndex: 1, seat: 0, tile: '1p' } });
+  o.replayCursor = 2;
+  assert.throws(() => convert(o), /首动作/);
+  const liveOpening = live([{ kind: 'DealTile', seat: 0, tile: '1p' }], 0);
+  liveOpening.events[0].hand = hand.concat('5m');
+  assert.throws(() => convert(liveOpening), /首动作/);
 });
 test('a real nondealer live opening reaches engine validation and returns a legal discard', async () => {
   const State = require('../extension/state.js');
