@@ -10,17 +10,45 @@ const { openBudget } = require('./budget.cjs');
 const { loadPrompts } = require('./prompts.cjs');
 const { read, freeze, factsFor, delivery } = require('./runner.cjs');
 const QUESTIONS = ['说明这个动作最关键的可见依据，以及哪些判断仍不确定。', '为什么不选择另一个合法动作？如果没有有意义的备选，请直接说明。'];
-const REPEAT_ROUNDS = ['east4-h0', 'south3-h0', 'south4-h0', 'south1-h0', 'south1-h1', 'south4-h1'];
+const REPEAT_SELECTION = [
+  ['east2-h0', 0, '庄家首摸：开局末张拆分', true],
+  ['east2-h0', 68, '对手已立直、三副露与赤牌摸入'],
+  ['east4-h0', 24, '首次鸣牌后的弃牌', true],
+  ['east4-h0', 100, '较晚牌山、两副露与赤牌摸入'],
+  ['south3-h0', 6, '早段闭手'],
+  ['south3-h0', 58, '第二副露后的弃牌'],
+  ['south4-h0', 48, '南四局鸣后、手持赤牌'],
+  ['south4-h0', 64, '南四局对手已立直下的普通决策', true],
+  ['south1-h0', 2, '非庄家早段闭手'],
+  ['south1-h0', 68, '较晚首次鸣牌后的弃牌'],
+  ['south1-h1', 10, '续本早段闭手'],
+  ['south1-h1', 38, '续本第二副露后的弃牌'],
+  ['south2-h0', 0, '庄家首摸且手持赤牌'],
+  ['south2-h0', 62, '已有副露的中后段普通决策'],
+  ['south2-h1', 0, '续本庄家字牌首摸'],
+  ['south2-h1', 46, '续本鸣后且手持赤牌'],
+  ['south4-h1', 4, '南四续本早段闭手、手持赤牌'],
+  ['south4-h1', 52, '南四续本中段闭手、手持赤牌']
+].map(([roundId, position, reason, followup = false]) => ({ roundId, position, reason, followup }));
+const REPEAT_ROUNDS = [...new Set(REPEAT_SELECTION.map(s => s.roundId))];
 function supplementPlan(data) {
-  // Preserve the six previously selected rounds when opening support expands.
-  // Selection depends only on frozen coordinates, never new answers or scores.
-  const ids = REPEAT_ROUNDS.flatMap(round => {
-    const selected = data.nodes.filter(n => n.compatible && n.roundId === round).sort((a, b) => a.position - b.position).slice(0, 2);
-    if (selected.length !== 2) throw new Error('Fixed repeat round lacks two compatible decisions: ' + round);
-    return selected.map(n => n.id);
+  // Coordinates are selected from visible frozen states, never answers or scores.
+  // Missing, incompatible or ambiguous anchors fail preparation; do not replace them.
+  const samples = REPEAT_SELECTION.map(spec => {
+    const selected = data.nodes.filter(n => n.roundId === spec.roundId && n.position === spec.position);
+    if (selected.length !== 1 || !selected[0].compatible) throw new Error('Fixed representative decision missing, incompatible or ambiguous: ' + spec.roundId + ':' + spec.position);
+    const node = selected[0], snapshot = node.message.snapshot, players = snapshot.game.players;
+    return { ...spec, nodeId: node.id, type: node.type, visibleFacts: {
+      selfSeat: snapshot.selfSeat, selfDrawnTile: snapshot.selfDrawnTile,
+      remaining: snapshot.game.remaining,
+      selfMeldCount: players.find(p => p.seat === snapshot.selfSeat).melds.length,
+      opponentRiichiSeats: players.filter(p => p.seat !== snapshot.selfSeat && p.riichi).map(p => p.seat).sort((a, b) => a - b),
+      redTilesInHand: snapshot.selfHand.filter(tile => /^0[mps]$/.test(tile))
+    } };
   });
-  return { selection: 'fixed-six-original-compatible-rounds-v1', roundIds: REPEAT_ROUNDS, repeatNodes: ids,
-    followupNodes: [ids[0], ids[4], ids[8]], questions: QUESTIONS };
+  if (new Set(samples.map(s => s.nodeId)).size !== samples.length) throw new Error('Representative decisions must have unique IDs');
+  return { selection: 'fixed-nine-round-representative-v2', roundIds: REPEAT_ROUNDS, samples,
+    repeatNodes: samples.map(s => s.nodeId), followupNodes: samples.filter(s => s.followup).map(s => s.nodeId), questions: QUESTIONS };
 }
 async function runSupplement({ output, winner, engineConfig, fetchImpl = fetch, mock = false }) {
   const data = read(path.join(output, 'dataset.json')), plan = read(path.join(output, 'supplement-plan.json'));
@@ -96,4 +124,4 @@ async function runSupplement({ output, winner, engineConfig, fetchImpl = fetch, 
     return { planned: jobs.length, attempted: log.events.filter(e => e.kind === 'start').length, delivered: log.events.filter(e => e.kind === 'result' && e.payload.delivered).length, mock, billing: budget?.snapshot() || null };
   } finally { budget?.close(); unlock(); }
 }
-module.exports = { supplementPlan, runSupplement, QUESTIONS, REPEAT_ROUNDS };
+module.exports = { supplementPlan, runSupplement, QUESTIONS, REPEAT_ROUNDS, REPEAT_SELECTION };
