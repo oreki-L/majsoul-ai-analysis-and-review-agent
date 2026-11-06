@@ -2,6 +2,10 @@
 const fs=require('node:fs/promises'),path=require('node:path'),crypto=require('node:crypto');
 const nodeLock=require('./node-runtime-lock.json');
 const {verifyRuntime}=require('./prepare-node-runtime.cjs');
+function isBootstrapModelAsset(name){
+  const target=/(?:^|\/)target(?:\/|$)/i.test(name)&&!name.startsWith('sources/vendor/');
+  return target||/(?:^|\/)weights(?:\/|$)|\.(?:pth|safetensors)$/i.test(name)||/(?:^|\/)akagi-native\.exe$/i.test(name)||/(?:^|\/)akagi.*(?:source|runtime).*\.zip$/i.test(name);
+}
 async function verify(root,{strict=false}={}){
   root=await fs.realpath(root);const manifest=JSON.parse(await fs.readFile(path.join(root,'TOOLKIT-SHA256.json'),'utf8'));
   if(manifest.format!=='mortal-toolkit-sha256-v1'||!['bootstrap','voidshine-298k','yuchen-582500'].includes(manifest.profile)||!Array.isArray(manifest.files))throw new Error('INVALID_TOOLKIT_MANIFEST');
@@ -15,7 +19,7 @@ async function verify(root,{strict=false}={}){
   for(const name of required)if(!seen.has(name))throw new Error('TOOLKIT_REQUIRED_FILE_MISSING: '+name);
   // A bootstrap must stay zero-model even if a maintainer accidentally lists
   // extra native assets in a newly generated manifest.
-  if(manifest.profile==='bootstrap' && [...seen].some(name => /(?:^|\/)(?:weights|target)(?:\/|$)|\.(?:pth|safetensors)$/i.test(name) || /(?:^|\/)akagi-native\.exe$/i.test(name) || /(?:^|\/)akagi.*(?:source|runtime).*\.zip$/i.test(name))) throw new Error('BOOTSTRAP_MODEL_ASSET_REFUSED');
+  if(manifest.profile==='bootstrap' && [...seen].some(isBootstrapModelAsset)) throw new Error('BOOTSTRAP_MODEL_ASSET_REFUSED');
   if(strict){
     async function walk(folder){for(const item of await fs.readdir(folder,{withFileTypes:true})){if(item.name==='__pycache__'||item.name.endsWith('.pyc'))continue;const file=path.join(folder,item.name),relative=path.relative(root,file).replaceAll('\\','/');if(item.isSymbolicLink())throw new Error('TOOLKIT_PATH_REFUSED');if(item.isDirectory())await walk(file);else if(relative!=='TOOLKIT-SHA256.json'&&!seen.has(relative))throw new Error('TOOLKIT_UNLISTED_FILE: '+relative);}}
     await walk(root);
@@ -23,5 +27,5 @@ async function verify(root,{strict=false}={}){
   console.log('Verified toolkit files: '+manifest.files.length);
   return manifest;
 }
-module.exports={verify};
+module.exports={verify,isBootstrapModelAsset};
 if(require.main===module)verify(process.argv[2]||'.').catch(error=>{console.error(error.message);process.exitCode=1;});

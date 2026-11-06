@@ -68,3 +68,10 @@ test('vendored crate copies preserve target source directories and reject missin
   await fs.rm(path.join(crate,relative));
   await assert.rejects(copyVendor(source,path.join(dir,'missing')),/VENDOR_MISSING_FILE/);
 });
+
+
+test('bootstrap asset filter permits vendor target source but refuses build output and weights',()=>{
+  const {isBootstrapModelAsset}=require('../scripts/verify-mortal-toolkit.cjs');
+  assert.equal(isBootstrapModelAsset('sources/vendor/cc/src/target/parser.rs'),false);
+  for(const name of ['target/debug/output','sources/Mortal/target/release/libriichi.dll','sources/vendor/cc/weights/model.json','sources/vendor/cc/model.pth','native/akagi-native.exe','akagi-runtime.zip'])assert.equal(isBootstrapModelAsset(name),true,name);
+});
