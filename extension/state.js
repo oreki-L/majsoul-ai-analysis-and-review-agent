@@ -61,6 +61,8 @@
       if (((e.source === 'live' && !Number.isInteger(e.step)) || (e.source === 'replay' && !Number.isInteger(e.recordIndex)))) s.turnProgress = unknownTurns('missing_sequence', count);
       if (e.hands) e.hands.forEach((h, i) => { s.players[i].hand = h.slice(); });
       else s.selfHand = e.hand.slice();
+      const dealerHand = e.hands?.[e.round] ?? (s.selfSeat === e.round ? e.hand : null);
+      if (dealerHand?.length === 14) s.drawnTiles[e.round] = dealerHand[13];
     } else {
       if (e.step !== undefined && s.lastStep !== null && e.step <= s.lastStep) return s;
       s.availableActions = null;
