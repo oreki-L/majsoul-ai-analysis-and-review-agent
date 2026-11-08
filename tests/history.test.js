@@ -89,7 +89,7 @@ test('new match markers and round regression separate games while dealer repeats
   assert.equal(H.isNewMatch(match,s,opening({round:0})),true);
   assert.equal(H.isNewMatch(match,s,event('MJStart')),true);
   const reset=S.apply(s,event('MJStart',{step:0}));
-  assert.equal(reset.selfSeat,null); assert.equal(reset.result,null); assert.equal(reset.round,null);
+  assert.equal(reset.selfSeat,s.selfSeat); assert.equal(reset.result,null); assert.equal(reset.round,null);
 });
 
 test('replay import collects all rounds without changing the active replay cursor and repeated imports deduplicate', () => {
