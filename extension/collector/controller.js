@@ -16,6 +16,8 @@
   const contextInstance = `${now()}-${Math.random().toString(36).slice(2)}`;
   let liveRoundStart = null, liveRoundSequence = 0;
   let liveSocketId = null;
+  let liveOpening = null, restoreBefore = null;
+  const openingKey = event => JSON.stringify([event.wind, event.round, event.honba, event.scores, event.hand, event.hands, event.doras]);
   function schedule() { for (const listener of listeners) listener(); }
   function viewedState() {
     return historyView ? historyMatches.find(m => m.id === historyView.match)?.rounds.find(r => r.key === historyView.round)?.snapshot : null;
@@ -46,10 +48,27 @@
   function recordLive(before, event, after) {
     if (event.kind === 'MJStart') {
       liveRoundStart = null;
+      // A full sync can replay MJStart for the current match. Wait for its
+      // opening before deciding whether to archive the previous live round.
+      if (event.restored === true && liveMatch && !liveMatch.closed) {
+        restoreBefore = { state: before, opening: liveOpening };
+        return;
+      }
+      restoreBefore = null;
       if (liveMatch && before.round && before.phase !== 'ended') saveHistory(H.addRound(liveMatch, before, now(), true));
       liveMatch = newLiveMatch(); historyMatchId = liveMatch.id; return;
     }
     if (event.kind === 'NewRound') {
+      const opening = openingKey(event);
+      if (restoreBefore) {
+        const previous = restoreBefore;
+        restoreBefore = null;
+        if (previous.opening !== opening) {
+          if (previous.state.round && previous.state.phase !== 'ended') saveHistory(H.addRound(liveMatch, previous.state, now(), true));
+          liveMatch = newLiveMatch(); historyMatchId = liveMatch.id;
+        }
+      }
+      liveOpening = opening;
       // A fresh opening is a new identity even when the displayed round/honba repeats.
       liveRoundStart = `${contextInstance}:${++liveRoundSequence}`;
       const newMatch = H.isNewMatch(liveMatch, before, event);

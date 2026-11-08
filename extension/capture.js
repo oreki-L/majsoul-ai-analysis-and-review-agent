@@ -47,12 +47,12 @@
     const restored = P.wire(restoreBytes), snapshot = P.blob(restored, 1);
     // A snapshot must not be treated as an empty fresh game.
     if (snapshot?.length) emit('diagnostic', { stage: '断线恢复', message: '收到局面快照，首版尚不支持；请重新从开局采集。' });
-    // Fixed Akagi 91cc2993 parse_syncGameActions uses unmasked protobuf here.
-    // This upstream behavior has not been verified against a current live trace.
+    // Fixed Akagi 91cc2993 and live syncGame traces from 2026-11-06 use
+    // unmasked protobuf here; snapshot restoration remains unsupported.
     // Decode the whole batch before publishing, so a malformed tail cannot
     // leave a partially rebuilt opening marked complete.
     const actions = P.blobs(restored, 2).map(b => P.action(b, 'plain'));
-    for (const event of actions) gameEvent(event, socketId);
+    for (const event of actions) gameEvent({ ...event, restored: true }, socketId);
   }
   function inspect(buffer, direction, pending, socketId) {
     if (direction === 'sent') stats.outgoing++; else stats.incoming++;

@@ -54,6 +54,7 @@ test('enter/sync restoration decodes plain bodies, preserves order and deduplica
     await flush();
     const events = h.messages.filter(m => m.type === 'event');
     assert.deepEqual(events.map(m => m.payload.encoding), ['plain', 'plain', 'plain']);
+    assert.ok(events.every(m => m.payload.restored === true));
     const c = makeController();
     for (const m of h.messages) c.receive(m);
     assert.equal(c.getView().live.selfHand.length, 14);
