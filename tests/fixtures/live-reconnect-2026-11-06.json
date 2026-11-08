@@ -1,0 +1,428 @@
+{
+  "provenance": {
+    "date": "2026-11-06",
+    "client": "visible Chrome / four-player friendly room with three bots",
+    "test": "close live game socket with code 4000, block reconnection for 4.5 seconds, then restore network",
+    "scope": "normalized selected game fields only; no raw frames or login identifiers",
+    "annotation": "restored=true added to recorded plain restore events to match the new capture metadata"
+  },
+  "messages": [
+    {
+      "type": "connection",
+      "payload": {
+        "socketId": 5,
+        "state": "open"
+      }
+    },
+    {
+      "type": "event",
+      "payload": {
+        "kind": "Seat",
+        "source": "live",
+        "seat": 0,
+        "socketId": 5
+      }
+    },
+    {
+      "type": "event",
+      "payload": {
+        "kind": "MJStart",
+        "source": "live",
+        "step": 0,
+        "encoding": "masked",
+        "socketId": 5
+      }
+    },
+    {
+      "type": "event",
+      "payload": {
+        "kind": "NewRound",
+        "source": "live",
+        "wind": 0,
+        "round": 0,
+        "honba": 0,
+        "scores": [
+          25000,
+          25000,
+          25000,
+          25000
+        ],
+        "sticks": 0,
+        "remaining": 69,
+        "doras": [
+          "2p"
+        ],
+        "hand": [
+          "9p",
+          "2s",
+          "4m",
+          "5p",
+          "5z",
+          "8p",
+          "1m",
+          "2z",
+          "8p",
+          "3p",
+          "0p",
+          "8p",
+          "2p",
+          "5s"
+        ],
+        "operation": {
+          "seat": 0,
+          "types": [
+            1
+          ]
+        },
+        "step": 1,
+        "encoding": "masked",
+        "socketId": 5
+      }
+    },
+    {
+      "type": "connection",
+      "payload": {
+        "socketId": 5,
+        "state": "closed"
+      }
+    },
+    {
+      "type": "connection",
+      "payload": {
+        "socketId": 6,
+        "state": "open"
+      }
+    },
+    {
+      "type": "event",
+      "payload": {
+        "kind": "Seat",
+        "source": "live",
+        "seat": 0,
+        "socketId": 6
+      }
+    },
+    {
+      "type": "event",
+      "payload": {
+        "kind": "MJStart",
+        "source": "live",
+        "step": 0,
+        "encoding": "plain",
+        "socketId": 6,
+        "restored": true
+      }
+    },
+    {
+      "type": "event",
+      "payload": {
+        "kind": "NewRound",
+        "source": "live",
+        "wind": 0,
+        "round": 0,
+        "honba": 0,
+        "scores": [
+          25000,
+          25000,
+          25000,
+          25000
+        ],
+        "sticks": 0,
+        "remaining": 69,
+        "doras": [
+          "2p"
+        ],
+        "hand": [
+          "9p",
+          "2s",
+          "4m",
+          "5p",
+          "5z",
+          "8p",
+          "1m",
+          "2z",
+          "8p",
+          "3p",
+          "0p",
+          "8p",
+          "2p",
+          "5s"
+        ],
+        "operation": {
+          "seat": 0,
+          "types": [
+            1
+          ]
+        },
+        "step": 1,
+        "encoding": "plain",
+        "socketId": 6,
+        "restored": true
+      }
+    },
+    {
+      "type": "event",
+      "payload": {
+        "kind": "DiscardTile",
+        "source": "live",
+        "seat": 0,
+        "tile": "1m",
+        "riichi": false,
+        "tsumogiri": false,
+        "doras": [],
+        "scores": [],
+        "sticks": null,
+        "step": 2,
+        "encoding": "masked",
+        "socketId": 6
+      }
+    },
+    {
+      "type": "event",
+      "payload": {
+        "kind": "DealTile",
+        "source": "live",
+        "seat": 1,
+        "tile": "?",
+        "remaining": 68,
+        "doras": [],
+        "step": 3,
+        "encoding": "masked",
+        "socketId": 6
+      }
+    },
+    {
+      "type": "connection",
+      "payload": {
+        "socketId": 6,
+        "state": "closed"
+      }
+    },
+    {
+      "type": "connection",
+      "payload": {
+        "socketId": 7,
+        "state": "closed"
+      }
+    },
+    {
+      "type": "connection",
+      "payload": {
+        "socketId": 8,
+        "state": "closed"
+      }
+    },
+    {
+      "type": "connection",
+      "payload": {
+        "socketId": 9,
+        "state": "open"
+      }
+    },
+    {
+      "type": "event",
+      "payload": {
+        "kind": "Seat",
+        "source": "live",
+        "seat": 0,
+        "socketId": 9
+      }
+    },
+    {
+      "type": "event",
+      "payload": {
+        "kind": "MJStart",
+        "source": "live",
+        "step": 0,
+        "encoding": "plain",
+        "socketId": 9,
+        "restored": true
+      }
+    },
+    {
+      "type": "event",
+      "payload": {
+        "kind": "NewRound",
+        "source": "live",
+        "wind": 0,
+        "round": 0,
+        "honba": 0,
+        "scores": [
+          25000,
+          25000,
+          25000,
+          25000
+        ],
+        "sticks": 0,
+        "remaining": 69,
+        "doras": [
+          "2p"
+        ],
+        "hand": [
+          "9p",
+          "2s",
+          "4m",
+          "5p",
+          "5z",
+          "8p",
+          "1m",
+          "2z",
+          "8p",
+          "3p",
+          "0p",
+          "8p",
+          "2p",
+          "5s"
+        ],
+        "operation": {
+          "seat": 0,
+          "types": [
+            1
+          ]
+        },
+        "step": 1,
+        "encoding": "plain",
+        "socketId": 9,
+        "restored": true
+      }
+    },
+    {
+      "type": "event",
+      "payload": {
+        "kind": "DiscardTile",
+        "source": "live",
+        "seat": 0,
+        "tile": "1m",
+        "riichi": false,
+        "tsumogiri": false,
+        "doras": [],
+        "scores": [],
+        "sticks": null,
+        "step": 2,
+        "encoding": "plain",
+        "socketId": 9,
+        "restored": true
+      }
+    },
+    {
+      "type": "event",
+      "payload": {
+        "kind": "DealTile",
+        "source": "live",
+        "seat": 1,
+        "tile": "?",
+        "remaining": 68,
+        "doras": [],
+        "step": 3,
+        "encoding": "plain",
+        "socketId": 9,
+        "restored": true
+      }
+    },
+    {
+      "type": "event",
+      "payload": {
+        "kind": "DiscardTile",
+        "source": "live",
+        "seat": 1,
+        "tile": "6m",
+        "riichi": false,
+        "tsumogiri": true,
+        "doras": [],
+        "scores": [],
+        "sticks": null,
+        "step": 4,
+        "encoding": "plain",
+        "socketId": 9,
+        "restored": true
+      }
+    },
+    {
+      "type": "event",
+      "payload": {
+        "kind": "DealTile",
+        "source": "live",
+        "seat": 2,
+        "tile": "?",
+        "remaining": 67,
+        "doras": [],
+        "step": 5,
+        "encoding": "plain",
+        "socketId": 9,
+        "restored": true
+      }
+    },
+    {
+      "type": "event",
+      "payload": {
+        "kind": "DiscardTile",
+        "source": "live",
+        "seat": 2,
+        "tile": "2z",
+        "riichi": false,
+        "tsumogiri": false,
+        "doras": [],
+        "scores": [],
+        "sticks": null,
+        "step": 6,
+        "encoding": "plain",
+        "socketId": 9,
+        "restored": true
+      }
+    },
+    {
+      "type": "event",
+      "payload": {
+        "kind": "DealTile",
+        "source": "live",
+        "seat": 3,
+        "tile": "?",
+        "remaining": 66,
+        "doras": [],
+        "step": 7,
+        "encoding": "plain",
+        "socketId": 9,
+        "restored": true
+      }
+    },
+    {
+      "type": "event",
+      "payload": {
+        "kind": "DiscardTile",
+        "source": "live",
+        "seat": 3,
+        "tile": "9s",
+        "riichi": false,
+        "tsumogiri": false,
+        "doras": [],
+        "scores": [],
+        "sticks": null,
+        "step": 8,
+        "encoding": "plain",
+        "socketId": 9,
+        "restored": true
+      }
+    },
+    {
+      "type": "event",
+      "payload": {
+        "kind": "DealTile",
+        "source": "live",
+        "seat": 0,
+        "tile": "5m",
+        "remaining": 65,
+        "doras": [],
+        "operation": {
+          "seat": 0,
+          "types": [
+            1
+          ]
+        },
+        "step": 9,
+        "encoding": "plain",
+        "socketId": 9,
+        "restored": true
+      }
+    }
+  ]
+}

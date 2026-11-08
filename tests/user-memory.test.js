@@ -130,6 +130,18 @@ test('capture is opt-in, excludes replay/history, derives identity only from liv
   const count = sent.length; capture.record(view, { ...raw, payload: { ...raw.payload, source: 'replay' } }, view);
   capture.record(view, raw, { ...view, historical: {} }); await capture.flush(); assert.equal(sent.length, count);
 });
+test('authenticated identity survives MJStart without requiring an own operation hint', async () => {
+  const sent = [], capture = Capture.create({ send: async message => { sent.push(message); return { enabled: true }; }, snapshot: () => snapshot() });
+  const view = { mode: 'live', live: { selfSeat: 2, complete: true, phase: 'playing', round: { wind: 0, index: 0 }, honba: 0, turnProgress: { status: 'known' } }, contextIdentity: { matchId: 'm1', roundStartId: 'r1' } };
+  await capture.status();
+  for (const event of [{ kind: 'Seat', seat: 2 }, { kind: 'MJStart', step: 0 }, { kind: 'NewRound', step: 1 }, { kind: 'DiscardTile', seat: 2, tile: '5p', step: 2 }]) {
+    capture.record(view, { type: 'event', payload: { source: 'live', ...event } }, view);
+  }
+  await capture.flush();
+  assert.equal(sent.at(-1).evidence.identityKnown, true);
+  assert.equal(sent.at(-1).evidence.actual.tile, '5p');
+});
+
 test('restoration whitelists every persisted layer and sanitizes queued model inputs', async () => {
   const local = storage(), original = M.create({ storage: local }); await eligible(original);
   const saved = local.values.agentUserMemoryV1;

@@ -8,6 +8,50 @@ const make = options => C.create({ state: S, history: H, clock: () => 1700000000
 const send = (c, event) => c.receive({ type: 'event', payload: event });
 const end = c => send(c, { source: 'live', kind: 'NoTile', step: 1, scores: [25000,25000,25000,25000] });
 
+test('real in-page reconnect restores missed actions without inventing interrupted matches', async () => {
+  const fixture = require('./fixtures/live-reconnect-2026-11-06.json');
+  let sequence = 0, matchId = null, disconnects = 0;
+  const c = make({ id: () => `live-fixture-${++sequence}` });
+  for (const message of fixture.messages) {
+    c.receive(message);
+    const view = c.getView();
+    if (message.type === 'event' && message.payload.kind === 'NewRound') {
+      if (matchId === null) matchId = view.contextIdentity.matchId;
+      assert.equal(view.contextIdentity.matchId, matchId);
+    }
+    if (message.type === 'connection' && message.payload.state === 'closed' && [5,6].includes(message.payload.socketId)) {
+      disconnects++;
+      assert.equal(view.live.complete, false);
+      assert.equal(view.live.availableActions, null);
+    }
+  }
+  const view = c.getView(), s = view.live;
+  assert.equal(disconnects, 2);
+  assert.equal(s.selfSeat, 0); assert.equal(s.lastStep, 9);
+  assert.equal(s.complete, true); assert.deepEqual(s.warnings, []);
+  assert.equal(s.remaining, 65); assert.deepEqual(s.doras, ['2p']);
+  assert.deepEqual(s.selfHand.slice().sort(), ['9p','2s','4m','5p','5z','8p','2z','8p','3p','0p','8p','2p','5s','5m'].sort());
+  assert.deepEqual(s.players.map(p => p.discards.map(d => d.tile)), [['1m'],['6m'],['2z'],['9s']]);
+  assert.deepEqual(s.turnProgress.bySeat, [2,2,2,2]);
+  assert.deepEqual(s.availableActions, { seat: 0, lastStep: 9, types: [1] });
+  assert.deepEqual(view.historyMatches, []);
+  await c.flush();
+});
+
+test('restored MJStart with a different opening does not merge unrelated matches', async () => {
+  let sequence = 0;
+  const c = make({ id: () => `different-opening-${++sequence}` });
+  send(c, { kind: 'MJStart', source: 'live', step: 0 });
+  send(c, opening('live', { step: 1 }));
+  const original = c.getView().contextIdentity.matchId;
+  send(c, { kind: 'MJStart', source: 'live', step: 0, restored: true });
+  send(c, opening('live', { step: 1, restored: true, doras: ['1z'] }));
+  assert.notEqual(c.getView().contextIdentity.matchId, original);
+  assert.equal(c.getView().historyMatches.length, 1);
+  assert.equal(c.getView().historyMatches[0].rounds[0].snapshot.result.kind, 'Interrupted');
+  await c.flush();
+});
+
 test('new socket recovery ignores old socket actions and late close', async () => {
   const c = make();
   send(c, opening('live', { socketId: 1 }));
