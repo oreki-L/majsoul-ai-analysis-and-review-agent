@@ -17,6 +17,22 @@
   let liveRoundStart = null, liveRoundSequence = 0;
   let liveSocketId = null;
   let liveOpening = null, restoreBefore = null;
+  let health = { state: 'ready', revision: 0 }, healthSocketId = null;
+  function setHealth(state) {
+    if (health.state !== state) health = { state, revision: health.revision + 1 };
+  }
+  function validLivePosition() {
+    const seat = live.selfSeat;
+    const handCount = Number.isInteger(seat) && live.players[seat]
+      ? live.selfHand.length + live.players[seat].melds.length * 3 : 0;
+    return live.round && live.complete && Number.isInteger(seat) && seat >= 0 && seat < live.scores.length &&
+      [13, 14].includes(handCount);
+  }
+  function checkedLive() {
+    if (health.state === 'ready') return live;
+    return { ...live, complete: false, warnings: [...live.warnings,
+      health.state === 'recovering' ? '正在同步局面，分析已暂停。' : '网络可能异常，当前局面待确认；分析已暂停。'] };
+  }
   const openingKey = event => JSON.stringify([event.wind, event.round, event.honba, event.scores, event.hand, event.hands, event.doras]);
   function schedule() { for (const listener of listeners) listener(); }
   function viewedState() {
@@ -108,13 +124,13 @@
       : mode === 'live' ? { matchId: liveMatch?.id || null, roundStartId: liveRoundStart, viewId: 'live' }
         : { matchId: `replay:${contextInstance}:${replayRevision}`, roundStartId: start >= 0 ? String(start) : null, viewId: 'replay' };
     const recentEvents = historical ? [] : mode === 'live' ? log.slice(-12).reverse() : records.slice(Math.max(0, cursor - 8), cursor).reverse();
-    return clone({ mode, live, replayState, recordCount: records.length, replayRevision, recentEvents, cursor, diagnostics, stats,
+    return clone({ mode, live, health, replayState, recordCount: records.length, replayRevision, recentEvents, cursor, diagnostics, stats,
       connections: [...connections], historyMatches, historyMatchId, historyView, historyWarning,
-      historyReady, historical, contextIdentity, state: historical || (mode === 'live' ? live : replayState) });
+      historyReady, historical, contextIdentity, state: historical || (mode === 'live' ? checkedLive() : replayState) });
   }
   function exportData() {
     return clone({ format: 'mj-observer-v1', exportedAt: new Date(now()).toISOString(), mode, stats,
-      state: viewedState() || (mode === 'live' ? live : replayState), historyView, historyMatches,
+      state: viewedState() || (mode === 'live' ? checkedLive() : replayState), historyView, historyMatches,
       replayCursor: cursor, events: log, replayRecords: records, diagnostics,
       note: '仅牌局字段；牌谱游标独立于游戏画面。桥接数据仅供核对，不能作为可信证明。' });
   }
@@ -130,7 +146,13 @@
           }
           liveSocketId = socketId;
         }
+        if (m.payload.kind === 'NewRound' && !m.payload.restored) setHealth('ready');
         const before = live; live = S.apply(live, m.payload); recordLive(before, m.payload, live);
+        // The same live stream can resume without syncGame. A strictly next
+        // action proves continuity; replies, duplicates and unsequenced events do not.
+        if (health.state === 'uncertain' && socketId === healthSocketId && !m.payload.restored &&
+            Number.isInteger(before.lastStep) && m.payload.step === before.lastStep + 1 &&
+            live.lastStep === m.payload.step && validLivePosition()) setHealth('ready');
         log.push({ ...m.payload, ...(m.payload.seat === undefined ? {} : { seatWind: S.seatWind(live, m.payload.seat) }), observedAt: new Date(now()).toISOString() });
         if (log.length > 1000) log.shift();
       } else if (m.type === 'replay' && Array.isArray(m.payload?.records) && m.payload.records.length <= 25000) {
@@ -142,14 +164,23 @@
       else if (m.type === 'diagnostic') {
         diagnostics.push(m.payload); if (diagnostics.length > 60) diagnostics.shift();
         if (['动作解码', '消息读取', '牌局响应', '断线恢复'].includes(m.payload?.stage)) {
+          setHealth('uncertain');
           live = S.invalidateTurns(live, 'collection_error'); live.complete = false;
           if (!live.warnings.includes('采集发生错误，请检查采集状态并重新从开局采集')) live.warnings.push('采集发生错误，请检查采集状态并重新从开局采集');
+        }
+      }
+      else if (m.type === 'health') {
+        const { socketId, state } = m.payload || {};
+        if (!Number.isInteger(socketId) || (liveSocketId !== null && socketId < liveSocketId)) return;
+        if (state === 'uncertain' || state === 'recovering') { healthSocketId = socketId; setHealth(state); }
+        else if (state === 'restored') {
+          setHealth(validLivePosition() ? 'ready' : 'uncertain');
         }
       }
       else if (m.type === 'connection') {
         connections.set(m.payload.socketId, m.payload.state);
         if (m.payload.state === 'closed' && live.phase === 'playing' &&
-            (liveSocketId === null || m.payload.socketId === liveSocketId)) { live = S.invalidateTurns(live, 'disconnected'); live.complete = false; }
+            (liveSocketId === null || m.payload.socketId === liveSocketId)) { setHealth('uncertain'); live = S.invalidateTurns(live, 'disconnected'); live.complete = false; }
       }
 
       schedule();

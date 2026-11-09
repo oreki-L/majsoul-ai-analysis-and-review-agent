@@ -5,6 +5,8 @@ const F = require('./fixtures.js'), P = require('../extension/protocol.js');
 const makeController = () => require('../extension/collector/controller').create({
   state: require('../extension/state'), history: require('../extension/history') });
 function harness() {
+  let clock = 0;
+  class ClockDate extends Date { static now() { return clock; } }
   class Socket {
     static OPEN = 1;
     constructor(url) { this.url = url; this.listeners = new Map(); this.sent = []; }
@@ -14,7 +16,7 @@ function harness() {
   }
   class XHR { open() {} send() {} addEventListener() {} }
   const messages = [], requests = [], timers = [];
-  const context = { TextDecoder, TextEncoder, Uint8Array, ArrayBuffer, Map, Set, WeakMap, URL, Request, Blob, XMLHttpRequest: XHR,
+  const context = { Date: ClockDate, TextDecoder, TextEncoder, Uint8Array, ArrayBuffer, Map, Set, WeakMap, URL, Request, Blob, XMLHttpRequest: XHR,
     WebSocket: Socket, location: { href: 'https://game.maj-soul.com/1/', origin: 'https://game.maj-soul.com' },
     setTimeout: fn => { timers.push(fn); return timers.length; }, addEventListener() {},
     postMessage: message => messages.push(message),
@@ -22,7 +24,7 @@ function harness() {
   context.window = context; vm.createContext(context);
   vm.runInContext(fs.readFileSync('extension/protocol.js', 'utf8'), context);
   vm.runInContext(fs.readFileSync('extension/capture.js', 'utf8'), context);
-  return { context, Socket, messages, requests, timers };
+  return { context, Socket, messages, requests, timers, tick(ms) { clock += ms; for (const fn of timers.splice(0)) fn(); } };
 }
 const flush = () => new Promise(resolve => setImmediate(resolve));
 const action = (step, name, body, masked = false) => F.cat(F.n(1, step), F.t(2, name), F.b(3, masked ? P.unmask(body) : body));
@@ -125,4 +127,57 @@ test('unrelated sockets and native fetch result are untouched', async () => {
   assert.equal(socket.listeners.size, 0);
   const result = await h.context.fetch('https://game.maj-soul.com/asset.bin');
   assert.equal(result.marker, 'native'); assert.equal(h.requests.length, 1);
+});
+
+test('health watches unanswered game requests rather than idle turns and does not publish identifiers', async () => {
+  const h = harness(), socket = new h.context.WebSocket('wss://route-1.maj-soul.com/gateway');
+  socket.send(F.frame(2, '.lq.FastTest.authGame', F.cat(F.n(1, 987654), F.t(2, 'SECRET_TOKEN')), 1));
+  socket.emit('message', { data: F.frame(3, '', F.packed(3, [987654, 2, 3, 4]), 1) }); await flush();
+  h.tick(300000);
+  assert.equal(h.messages.some(m => m.type === 'health'), false, 'waiting for a turn is healthy');
+  socket.send(F.frame(2, '.lq.FastTest.heartbeat', [], 2));
+  h.tick(29999); assert.equal(h.messages.some(m => m.payload.state === 'uncertain'), false);
+  h.tick(1);
+  assert.equal(h.messages.filter(m => m.type === 'health' && m.payload.state === 'uncertain').length, 1);
+  h.tick(30000);
+  assert.equal(h.messages.filter(m => m.type === 'health' && m.payload.state === 'uncertain').length, 1);
+  assert.doesNotMatch(JSON.stringify(h.messages), /SECRET_TOKEN|987654|heartbeat/);
+  socket.emit('close'); await flush();
+  h.tick(30000);
+  assert.equal(h.messages.filter(m => m.type === 'health' && m.payload.state === 'uncertain').length, 1);
+});
+
+test('recovery boundaries keep analysis blocked until the decoded batch has ended', async () => {
+  const h = harness(), socket = new h.context.WebSocket('wss://route-1.maj-soul.com/gateway');
+  socket.send(F.frame(2, '.lq.FastTest.authGame', F.n(1, 123), 1));
+  socket.emit('message', { data: F.frame(3, '', F.packed(3, [123, 2, 3, 4]), 1) });
+  socket.send(F.frame(2, '.lq.FastTest.syncGame', [], 2));
+  socket.emit('message', { data: F.frame(3, '', restoreResponse([action(0, 'ActionNewRound', F.liveRound()),
+    action(1, 'ActionDealTile', F.cat(F.n(1, 1), F.t(2, '1m'), F.n(3, 68)))]), 2) });
+  await flush();
+  const c = makeController();
+  let restored = 0;
+  for (const m of h.messages) {
+    c.receive(m);
+    if (m.type === 'event' && m.payload.restored) {
+      restored++;
+      assert.equal(c.getView().health.state, 'recovering');
+      assert.equal(c.getView().state.complete, false);
+    }
+  }
+  assert.equal(restored, 2);
+  assert.equal(c.getView().health.state, 'ready');
+  assert.equal(c.getView().state.complete, true);
+  await c.flush();
+});
+
+test('a restored batch resets the watchdog so a subsequent outage is detected', async () => {
+  const h = harness(), socket = new h.context.WebSocket('wss://route-1.maj-soul.com/gateway');
+  socket.send(F.frame(2, '.lq.FastTest.heartbeat', [], 1)); h.tick(30000);
+  socket.send(F.frame(2, '.lq.FastTest.syncGame', [], 2));
+  socket.emit('message', { data: F.frame(3, '', restoreResponse([action(0, 'ActionNewRound', F.liveRound())]), 2) }); await flush();
+  h.tick(30000);
+  assert.equal(h.messages.filter(m => m.type === 'health' && m.payload.state === 'uncertain').length, 1);
+  socket.send(F.frame(2, '.lq.FastTest.heartbeat', [], 3)); h.tick(30000);
+  assert.equal(h.messages.filter(m => m.type === 'health' && m.payload.state === 'uncertain').length, 2);
 });

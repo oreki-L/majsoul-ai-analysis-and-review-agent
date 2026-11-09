@@ -160,14 +160,15 @@
     const oldScroll = shadow.querySelector('.body')?.scrollTop || 0;
     shadow.querySelectorAll('details[id]').forEach(d => detailsState.set(d.id, d.open));
     const historical = viewedState();
-    const s = historical || (mode === 'live' ? live : replayState);
+    const s = currentView.state;
     const displayLive = historical ? s.source === 'live' : mode === 'live';
     const riichiOpponents = historical ? [] : S.opponentRiichi(s);
     const riichiAlert = riichiOpponents.length ? `<div class="riichi-alert" role="status">对手立直：${riichiOpponents.map(i => windName(S.seatWind(s, i))).join('、')}</div>`
       : s.phase === 'playing' && s.selfSeat === null && s.players.some(p => p.riichi) ? '<p class="warn">选择自家座风后显示对手立直提示。</p>' : '';
-    const connected = [...connections.values()].includes('open');
+    const networkState = currentView.health?.state || 'ready';
+    const connected = [...connections.values()].includes('open') && networkState === 'ready';
     const statusText = historical ? '正在查看历史结算快照 · 当前牌局继续采集' : mode === 'replay' ? (recordCount ? '牌谱已解析 · 游标需手动与画面对齐' : '等待载入牌谱，请重新打开牌谱') :
-      (live.round ? (live.phase === 'ended' ? '本局已结束' : '已接收开局 · 持续采集中') : connected ? '连接已建立 · 等待牌局数据' : '采集器就绪 · 等待新连接');
+      (networkState === 'recovering' ? '正在同步局面 · 分析已暂停' : networkState === 'uncertain' ? '网络可能异常 · 当前局面待确认' : live.round ? (live.phase === 'ended' ? '本局已结束' : '已接收开局 · 持续采集中') : connected ? '连接已建立 · 等待牌局数据' : '采集器就绪 · 等待新连接');
     const items = recentEvents;
     const selfRiver = s.selfSeat === null ? '<p class="muted">自家座位未识别，暂无法确定牌河。</p>' : riverHtml(s.players[s.selfSeat], '自家牌河');
     const playerHtml = s.players.slice(0, s.scores.length === 3 ? 3 : 4).map((p, i) => `<div class="player">

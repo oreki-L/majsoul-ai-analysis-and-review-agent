@@ -305,3 +305,85 @@ test('game-only blackhole detects a missing draw and repairs the same connection
   assert.equal(c.getView().live.lastStep, 31);
   assert.equal(c.getView().historyMatches.length, 0);
 });
+
+test('health gates selected live state, ignores old sockets and requires complete recovery with a valid seat', async () => {
+  const c = make(); await c.ready;
+  send(c, { kind: 'Seat', source: 'live', seat: 1, socketId: 4 });
+  send(c, opening('live', { socketId: 4 }));
+  const ready = c.getView().health.revision;
+  c.receive({ type: 'health', payload: { socketId: 4, state: 'uncertain' } });
+  assert.equal(c.getView().live.complete, true);
+  assert.equal(c.getView().state.complete, false);
+  assert.match(c.getView().state.warnings.at(-1), /网络可能异常/);
+  c.receive({ type: 'health', payload: { socketId: 3, state: 'restored' } });
+  assert.equal(c.getView().health.state, 'uncertain');
+  c.receive({ type: 'health', payload: { socketId: 4, state: 'recovering' } });
+  send(c, opening('live', { socketId: 4, restored: true }));
+  assert.equal(c.getView().state.complete, false);
+  c.receive({ type: 'health', payload: { socketId: 4, state: 'restored' } });
+  assert.equal(c.getView().state.complete, true);
+  assert.ok(c.getView().health.revision > ready);
+  c.receive({ type: 'health', payload: { socketId: 4, state: 'recovering' } });
+  send(c, { kind: 'DealTile', source: 'live', seat: 1, tile: '1m', socketId: 4, step: 99, restored: true });
+  c.receive({ type: 'health', payload: { socketId: 4, state: 'restored' } });
+  assert.equal(c.getView().health.state, 'uncertain');
+  c.setMode('replay');
+  assert.deepEqual(c.getView().state, c.getView().replayState);
+  await c.flush();
+});
+
+test('recovery end cannot authorize an unknown seat, an impossible hand count or an empty opening', async () => {
+  for (const scenario of ['seat', 'hand', 'opening']) {
+    const c = make(); await c.ready;
+    if (scenario !== 'seat') send(c, { kind: 'Seat', source: 'live', seat: 1, socketId: 2 });
+    c.receive({ type: 'health', payload: { socketId: 2, state: 'recovering' } });
+    if (scenario !== 'opening') send(c, opening('live', { socketId: 2, restored: true,
+      operation: undefined, ...(scenario === 'hand' ? { hand: ['1m'] } : {}) }));
+    c.receive({ type: 'health', payload: { socketId: 2, state: 'restored' } });
+    assert.equal(c.getView().health.state, 'uncertain', scenario);
+    assert.equal(c.getView().state.complete, false);
+    await c.flush();
+  }
+});
+
+test('continuous live actions clear a timeout only after a valid strictly next action on its socket', async () => {
+  for (const scenario of ['next', 'duplicate', 'missing-step', 'gap', 'restored', 'recovering', 'newer-socket', 'bad-hand']) {
+    const c = make(); await c.ready;
+    send(c, { kind: 'Seat', source: 'live', seat: 0, socketId: 4 });
+    send(c, opening('live', { socketId: 4, ...(scenario === 'bad-hand' ? { hand: ['1m'] } : {}) }));
+    c.receive({ type: 'health', payload: { socketId: scenario === 'newer-socket' ? 5 : 4,
+      state: scenario === 'recovering' ? 'recovering' : 'uncertain' } });
+    send(c, { kind: 'DiscardTile', source: 'live', seat: 0, tile: '1m', socketId: 4,
+      ...(scenario === 'missing-step' ? {} : { step: scenario === 'duplicate' ? 0 : scenario === 'gap' ? 2 : 1 }),
+      ...(scenario === 'restored' ? { restored: true } : {}) });
+    assert.equal(c.getView().health.state, scenario === 'next' ? 'ready' : scenario === 'recovering' ? 'recovering' : 'uncertain', scenario);
+    assert.equal(c.getView().state.complete, scenario === 'next', scenario);
+    await c.flush();
+  }
+});
+
+test('installed extension transport pause resumes analysis on continuous actions without syncGame', async () => {
+  const fixture = require('./fixtures/live-transport-pause-2026-11-09.json');
+  const c = make(); await c.ready;
+  let paused = false, resumed = false;
+  for (const message of fixture.messages) {
+    c.receive(message);
+    const view = c.getView();
+    if (message.type === 'health' && message.payload.state === 'uncertain') {
+      paused = true;
+      assert.equal(view.live.complete, true);
+      assert.equal(view.state.complete, false);
+      assert.equal(view.live.lastStep, 5);
+    }
+    if (paused && message.type === 'event' && message.payload.step === 6) {
+      assert.equal(message.payload.restored, undefined);
+      assert.equal(view.health.state, 'ready');
+      assert.equal(view.state.complete, true);
+      resumed = true;
+    }
+  }
+  assert.equal(paused, true); assert.equal(resumed, true);
+  assert.deepEqual(c.getView().state, fixture.expectedState);
+  assert.equal(c.getView().live.selfSeat, 2);
+  await c.flush();
+});

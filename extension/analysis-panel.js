@@ -326,7 +326,7 @@
       limitations: local.danger?.limitations || [] } };
   }
   async function runAnalysis(automatic = false) {
-    if (busy || discussionBusy || (automatic && !hasFeatures())) return;
+    if (busy || discussionBusy || !liveAnalysisReady() || (automatic && !hasFeatures())) return;
     const id = ++requestId;
     try {
       const data = snapshot(), external = automatic ? usesModel(data) : preferences.useModel;
@@ -341,7 +341,7 @@
       const capturedPosition = { round: data.game?.round, honba: data.game?.honba, lastStep: data.lastStep,
         turn: data.game?.turnProgress?.status === 'known' ? data.game.turnProgress.bySeat[data.selfSeat] : null,
         source: context?.mode, cursor: context?.cursor, selfSeat: data.selfSeat, hand: data.selfHand?.slice() || [] };
-      pendingCapture = { id, generation: lifecycle, captured, data, capturedContext, requestedTask, automatic, actualProvider, seatLabels, capturedPosition };
+      pendingCapture = { id, generation: lifecycle, live: context?.mode === 'live', healthRevision: context?.health?.revision || 0, captured, data, capturedContext, requestedTask, automatic, actualProvider, seatLabels, capturedPosition };
       pendingFingerprint = automatic ? captured : ''; pendingAutomatic = automatic; busy = true;
       if (automatic) failure = ''; else globalFailure = '';
       modelFailureExpanded[automatic ? 'automatic' : 'global'] = false;
@@ -370,9 +370,12 @@
     } catch (e) { if (id === requestId) { if (automatic) failure = e.message; else globalFailure = e.message; } }
     finally { if (id === requestId) { busy = false; pendingFingerprint = ''; repaint?.(); } }
   }
+  function liveAnalysisReady() {
+    try { return context?.mode !== 'live' || (context?.health?.state !== 'uncertain' && context?.health?.state !== 'recovering' && snapshot().complete === true); } catch (_) { return false; }
+  }
   function scheduleAnalysis(data) {
     if (autoTimer !== null) clearTimeout(autoTimer); autoTimer = null;
-    if (!preferencesLoaded || !preferences.automatic || busy || !hasFeatures() || context?.mode !== 'live' || current.phase !== 'playing' || !data) return;
+    if (!preferencesLoaded || !preferences.automatic || busy || !hasFeatures() || context?.mode !== 'live' || current.phase !== 'playing' || !data || !liveAnalysisReady()) return;
     const local = MJAnalysis.prepare(data, 'combined').data.localAnalysis.efficiency;
     if (!Number.isInteger(data.selfSeat) || data.game?.recentActor !== data.selfSeat || !local?.canDiscard) return;
     const key = fingerprint(); if (lastAutoKey === key) return;
@@ -559,9 +562,10 @@
     current = analysisView; context = { ...position }; repaint = render;
     connect();
     const positionKey = fingerprint();
-    if (pendingFingerprint && pendingFingerprint !== positionKey) cancelWork();
+    if ((pendingFingerprint && pendingFingerprint !== positionKey) || (busy && (!liveAnalysisReady() ||
+      (pendingCapture?.live && pendingCapture.healthRevision !== (context?.health?.revision || 0))))) cancelWork();
     if (lastPosition !== positionKey) { lastPosition = positionKey; if (autoTimer !== null) clearTimeout(autoTimer); autoTimer = null; }
-    const stale = !!result && result.fingerprint !== fingerprint();
+    const stale = !!result && (result.fingerprint !== fingerprint() || !liveAnalysisReady());
     const live = context?.mode === 'live' && current.phase === 'playing';
     let selectedSnapshot = null;
     try { selectedSnapshot = snapshot(); } catch (_) {}
@@ -629,13 +633,14 @@
     const globalHtml = `<section class="analysis-global" aria-label="全局分析">
       <h3>全局分析</h3>
       ${provider === 'chat' && preferences.useModel ? `<label for="model-question">追问（可选）</label><textarea id="model-question" maxlength="4000" rows="2" placeholder="例如：为什么刚才建议打这张牌？">${escape(questionDraft)}</textarea>` : ''}
-      <div class="analysis-actions"><button id="model-run" ${busy || !!error || !preferencesLoaded ? 'disabled' : ''}>${replay ? '分析所选局面' : '分析当前局面'}</button>${globalBusy ? '<button id="model-cancel">取消</button>' : ''}</div>
+      <div class="analysis-actions"><button id="model-run" ${busy || !!error || !preferencesLoaded || !liveAnalysisReady() ? 'disabled' : ''}>${replay ? '分析所选局面' : '分析当前局面'}</button>${globalBusy ? '<button id="model-cancel">取消</button>' : ''}</div>
       ${globalResult && !savedGlobal ? `<p class="analysis-meta muted">${escape(savedPosition)} · ${escape(globalResult.model)}</p><div class="analysis-global-result">
         <div class="analysis-decision"><span>${decisionHeading(globalResult)}</span>${globalResult.result.decision.tile ? face(globalResult.result.decision.tile) : ''}${engineActionHtml(globalResult)}<p>${escape(globalResult.result.decision.reasons?.[0] || '请展开分析依据。')}</p></div>
         ${disclosure('global-details', '分析依据', `${resultHtml(globalResult)}${globalResult.position.hand.length ? `<div class="analysis-global-hand" aria-label="分析时手牌">${globalResult.position.hand.map(face).join('')}</div>` : ''}${localHtml(globalResult.localAnalysis, globalResult.positionPhase)}`)}</div>` : savedGlobal ? '' : '<p class="muted">尚未分析</p>'}
       ${failureHtml(globalFailure, 'global')}
       </section>`;
     const markup = `<section class="analysis" aria-label="模型分析">
+      ${context?.mode === 'live' && !liveAnalysisReady() ? `<p class="warn" role="status">${context?.health?.state === 'recovering' ? '正在同步局面，分析已暂停。' : '当前局面待确认，自动分析已暂停；已有建议仅供回看。'}</p>` : ''}
       ${modeControls}${replayControls}${officialHtml()}${discussionHtml()}
       <div class="analysis-switches" role="group" aria-label="辅助功能">
       <label><input id="model-auto" type="checkbox" ${preferences.automatic ? 'checked' : ''}> 自动分析</label>

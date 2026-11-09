@@ -89,6 +89,7 @@
         root.MJAnalysisPanel.mount(analysisSlot, analysisView, {
           mode: view.historical ? 'history' : view.mode, historyView: view.historyView,
           contextIdentity: view.contextIdentity,
+          health: view.mode === 'live' && !view.historical ? view.health : undefined,
           replayRevision: view.mode === 'replay' ? view.replayRevision : null,
           cursor: !view.historical && view.mode === 'replay' ? view.cursor : null
         }, render, hintHooks);

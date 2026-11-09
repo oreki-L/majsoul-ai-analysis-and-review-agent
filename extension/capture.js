@@ -52,7 +52,9 @@
     // Decode the whole batch before publishing, so a malformed tail cannot
     // leave a partially rebuilt opening marked complete.
     const actions = P.blobs(restored, 2).map(b => P.action(b, 'plain'));
+    emit('health', { socketId, state: 'recovering' });
     for (const event of actions) gameEvent({ ...event, restored: true }, socketId);
+    emit('health', { socketId, state: snapshot?.length ? 'uncertain' : 'restored' });
   }
   function inspect(buffer, direction, pending, socketId) {
     if (direction === 'sent') stats.outgoing++; else stats.incoming++;
@@ -104,13 +106,41 @@
       const socket = Reflect.construct(target, args, newTarget);
       if (!isGameSocket(args[0])) return socket;
       const pending = new Map(), socketId = ++stats.sockets;
-      let receiveQueue = Promise.resolve();
+      let receiveQueue = Promise.resolve(), gameSocket = false, closed = false, unhealthy = false;
+      const outstanding = new Map();
+      function observeRequest(data, direction) {
+        let frame;
+        try { frame = P.frame(data); } catch (_) { return; }
+        if (direction === 'sent' && frame.type === 2) {
+          if (frame.name.startsWith('.lq.FastTest.')) gameSocket = true;
+          outstanding.set(frame.id, Date.now());
+          if (outstanding.size > 256) outstanding.delete(outstanding.keys().next().value);
+          if (['.lq.FastTest.syncGame', '.lq.FastTest.enterGame'].includes(frame.name)) {
+            emit('health', { socketId, state: 'recovering' });
+          }
+        } else if (direction === 'received' && frame.type === 3) {
+          const request = pending.get(frame.id);
+          outstanding.delete(frame.id);
+          if (['.lq.FastTest.syncGame', '.lq.FastTest.enterGame'].includes(request)) {
+            outstanding.clear(); unhealthy = false;
+          }
+        }
+      }
+      function checkHealth() {
+        if (closed) return;
+        if (gameSocket && !unhealthy && [...outstanding.values()].some(at => Date.now() - at >= 30000)) {
+          unhealthy = true;
+          emit('health', { socketId, state: 'uncertain' });
+        }
+        setTimeout(checkHealth, 1000);
+      }
+      setTimeout(checkHealth, 1000);
       const nativeSend = socket.send;
       socket.send = function (data) {
         // Preserve native validation/throw behavior before recording a successful send.
         const result = Reflect.apply(nativeSend, this, [data]);
         if (this === socket) {
-          try { if (typeof data !== 'string' && !(data instanceof Blob)) inspect(data, 'sent', pending, socketId); }
+          try { if (typeof data !== 'string' && !(data instanceof Blob)) { observeRequest(data, 'sent'); inspect(data, 'sent', pending, socketId); } }
           catch (_) { /* Observation cannot interrupt the game. */ }
         }
         return result;
@@ -119,12 +149,16 @@
         const data = event.data;
         receiveQueue = receiveQueue.then(async () => {
           if (typeof data === 'string') return;
-          inspect(data instanceof Blob ? await data.arrayBuffer() : data, 'received', pending, socketId);
+          const buffer = data instanceof Blob ? await data.arrayBuffer() : data;
+          observeRequest(buffer, 'received');
+          inspect(buffer, 'received', pending, socketId);
+          if (!outstanding.size) unhealthy = false;
         }).catch(e => error('消息读取', e));
       });
       socket.addEventListener('open', () => emit('connection', { socketId, state: 'open' }));
       socket.addEventListener('close', () => {
         // Blob decoding already queued before close must precede invalidation.
+        closed = true; outstanding.clear();
         receiveQueue = receiveQueue.then(() => { pending.clear(); emit('connection', { socketId, state: 'closed' }); });
       });
       status();

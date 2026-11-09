@@ -15,7 +15,7 @@ function panel(options = {}) {
   const position = { mode: 'live' }; let collectorCalls = 0, historyCalls = 0, calibrateCalls = 0, roundStartCalls = 0;
   const content = { innerHTML: '', querySelectorAll() { return details; }, querySelector(id) { if (id === '.analysis') return section; if (!elements.has(id)) elements.set(id, {}); return elements.get(id); } };
   const container = { innerHTML: '', querySelector(id) { return id === '[data-analysis-content]' ? (this.innerHTML.includes('data-analysis-content') ? content : null) : content.querySelector(id); } };
-  const state = S.initial('live', 1); Object.assign(state, { round: { wind: 0, index: 0 }, scores: [25000,25000,25000,25000], phase: 'playing', selfHand: ['1m','2m','3m','4m','5m','6m','7m','8m','9m','1s','2s','3s','4z','4z'] });
+  const state = S.initial('live', 1); Object.assign(state, { complete: true, round: { wind: 0, index: 0 }, scores: [25000,25000,25000,25000], phase: 'playing', selfHand: ['1m','2m','3m','4m','5m','6m','7m','8m','9m','1s','2s','3s','4z','4z'] });
   if (options.turnProgress) state.turnProgress = structuredClone(options.turnProgress);
   const context = { MJAnalysis: A, MJSnapshotContract: Contract, URL, setTimeout: options.manualTimers ? (fn, delay) => { const id = ++timerId; timers.set(id, { fn, delay }); return id; } : setTimeout,
     clearTimeout: options.manualTimers ? id => timers.delete(id) : clearTimeout,
@@ -767,5 +767,37 @@ test('clearing or configuration invalidation fences an already parsing official 
   finish({ model: 'LATE_IMPORTED_REPORT', entries: [], coverage: {} }); await pending;
   assert.doesNotMatch(p.html(), /LATE_IMPORTED_REPORT/);
   assert.equal(p.messages.some(m => m.type === 'discussion:save'), false);
+  p.destroy();
+});
+
+test('network uncertainty cancels pending analysis, fences late results and resumes only after recovery', async () => {
+  const p = panel({ manualTimers: true, preferences: { automatic: true, useModel: true } });
+  await flush(); p.state.turn = 1; p.state.lastStep = 1; p.render(); p.fireTimer(); await flush();
+  assert.equal(p.messages.filter(m => m.type === 'model:analyze').length, 1);
+  p.position.health = { state: 'uncertain', revision: 1 }; p.render();
+  assert.equal(p.timers.size, 0);
+  assert.equal(p.hints.at(-1), null);
+  assert.match(p.html(), /当前局面待确认/);
+  assert.ok(p.messages.some(m => m.type === 'model:cancel'));
+  const late = modelResult(); late.result.decision.reasons = ['STALE_NETWORK_RESULT'];
+  p.resolve(late); await flush();
+  assert.doesNotMatch(p.html(), /STALE_NETWORK_RESULT/);
+  p.position.health = { state: 'recovering', revision: 2 }; p.render();
+  assert.equal(p.timers.size, 0); assert.match(p.html(), /正在同步局面/);
+  p.position.health = { state: 'ready', revision: 3 }; p.render();
+  p.fireTimer(); await flush();
+  assert.equal(p.messages.filter(m => m.type === 'model:analyze').length, 2);
+  p.destroy();
+});
+
+test('a completed synchronization invalidates an earlier manual request even at the same position', async () => {
+  const p = panel(); await flush();
+  p.position.health = { state: 'ready', revision: 0 }; p.render();
+  const pending = p.element('model-run').onclick({ isTrusted: true }); await flush();
+  p.position.health = { state: 'ready', revision: 2 }; p.render();
+  const late = modelResult(); late.result.decision.reasons = ['BEFORE_SYNC_MANUAL_RESULT'];
+  p.resolve(late); await pending;
+  assert.doesNotMatch(p.html(), /BEFORE_SYNC_MANUAL_RESULT/);
+  assert.ok(p.messages.some(m => m.type === 'model:cancel'));
   p.destroy();
 });
