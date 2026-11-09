@@ -391,6 +391,7 @@
   let modelFailures = {}, modelFailureExpanded = {};
   let focusTile = null, hooks = {}, detailsState = {}, current, context, repaint, requestId = 0, lifecycle = 0, statusRequestId = 0, connected = false;
   let focusExpanded = false, focusResizeObserver = null;
+  let interruptedRound = null;
   const send = message => chrome.runtime.sendMessage(message);
   const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   function failureHtml(message, scope) {
@@ -521,7 +522,7 @@
       window.removeEventListener('focus', refresh);
       if (busy) send({ type: 'model:cancel' }).catch(() => {});
     }
-    connected = false; enabled = false; busy = false; result = null; failure = ''; preview = false; provider = 'chat';
+    connected = false; enabled = false; busy = false; result = null; failure = ''; preview = false; provider = 'chat'; interruptedRound = null;
     globalResult = null; globalFailure = ''; pendingAutomatic = false; questionDraft = '';
     discussionRecords = []; currentDiscussionId = null; discussionLoaded = false; discussionBusy = null; discussionError = ''; discussionDrafts.clear(); historyOpen = false; selectedDecisionId = null;
     reviewOpen = false; reviewKey = ''; reviewError = '';
@@ -559,6 +560,11 @@
       }
       reviewWasEnded = analysisView.matchEnded === true;
     }
+    const networkRound = JSON.stringify([position?.contextIdentity?.matchId, analysisView.round, analysisView.honba]);
+    // Recovery rebuilds roundStartId and temporarily clears the round. Retain
+    // the guidance until a ready position can be compared with the interrupted round.
+    if (position?.mode !== 'live' || (position?.health?.state === 'ready' && interruptedRound !== null && interruptedRound !== networkRound)) interruptedRound = null;
+    if (position?.mode === 'live' && position?.health?.state === 'uncertain') interruptedRound = networkRound;
     current = analysisView; context = { ...position }; repaint = render;
     connect();
     const positionKey = fingerprint();
@@ -641,13 +647,15 @@
       </section>`;
     const markup = `<section class="analysis" aria-label="模型分析">
       ${context?.mode === 'live' && !liveAnalysisReady() ? `<p class="warn" role="status">${context?.health?.state === 'recovering' ? '正在同步局面，分析已暂停。' : '当前局面待确认，自动分析已暂停；已有建议仅供回看。'}</p>` : ''}
+      ${context?.mode === 'live' && ['uncertain', 'recovering'].includes(context?.health?.state) ? `<p class="analysis-meta">${context.health.state === 'recovering' ? '请等待游戏同步完成，分析将在局面核对通过后恢复。' : '请先等待游戏自动重连。若游戏持续提示连接失败，请使用游戏内重连或刷新页面；恢复后会重新核对局面。'}</p>` : ''}
+      ${context?.mode === 'live' && interruptedRound !== null && liveAnalysisReady() ? '<p class="analysis-meta" role="status">局面已重新确认。若游戏仍显示连接错误，请按游戏提示重连或刷新页面；插件无法关闭游戏弹窗。</p>' : ''}
       ${modeControls}${replayControls}${officialHtml()}${discussionHtml()}
       <div class="analysis-switches" role="group" aria-label="辅助功能">
       <label><input id="model-auto" type="checkbox" ${preferences.automatic ? 'checked' : ''}> 自动分析</label>
       <label><input id="model-use" type="checkbox" ${preferences.useModel ? 'checked' : ''}> 调用模型</label>
       ${[['danger', '危险牌提示'], ['efficiency', '手牌建议'], ['strategy', '攻守建议']].map(([key, label]) => `<label><input id="feature-${key}" type="checkbox" ${preferences[key] ? 'checked' : ''}> ${label}</label>`).join('')}
       <button id="model-preset">综合辅助</button></div>
-      <header class="analysis-heading"><strong>${escape(result?.position?.round ? `${['东','南','西','北'][result.position.round.wind]}${result.position.round.index + 1}局 · 事件 ${result.discussionRecord?.context?.position ?? result.position.cursor ?? '未知'}` : roundLabel)}${selfLabel ? ` · ${escape(selfLabel)}${replay ? '视角' : ''}` : ''}</strong><span class="analysis-state">${!preferences.useModel ? '仅本地分析' : preferences.automatic ? '自动分析' : '手动分析'}</span></header>
+      <header class="analysis-heading"><strong>${escape(result?.position?.round ? `${['东','南','西','北'][result.position.round.wind]}${result.position.round.index + 1}局 · 事件 ${result.discussionRecord?.context?.position ?? (result.position.source === 'replay' ? result.position.cursor : result.position.lastStep) ?? '未知'}` : roundLabel)}${selfLabel ? ` · ${escape(selfLabel)}${replay ? '视角' : ''}` : ''}</strong><span class="analysis-state">${!preferences.useModel ? '仅本地分析' : preferences.automatic ? '自动分析' : '手动分析'}</span></header>
       ${busy ? `<p class="${live ? 'warn' : 'muted'}" role="status" aria-live="polite">${discussionBusy ? '正在回答该决策的追问，可继续对局。' : live ? '正在分析，可继续对局。' : '正在分析中…'}</p>` : ''}
       ${(current.riichiLabels || []).length ? `<p class="analysis-riichi">${replay ? '已立直' : '立直警戒'} · ${(current.riichiLabels || []).map(escape).join(' · ')}</p>` : ''}
       <div class="analysis-main" role="status" aria-live="polite">

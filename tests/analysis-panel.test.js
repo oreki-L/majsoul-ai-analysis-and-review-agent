@@ -32,7 +32,7 @@ function panel(options = {}) {
     }, onMessage: { addListener: fn => { configChanged = fn; }, removeListener: fn => { if (configChanged === fn) configChanged = null; } } } } };
   if (options.offline) delete context.chrome;
   vm.runInNewContext(fs.readFileSync(require.resolve('../extension/analysis-panel.js'), 'utf8'), context);
-  const render = () => context.MJAnalysisPanel.mount(container, { snapshot: selection => C.snapshot(state, selection), analysisContext: options.analysisContext, engineRequest: options.engineRequest, importOfficialReport: options.importOfficialReport, seatLabels: state.players.map((_, seat) => S.seatWind(state, seat) + '家 · 座位 ' + seat), phase: state.phase, matchEnded: state.result?.gameEnded === true, round: state.round, selfSeat: state.selfSeat, hintsReady: options.hintsReady !== false, hintsCalibrated: !!options.hintsCalibrated, selfHand: state.selfHand, drawnTile: state.drawnTiles[state.selfSeat], riichiLabels: options.riichiLabels || [], recordCount: options.recordCount || 0,
+  const render = () => context.MJAnalysisPanel.mount(container, { snapshot: selection => C.snapshot(state, selection), analysisContext: options.analysisContext, engineRequest: options.engineRequest, importOfficialReport: options.importOfficialReport, seatLabels: state.players.map((_, seat) => S.seatWind(state, seat) + '家 · 座位 ' + seat), phase: state.phase, matchEnded: state.result?.gameEnded === true, round: state.round, honba: state.honba, selfSeat: state.selfSeat, hintsReady: options.hintsReady !== false, hintsCalibrated: !!options.hintsCalibrated, selfHand: state.selfHand, drawnTile: state.drawnTiles[state.selfSeat], riichiLabels: options.riichiLabels || [], recordCount: options.recordCount || 0,
     onMode: mode => { position.mode = mode; position.cursor = mode === 'replay' ? 1 : null; render(); },
     onCursor: cursor => { position.cursor = cursor; render(); }, onSelfSeat: seat => { state.selfSeat = seat; render(); }, onRoundStart: () => roundStartCalls++,
     onCollector: () => collectorCalls++, onHistory: () => historyCalls++, onCalibrateHints: () => calibrateCalls++ }, position, render, { onHints: value => hints.push(value) });
@@ -799,5 +799,42 @@ test('a completed synchronization invalidates an earlier manual request even at 
   p.resolve(late); await pending;
   assert.doesNotMatch(p.html(), /BEFORE_SYNC_MANUAL_RESULT/);
   assert.ok(p.messages.some(m => m.type === 'model:cancel'));
+  p.destroy();
+});
+
+test('live local result heading uses its captured step including zero', async () => {
+  for (const step of [13, 0]) {
+    const p = panel({ manualTimers: true, preferences: { automatic: true, useModel: false } }); await flush();
+    p.state.turn = p.state.selfSeat; p.state.lastStep = step;
+    p.render(); p.fireTimer(); await flush();
+    assert.match(p.html(), new RegExp('analysis-heading[\\s\\S]*?事件 ' + step));
+    assert.doesNotMatch(p.html(), /事件 未知/);
+    p.destroy();
+  }
+});
+
+test('connection guidance distinguishes waiting, recovered collector and game-owned errors', async () => {
+  const p = panel(); await flush();
+  assert.doesNotMatch(p.html(), /局面已重新确认/);
+  p.position.contextIdentity = { matchId: 'match', roundStartId: 'before' };
+  p.position.health = { state: 'uncertain', revision: 1 }; p.render();
+  assert.match(p.html(), /请先等待游戏自动重连/);
+  assert.match(p.html(), /游戏内重连或刷新页面/);
+  const round = p.state.round;
+  p.state.round = null;
+  p.position.contextIdentity = { matchId: 'match', roundStartId: null };
+  p.position.health = { state: 'recovering', revision: 2 }; p.render();
+  assert.match(p.html(), /请等待游戏同步完成/);
+  assert.doesNotMatch(p.html(), /局面已重新确认/);
+  p.state.round = round;
+  p.position.contextIdentity = { matchId: 'match', roundStartId: 'rebuilt' };
+  p.position.health = { state: 'ready', revision: 3 }; p.render();
+  assert.match(p.html(), /局面已重新确认/);
+  assert.match(p.html(), /插件无法关闭游戏弹窗/);
+  p.state.round = { wind: 0, index: 1 }; p.render();
+  assert.doesNotMatch(p.html(), /局面已重新确认/);
+  p.position.health = { state: 'uncertain', revision: 4 }; p.render();
+  p.position.mode = 'replay'; p.render();
+  assert.doesNotMatch(p.html(), /请先等待游戏自动重连|插件无法关闭游戏弹窗/);
   p.destroy();
 });
