@@ -209,3 +209,99 @@ test('maximum replay remains outside display views and notifications do not copy
     release();
   } finally { JSON.stringify = stringify; }
 });
+
+test('real message blackhole rebuilds dropped actions against the upstream oracle', async () => {
+  const fixture = require('./fixtures/live-network-blackhole-2026-11-09.json');
+  const all = [...fixture.messages, ...fixture.oracleMessages].sort((a, b) => a.at.localeCompare(b.at));
+  const keyFor = event => JSON.stringify([event.wind, event.round, event.honba, event.scores, event.hand, event.doras]);
+  let oracleSequence = 0, openingKey = '';
+  const oracle = make({ id: () => 'oracle-' + ++oracleSequence });
+  const states = new Map(); await oracle.ready;
+  for (const message of all) {
+    const event = message.payload;
+    if (message.type === 'event' && event.kind === 'NewRound') openingKey = keyFor(event);
+    oracle.receive(message);
+    if (message.type !== 'event') continue;
+    const key = openingKey + ':' + event.step;
+    if (!states.has(key)) states.set(key, structuredClone(oracle.getView().live));
+  }
+  let sequence = 0, batch = null, compared = 0, matchId = null, recovered = false;
+  const c = make({ id: () => 'blackhole-' + ++sequence });
+  const batches = []; openingKey = ''; await c.ready;
+  assert.equal(fixture.oracleMessages.length, 97);
+  const outageStart = Date.parse(fixture.outage.start), outageEnd = outageStart + fixture.outage.durationMs;
+  assert.equal(fixture.messages.some(m => m.type === 'event' && Date.parse(m.at) >= outageStart && Date.parse(m.at) < outageEnd), false);
+  for (const message of fixture.messages) {
+    const event = message.payload;
+    if (message.type === 'event' && event.kind === 'NewRound') openingKey = keyFor(event);
+    c.receive(message);
+    if (message.type !== 'event') continue;
+    const view = c.getView();
+    if (event.kind === 'NewRound') {
+      if (matchId === null) matchId = view.contextIdentity.matchId;
+      assert.equal(view.contextIdentity.matchId, matchId);
+      if (event.restored) recovered = true;
+    }
+    if (event.restored) {
+      if (!batch || batch.socketId !== event.socketId || event.kind === 'NewRound') {
+        batch = { socketId: event.socketId, count: 0, lastStep: null }; batches.push(batch);
+      }
+      batch.count++; batch.lastStep = event.step;
+      assert.deepEqual(view.live, states.get(openingKey + ':' + event.step), 'restored state differs from upstream oracle at step ' + event.step);
+      compared++;
+    } else batch = null;
+    if (recovered && event.kind !== 'Seat') {
+      assert.equal(view.live.complete, true);
+      assert.deepEqual(view.live.warnings, []);
+    }
+  }
+  await c.flush(); await oracle.flush();
+  assert.deepEqual(batches, [{ socketId: 4, count: 85, lastStep: 84 }, { socketId: 8, count: 130, lastStep: 129 }]);
+  assert.equal(compared, 215);
+  const view = c.getView();
+  assert.deepEqual(view.live, oracle.getView().live);
+  assert.equal(view.live.selfSeat, 3);
+  assert.deepEqual(view.live.scores, [28000, 25000, 24000, 21000]);
+  assert.equal(view.historyMatches.length, 1);
+  assert.equal(view.historyMatches[0].closed, false);
+  assert.equal(view.historyMatches[0].rounds.length, 2);
+  assert.equal(view.historyWarning, '');
+});
+
+test('game-only blackhole detects a missing draw and repairs the same connection before play continues', async () => {
+  const fixture = require('./fixtures/live-game-blackhole-2026-11-09.json');
+  const all = [...fixture.messages, ...fixture.oracleMessages].sort((a, b) => a.at.localeCompare(b.at));
+  let oracleSequence = 0, sequence = 0;
+  const oracle = make({ id: () => 'upstream-' + ++oracleSequence });
+  const c = make({ id: () => 'delivered-' + ++sequence });
+  await Promise.all([oracle.ready, c.ready]);
+  const states = new Map();
+  for (const message of all) {
+    oracle.receive(message);
+    if (message.type === 'event' && !message.payload.restored) states.set(message.payload.step, structuredClone(oracle.getView().live));
+  }
+  assert.deepEqual(fixture.oracleMessages.map(m => [m.payload.kind, m.payload.step]), [['DealTile', 17]]);
+  let gapDetected = false, recovered = false, restored = 0;
+  for (const message of fixture.messages) {
+    c.receive(message);
+    if (message.type !== 'event') continue;
+    const event = message.payload, view = c.getView();
+    if (!event.restored && event.step === 18) {
+      assert.equal(view.live.complete, false); gapDetected = true;
+    }
+    if (event.restored) {
+      assert.equal(event.socketId, 4);
+      assert.deepEqual(view.live, states.get(event.step), 'recovered step differs from upstream: ' + event.step);
+      restored++; if (event.kind === 'NewRound') recovered = true;
+    }
+    if (recovered && event.kind !== 'MJStart') {
+      assert.equal(view.live.complete, true); assert.deepEqual(view.live.warnings, []);
+    }
+  }
+  await Promise.all([oracle.flush(), c.flush()]);
+  assert.equal(gapDetected, true); assert.equal(restored, 24);
+  assert.deepEqual(c.getView().live, oracle.getView().live);
+  assert.equal(c.getView().live.selfSeat, 0);
+  assert.equal(c.getView().live.lastStep, 31);
+  assert.equal(c.getView().historyMatches.length, 0);
+});
