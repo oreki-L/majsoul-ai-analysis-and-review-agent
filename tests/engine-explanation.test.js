@@ -118,3 +118,31 @@ test('a useful summary without an alternative remains valid with one or multiple
     assert.throws(() => E.parse(JSON.stringify({ summary: '改打另一张牌', reasons: [], limitations: [], tile: '5p' })), /合同/);
   }
 });
+
+test('bound R1 facts share the cleaned snapshot and engine action, keep tile names and scoped after-discard counts', async () => {
+  const { sent } = await capture();
+  const current = parse(sent.messages.at(-2)), engine = parse(sent.messages.at(-1));
+  assert.equal(engine.facts.binding.position, current.snapshot.lastStep);
+  assert.deepEqual(engine.facts.selectedAction.action, engine.engine.action);
+  assert.equal(engine.facts.hand.concealedCount, current.snapshot.selfHand.length);
+  assert.equal(engine.facts.selectedAction.afterDiscard.sameTileInOwnConcealedHand.exact, 0);
+  assert.equal(engine.facts.tileLegend.find(t => t.code === '6z').name, '发');
+  assert.equal(sent.validateFinal, E.parse);
+});
+
+test('required arrays cannot silently default and action overrides cannot be repaired into accepted teaching', () => {
+  assert.throws(() => E.parse('{"summary":"理由","reasons":[]}'), e => e.canRepairOutput === true);
+  assert.throws(() => E.parse('{"summary":"理由","reasons":[],"limitations":null}'), e => e.canRepairOutput === true);
+  assert.throws(() => E.parse('{"summary":"理由","reasons":[],"limitations":[],"action":"dahai"}'), e => !e.canRepairOutput);
+});
+
+test('hybrid facts respect task-specific calculation availability', async () => {
+  for (const task of ['danger', 'efficiency']) {
+    const { sent } = await capture({ task });
+    const facts = parse(sent.messages.at(-1)).facts;
+    if (task === 'danger') {
+      assert.equal(facts.localAnalysis.status, 'unavailable');
+      assert.equal(facts.selectedAction.afterDiscard.efficiency, null);
+    } else assert.equal(facts.risk.candidates.length, 0);
+  }
+});

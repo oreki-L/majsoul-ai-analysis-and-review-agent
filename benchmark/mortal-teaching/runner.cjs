@@ -40,8 +40,9 @@ function stripAttribution(content) {
   catch { return content; }
 }
 function delivery(outcome) { return outcome?.ok === true && outcome.explanation?.status === 'completed'; }
-function schedule(data, variants, stage, winner) {
+function schedule(data, variants, stage, winner, developmentHistory = false) {
   const nodes = data.nodes.filter(n => n.compatible && n.split === (stage === 'development' ? 'development' : 'validation'));
+  if (developmentHistory) nodes.sort((a, b) => a.roundId.localeCompare(b.roundId) || a.position - b.position);
   const selected = stage === 'development' ? variants : [variants[0], ...variants.filter(v => v.id === winner && v.id !== variants[0].id)];
   if (!selected.length || stage !== 'development' && !variants.some(v => v.id === winner)) throw new Error('Unknown frozen winner');
   return nodes.flatMap((node, index) => selected.map((_, i) => {
@@ -56,9 +57,17 @@ async function cacheEngines({ output, engineConfig, fetchImpl = fetch }) {
   const binding = { datasetHash: data.datasetHash, profile: engineConfig.engineProfile, endpoint: engineConfig.endpoint, model: engineConfig.model };
   freeze(path.join(output, 'engine-cache-contract.json'), binding);
   if (engineConfig.engineProfile !== 'yuchen-582500') throw new Error('Experiment engine must be Yuchen 582500');
+  const reusedEngines = new Map((require('./reuse.cjs').loadReuse(output)?.engines() || []).map(e => [e.nodeId, e]));
   for (const node of data.nodes.filter(n => n.compatible && n.split === 'development')) {
     if (log.events.some(e => e.kind === 'dispatch' && e.payload.nodeId === node.id)) {
       if (!log.events.some(e => e.kind === 'result' && e.payload.nodeId === node.id)) throw new Error('Unfinished engine cache dispatch requires audit; no automatic replay');
+      continue;
+    }
+    const reused = reusedEngines.get(node.id);
+    if (reused) {
+      if (reused.inputHash !== node.inputHash) throw new Error('Reused engine input changed');
+      log.write('dispatch', { nodeId: node.id, inputHash: node.inputHash, reused: true, noNewInference: true });
+      log.write('result', reused);
       continue;
     }
     log.write('dispatch', { nodeId: node.id, inputHash: node.inputHash });
@@ -75,25 +84,29 @@ async function cacheEngines({ output, engineConfig, fetchImpl = fetch }) {
   return log.events.filter(e => e.kind === 'result').length;
   } finally { unlock(); }
 }
-async function runStage({ output, stage, winner, engineConfig, fetchImpl = fetch, mock = false }) {
-  const data = checkDataset(read(path.join(output, 'dataset.json'))), { variants, manifestHash } = loadPrompts();
+async function runStage({ output, stage, winner, engineConfig, fetchImpl = fetch, mock = false, promptDirectory, developmentHistory = false }) {
+  const data = checkDataset(read(path.join(output, 'dataset.json'))), { variants, manifestHash } = loadPrompts(promptDirectory);
   const authorization = read(path.join(output, 'authorization.local.json')), pricing = read(path.join(output, 'pricing.json'));
-  if (!['development', 'validation'].includes(stage)) throw new Error('Unknown experiment stage');
+  if (!['development', 'validation', 'regression'].includes(stage)) throw new Error('Unknown experiment stage');
   const directory = path.join(output, mock ? 'mock' : 'live', stage);
   fs.mkdirSync(directory, { recursive: true });
   const unlock = acquireLock(path.join(output, 'experiment.lock'), true);
   let budget;
   try {
     const batchId = fs.existsSync(path.join(output, 'contract.json')) ? read(path.join(output, 'contract.json')).batchId : 'fixture';
-    const jobs = schedule(data, variants, stage, winner).map(j => ({ ...j, id: batchId + ':' + j.id }));
-    freeze(path.join(directory, 'schedule.json'), { datasetHash: data.datasetHash, manifestHash, stage, winner: winner || null, jobs });
-    if (!mock && stage === 'validation') {
+    const jobs = schedule(data, variants, stage, winner, developmentHistory).map(j => ({ ...j, id: batchId + ':' + j.id }));
+    freeze(path.join(directory, 'schedule.json'), { datasetHash: data.datasetHash, manifestHash, stage, winner: winner || null, ...(developmentHistory ? { developmentHistory: true } : {}), jobs });
+    if (!mock && stage !== 'development') {
       const selection = read(path.join(output, 'selection.json'));
       if (selection.winner !== winner || selection.datasetHash !== data.datasetHash || selection.manifestHash !== manifestHash || !selection.evidence) throw new Error('Freeze reviewed development selection before validation');
     }
     const log = journal(path.join(directory, 'results.jsonl')), queue = createQueue(path.join(output, mock ? 'mock-review' : 'review'), data.datasetHash);
+    const reuse = require('./reuse.cjs').loadReuse(output), reusedRows = reuse?.rows(stage) || [];
+    const reusedById = new Map(reusedRows.map(r => [r.id, r]));
+    reuse?.importReviews(queue, stage, undefined, mock);
     const history = new Map(), cache = new Map();
     if (stage === 'development' && !mock) {
+      if (promptDirectory) validateEngineCache(output, data, engineConfig);
       for (const e of journal(path.join(output, 'engine-cache.jsonl')).events) if (e.kind === 'result') cache.set(e.payload.nodeId, e.payload);
       for (const job of jobs) if (!cache.has(job.nodeId)) throw new Error('Missing validated cached development engine action');
     }
@@ -101,6 +114,13 @@ async function runStage({ output, stage, winner, engineConfig, fetchImpl = fetch
     if (!mock && engineConfig.engineProfile !== 'yuchen-582500') throw new Error('Experiment engine must be Yuchen 582500');
     if (!mock) budget = openBudget({ directory: authorization.budgetDirectory || path.join(output, 'billing'), authorization, pricing, fetchImpl, secrets: [llmKey, engineConfig.apiKey] });
     for (const job of jobs) {
+      const reused = reusedById.get(job.id);
+      if (reused) {
+        const node = data.nodes.find(n => n.id === job.nodeId), variant = variants.find(v => v.id === job.variant);
+        if (reused.nodeId !== node.id || reused.variant !== variant.id || reused.inputHash !== node.inputHash || reused.promptHash !== variant.sha256) throw new Error('Reused job input/prompt mismatch');
+        if (log.events.some(e => e.kind === 'start' && e.payload.id === job.id)) throw new Error('Reused job was dispatched again');
+        continue;
+      }
       // A started job is never dispatched again. In-flight product history is
       // uncertain after a crash, so require audit/new batch instead of skipping.
       const old = log.events.find(e => e.kind === 'start' && e.payload.id === job.id);
@@ -145,13 +165,13 @@ async function runStage({ output, stage, winner, engineConfig, fetchImpl = fetch
         if (mock) return fetchImpl(url, wire);
         return budget.request(url, wire, { jobId: job.id, role: ordinal === 1 ? 'initial' : 'tool-continuation', ordinal });
       };
-      if (!harness || stage === 'development') {
+      if (!harness || stage === 'development' && !developmentHistory) {
         slot = { transport, persist };
         harness = createHarness({ variant, engineConfig, llmConfig: { endpoint: pricing.endpoint, model: pricing.model, apiKey: llmKey },
-          directory: stage === 'validation' ? path.join(directory, 'branches', branchKey.replace(/:/g, '_')) : null,
+          directory: (stage !== 'development' || developmentHistory) ? path.join(directory, 'branches', branchKey.replace(/:/g, '_')) : null,
           fetchModel: (...args) => slot.transport(...args), persist: (...args) => slot.persist(...args) });
         harness._slot = slot;
-        if (stage === 'validation') history.set(branchKey, harness);
+        if (stage !== 'development' || developmentHistory) history.set(branchKey, harness);
       } else { slot.transport = transport; slot.persist = persist; }
       const traceStart = harness.traces.length, stateBefore = harness.publicState();
       const started = performance.now();
@@ -169,8 +189,23 @@ async function runStage({ output, stage, winner, engineConfig, fetchImpl = fetch
       if (complete) queue.add(record.reviewSource);
     }
     queue.exportPackets();
-    return { planned: jobs.length, attempted: log.events.filter(e => e.kind === 'start').length,
-      delivered: log.events.filter(e => e.kind === 'result' && e.payload.delivered).length, billing: budget?.snapshot() || null, mock };
+    return { planned: jobs.length, reused: reusedRows.length, newlyAttempted: log.events.filter(e => e.kind === 'start').length, attempted: reusedRows.length + log.events.filter(e => e.kind === 'start').length,
+      delivered: reusedRows.filter(r => r.delivered).length + log.events.filter(e => e.kind === 'result' && e.payload.delivered).length, billing: budget?.snapshot() || null, mock };
   } finally { budget?.close(); unlock(); }
 }
-module.exports = { runStage, cacheEngines, schedule, factsFor, stripAttribution, delivery, read, writeNew, freeze };
+function validateEngineCache(output, data, engineConfig) {
+  const binding = read(path.join(output, 'engine-cache-contract.json'));
+  if (binding.datasetHash !== data.datasetHash || binding.profile !== 'yuchen-582500' || binding.profile !== engineConfig.engineProfile || binding.model !== engineConfig.model || binding.endpoint !== engineConfig.endpoint) throw new Error('Engine cache binding mismatch');
+  const events = journal(path.join(output, 'engine-cache.jsonl')).events;
+  const nodes = data.nodes.filter(n => n.compatible && n.split === 'development');
+  for (const node of nodes) {
+    const dispatches = events.filter(e => e.kind === 'dispatch' && e.payload.nodeId === node.id);
+    const results = events.filter(e => e.kind === 'result' && e.payload.nodeId === node.id);
+    if (dispatches.length !== 1 || results.length !== 1 || dispatches[0].payload.inputHash !== node.inputHash || results[0].payload.inputHash !== node.inputHash || !results[0].payload.result?.engine?.action) throw new Error('Engine cache input or completion mismatch');
+    const engine = results[0].payload.result.engine;
+    require('../../extension/contracts/engine-result.js').checkIdentity(engine, 'yuchen-582500');
+    if (/mock/i.test(engine.identity.runtime)) throw new Error('Mock cache cannot authorize real inference');
+  }
+  return nodes.length;
+}
+module.exports = { validateEngineCache, runStage, cacheEngines, schedule, factsFor, stripAttribution, delivery, read, writeNew, freeze };

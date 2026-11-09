@@ -9,8 +9,18 @@ const { loadPrompts } = require('./prompts.cjs');
 const average = values => values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
 const p95 = values => values.length ? [...values].sort((a, b) => a - b)[Math.ceil(values.length * 0.95) - 1] : null;
 function buildReport(output, stage, mock = false) {
-  const directory = path.join(output, mock ? 'mock' : 'live', stage), plan = read(path.join(directory, 'schedule.json'));
-  const events = readEvents(path.join(directory, 'results.jsonl')), results = events.filter(e => e.kind === 'result').map(e => e.payload);
+  const directory = path.join(output, mock ? 'mock' : 'live', stage);
+  const planFile = path.join(directory, 'schedule.json');
+  const plan = read(!fs.existsSync(planFile) && stage === 'development' && fs.existsSync(path.join(output, 'reuse-plan.json')) ? path.join(output, 'planned-schedule.json') : planFile);
+  const results = require('./reuse.cjs').mergedRows(output, directory, stage, plan.winner);
+  if (stage === 'supplement') {
+    const nodes = read(path.join(output, 'dataset.json')).nodes;
+    plan.jobs = plan.jobs.map(j => ({ ...j, variant: plan.winner, roundId: nodes.find(n => n.id === j.nodeId)?.roundId }));
+    for (const row of results) {
+      row.roundId ??= nodes.find(n => n.id === row.nodeId)?.roundId;
+      row.variant ??= plan.winner;
+    }
+  }
   const queue = createQueue(path.join(output, mock ? 'mock-review' : 'review'), plan.datasetHash).snapshot();
   const reviewMap = new Map(queue.map(j => [j.resultId, j.review]));
   const authorization = fs.existsSync(path.join(output, 'authorization.local.json')) ? read(path.join(output, 'authorization.local.json')) : {};
@@ -22,13 +32,14 @@ function buildReport(output, stage, mock = false) {
     const jobs = plan.jobs.filter(j => j.variant === variant), rows = results.filter(r => r.variant === variant);
     const reviews = rows.map(r => reviewMap.get((mock ? 'mock:' : '') + r.id)).filter(Boolean);
     const delivered = rows.filter(r => r.delivered), failed = rows.filter(r => !r.delivered);
-    const paid = [...billing.values()].filter(a => jobs.some(j => j.id === a.identity.jobId));
+    const billingIds = new Set([...jobs.map(j => j.id), ...rows.map(r => r.reuseProvenance?.billingJobId).filter(Boolean)]);
+    const paid = [...billing.values()].filter(a => billingIds.has(a.identity.jobId));
     const unknownCosts = paid.filter(a => a.cost === null).length;
     const rounds = Object.fromEntries([...new Set(jobs.map(j => j.roundId))].map(roundId => {
       const rjobs = jobs.filter(j => j.roundId === roundId), rr = rows.filter(r => r.roundId === roundId);
       return [roundId, { planned: rjobs.length, attempted: rr.length, delivered: rr.filter(r => r.delivered).length, passed: rr.filter(r => reviewMap.get((mock ? 'mock:' : '') + r.id)?.gate === 'pass').length }];
     }));
-    groups[variant] = { planned: jobs.length, attempted: rows.length, delivered: delivered.length, notAttempted: jobs.length - rows.length,
+    groups[variant] = { planned: jobs.length, reused: rows.filter(r => r.reuseProvenance).length, newlyAttempted: rows.filter(r => !r.reuseProvenance).length, attempted: rows.length, delivered: delivered.length, notAttempted: jobs.length - rows.length,
       deliveryRate: delivered.length / jobs.length, scored: reviews.length, pendingReview: delivered.length - reviews.length,
       qualityPass: reviews.filter(r => r.gate === 'pass').length, qualityPassRate: reviews.filter(r => r.gate === 'pass').length / jobs.length,
       needsReview: reviews.filter(r => r.gate === 'needs_review').length,
@@ -37,8 +48,11 @@ function buildReport(output, stage, mock = false) {
       major: reviews.reduce((s, r) => s + r.errors.filter(e => e.severity === 'major').length, 0),
       critical: reviews.reduce((s, r) => s + r.errors.filter(e => e.severity === 'critical').length, 0),
       deliveredP95Ms: p95(delivered.map(r => stage === 'development' ? r.explanationMs : r.elapsedMs)), p95N: delivered.length,
-      allAttemptP95Ms: p95(rows.map(r => r.elapsedMs)), failures: failed.map(r => ({ id: r.id, error: r.outcome.error || r.outcome.explanation?.error || 'deadline' })), rounds };
-    groups[variant].billing = { physicalAttempts: paid.length, unknownCosts,
+      allAttemptP95Ms: p95(rows.map(r => r.elapsedMs)), failures: failed.map(r => ({ id: r.id, error: r.outcome?.error || r.outcome?.explanation?.error || 'deadline' })), rounds };
+    const reusedBillingIds = new Set(rows.map(r => r.reuseProvenance?.billingJobId).filter(Boolean));
+    const reusedPaid = paid.filter(a => reusedBillingIds.has(a.identity.jobId)), newPaid = paid.filter(a => !reusedBillingIds.has(a.identity.jobId));
+    groups[variant].billing = { physicalAttempts: paid.length, unknownCosts, reusedPhysicalAttempts: reusedPaid.length, newPhysicalAttempts: newPaid.length,
+      reusedKnownEstimateCny: reusedPaid.reduce((sum,a) => sum + (a.cost ?? 0), 0), newKnownEstimateCny: newPaid.reduce((sum,a) => sum + (a.cost ?? 0), 0),
       knownPeakRateEstimateCny: paid.reduce((sum, a) => sum + (a.cost ?? 0), 0),
       comparablePeakRateEstimateCny: !mock && paid.length && !unknownCosts && rows.length === jobs.length ? paid.reduce((sum, a) => sum + a.cost, 0) : null };
   }
@@ -57,7 +71,7 @@ function buildReport(output, stage, mock = false) {
     pairs[variant] = { wins, losses, ties, pending, actionMismatch, improvedRounds: [...improvedRounds] };
   }
   const adoption = {};
-  if (stage === 'validation') for (const id of Object.keys(pairs)) {
+  if (['validation', 'regression'].includes(stage)) for (const id of Object.keys(pairs)) {
     const g = groups[id], base = groups['p0-release-v2'], p = pairs[id];
     const complete = g.attempted === g.planned && base.attempted === base.planned && !g.pendingReview && !base.pendingReview && !g.needsReview && !base.needsReview;
     const hard = !g.critical && !g.major && !p.actionMismatch && !p.pending && g.deliveryRate >= 0.95 && g.qualityPassRate >= 0.8;
@@ -69,7 +83,7 @@ function buildReport(output, stage, mock = false) {
   return { stage, mock, datasetHash: plan.datasetHash, manifestHash: plan.manifestHash, groups, pairs, adoption,
     limitations: ['Replay simulation, not browser rendering or real online play.', 'Unattempted, failed and unreviewed opportunities remain in fixed denominators.', 'No cost improvement claim from missing usage; historical X-F is not a concurrent control.'] };
 }
-function select(output, winner) {
+function select(output, winner, promptDirectory) {
   const report = buildReport(output, 'development'), base = report.groups['p0-release-v2'];
   if (!base || Object.values(report.groups).some(g => g.attempted !== g.planned || g.pendingReview || g.needsReview)) throw new Error('Complete all development opportunities and resolve reviews before selection');
   if (!report.groups[winner]) throw new Error('Unknown winner');
@@ -83,7 +97,7 @@ function select(output, winner) {
     return !g.critical && !g.major && !p.pending && !p.actionMismatch && g.qualityPass === base.qualityPass && g.commonMean >= base.commonMean && g.delivered === base.delivered && (g.deliveredP95Ms <= base.deliveredP95Ms * 0.85 || cost);
   });
   const eligible = candidates.length ? candidates : efficient;
-  const bytes = Object.fromEntries(loadPrompts().variants.map(v => [v.id, v.utf8Bytes]));
+  const bytes = Object.fromEntries(loadPrompts(promptDirectory).variants.map(v => [v.id, v.utf8Bytes]));
   const ordered = eligible.sort((a, b) => report.groups[b].qualityPass - report.groups[a].qualityPass || report.groups[b].commonMean - report.groups[a].commonMean || report.groups[a].deliveredP95Ms - report.groups[b].deliveredP95Ms || bytes[a] - bytes[b]);
   const preferred = ordered[0] || 'p0-release-v2';
   if (winner !== preferred) throw new Error('Selection does not match frozen development gates');

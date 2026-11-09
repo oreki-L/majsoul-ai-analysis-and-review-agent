@@ -44,12 +44,40 @@ function validateReview(packet, result, attestation) {
 }
 function createQueue(directory, datasetHash) {
   const log = journal(path.join(directory, 'queue.jsonl')), jobs = new Map();
-  for (const e of log.events) if (e.kind === 'job') jobs.set(e.payload.resultId, e.payload);
-  if ([...jobs.values()].some(j => j.packet.datasetHash !== datasetHash)) throw new Error('Review dataset changed');
-  for (const j of jobs.values()) {
-    const { sourceHash, rulesHash, ...base } = j.packet;
-    if (rulesHash !== stableHash(RULES) || sourceHash !== stableHash(base)) throw new Error('Review rubric or packet changed');
+  function validatePacket(packet) {
+    if (!packet) throw new Error('Complete review packet required');
+    const { sourceHash, rulesHash, ...base } = packet;
+    if (rulesHash !== stableHash(RULES) || stableHash(packet.rules) !== stableHash(RULES) || sourceHash !== stableHash(base)) throw new Error('Review rubric or packet changed');
   }
+  function contentHash(packet) {
+    const { answer, facts, questionRequiresComparison, datasetHash } = packet;
+    return stableHash({ answer, facts, questionRequiresComparison, datasetHash });
+  }
+  function validateCompleted(packet, review) {
+    if (!review || stableHash(validateReview(packet, review, review.attestation)) !== stableHash(review)) throw new Error('Completed review score or metadata changed');
+  }
+  function validateProvenance(provenance) {
+    if (!provenance || typeof provenance !== 'object' || Array.isArray(provenance) || typeof provenance.sourceFile !== 'string' || !provenance.sourceFile.trim() || !/^[a-fA-F0-9]{64}$/.test(provenance.sourceSha256)) throw new Error('Reuse provenance requires sourceFile and sourceSha256');
+  }
+  function validateJob(job) {
+    validatePacket(job.packet);
+    if (job.contentHash !== contentHash(job.packet)) throw new Error('Review content hash changed');
+    if (job.reviewOrigin) {
+      const origin = job.reviewOrigin;
+      validateProvenance(origin.provenance);
+      validatePacket(origin.sourcePacket);
+      if (job.state !== 'complete' || typeof origin.sourceResultId !== 'string' || !origin.sourceResultId || origin.sourceDatasetHash !== origin.sourcePacket.datasetHash || origin.sourceContentHash !== contentHash(origin.sourcePacket) || origin.sourceReviewHash !== stableHash(job.review)) throw new Error('Reused review origin changed');
+      for (const key of ['answer', 'facts', 'questionRequiresComparison']) if (stableHash(job.packet[key]) !== stableHash(origin.sourcePacket[key])) throw new Error('Reused review source content changed');
+      validateCompleted(origin.sourcePacket, job.review);
+    } else if (job.state === 'complete') validateCompleted(job.packet, job.review);
+  }
+  for (const e of log.events) if (e.kind === 'job') {
+    const job = e.payload, previous = jobs.get(job.resultId);
+    validateJob(job);
+    if (previous && (previous.contentHash !== job.contentHash || stableHash(previous.packet) !== stableHash(job.packet) || (previous.state === 'complete' && stableHash(previous) !== stableHash(job)))) throw new Error('Completed review or source cannot be overwritten');
+    jobs.set(job.resultId, job);
+  }
+  if ([...jobs.values()].some(j => j.packet.datasetHash !== datasetHash)) throw new Error('Review dataset changed');
   function save(job) { log.write('job', job); jobs.set(job.resultId, structuredClone(job)); }
   function add({ resultId, answer, facts, questionRequiresComparison = false }) {
     if (typeof answer !== 'string' || !answer || !facts) throw new Error('Complete delivered answer and frozen facts required');
@@ -81,12 +109,33 @@ function createQueue(directory, datasetHash) {
     for (const r of results) {
       const job = [...jobs.values()].find(j => j.packet.blindId === r.blindId);
       if (!job || seen.has(r.blindId)) throw new Error('Unknown or duplicate review'); seen.add(r.blindId);
+      if (job.reviewOrigin) throw new Error('Reused completed review cannot be replaced by a new blind review');
       const review = validateReview(job.packet, r, attestation);
       if (job.review) { if (stableHash(job.review) !== stableHash(review)) throw new Error('Completed review cannot be overwritten'); }
       else changes.push({ ...job, state: 'complete', review });
     }
     changes.forEach(save);
   }
-  return { add, exportPackets, importResults, snapshot: () => structuredClone([...jobs.values()]) };
+  function importReused({ resultId, sourceJob, provenance }) {
+    validateProvenance(provenance);
+    if (!sourceJob || sourceJob.state !== 'complete' || typeof sourceJob.resultId !== 'string' || !sourceJob.resultId || sourceJob.reviewOrigin) throw new Error('Original complete source job required for review reuse');
+    validatePacket(sourceJob.packet);
+    if (sourceJob.contentHash !== contentHash(sourceJob.packet)) throw new Error('Reuse source content hash changed');
+    validateCompleted(sourceJob.packet, sourceJob.review);
+    const reviewOrigin = { provenance: structuredClone(provenance), sourceResultId: sourceJob.resultId, sourceDatasetHash: sourceJob.packet.datasetHash,
+      sourcePacket: structuredClone(sourceJob.packet), sourceContentHash: sourceJob.contentHash, sourceReviewHash: stableHash(sourceJob.review) };
+    const existing = jobs.get(resultId);
+    if (existing) validateJob(existing);
+    if (existing?.state === 'complete') {
+      if (!existing.reviewOrigin || stableHash(existing.reviewOrigin) !== stableHash(reviewOrigin) || stableHash(existing.review) !== stableHash(sourceJob.review)) throw new Error('Completed review reuse source cannot be overwritten');
+      return structuredClone(existing.packet);
+    }
+    const { answer, facts, questionRequiresComparison } = sourceJob.packet;
+    const packet = add({ resultId, answer, facts: structuredClone(facts), questionRequiresComparison });
+    const completed = { ...jobs.get(resultId), state: 'complete', review: structuredClone(sourceJob.review), reviewOrigin };
+    validateJob(completed); save(completed);
+    return structuredClone(packet);
+  }
+  return { add, exportPackets, importResults, importReused, snapshot: () => structuredClone([...jobs.values()]) };
 }
 module.exports = { COMMON, RULES, validateReview, createQueue };

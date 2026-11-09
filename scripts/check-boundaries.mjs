@@ -13,7 +13,7 @@ export const providers = {
   MJUserMemoryWorker: 'user-memory-worker.js', MJUserMemory: 'user-memory.js', MJUserMemoryAgent: 'user-memory-agent.js', MJUserMemoryCapture: 'user-memory-capture.js',
   MJMjaiAdapter: 'adapters/mjai.js', MJEngineEndpoint: 'adapters/engine-endpoint.js',
   MJNagaReplay: 'adapters/naga-replay.js', MJNagaPanel: 'naga-panel.js',
-  MJEngineExplanation: 'contracts/engine-explanation.js', MJEngineAgent: 'engine-agent.js', MJEngineResult: 'contracts/engine-result.js',
+  MJEngineFacts: 'engine-facts.js', MJEngineExplanation: 'contracts/engine-explanation.js', MJEngineAgent: 'engine-agent.js', MJEngineResult: 'contracts/engine-result.js',
   MJPanelTheme: 'panel-theme.js', MJAnalysisPanel: 'analysis-panel.js', MJFloatingPanel: 'floating-panel.js', MJHandHints: 'hand-hints.js', MJCollectorController: 'collector/controller.js',
   MJCollectorBrowser: 'collector/browser-adapter.js', MJCollectorPanel: 'overlay.js', MJCollectorApp: 'apps/collector-app.js', MJAgentApp: 'apps/agent-app.js'
 };
@@ -136,7 +136,8 @@ export function checkSourceBoundary(file, source) {
   else if (['model-profiles.js', 'model-usage.js', 'model-session-transport.js', 'agent-run-store.js'].includes(file)) { allowed = new Set(); pure = true; }
   else if (file === 'harness.js') { allowed = new Set(); pure = true; }
   else if (file === 'xf-context.js') { allowed = new Set(['contracts/snapshot.js', 'analysis.js']); pure = true; }
-  else if (file === 'agent.js') { allowed = new Set(['contracts/engine-explanation.js', 'xf-context.js', 'analysis.js', 'mahjong-analysis.js', 'harness.js', 'contracts/snapshot.js']); pure = true; }
+  else if (file === 'engine-facts.js') { allowed = new Set(['contracts/snapshot.js', 'mahjong-analysis.js']); pure = true; }
+  else if (file === 'agent.js') { allowed = new Set(['engine-facts.js', 'contracts/engine-explanation.js', 'xf-context.js', 'analysis.js', 'mahjong-analysis.js', 'harness.js', 'contracts/snapshot.js']); pure = true; }
   else if (file === 'engine-agent.js') { allowed = new Set(['harness.js', 'contracts/snapshot.js', 'contracts/engine-result.js', 'mahjong-analysis.js', 'adapters/mjai.js']); pure = true; }
   else if (file === 'adapters/mjai.js' || file === 'adapters/naga-replay.js') { allowed = new Set(); pure = true; }
   else if (file === 'analysis.js' || file === 'mahjong-analysis.js') { allowed = new Set(['contracts/snapshot.js', 'mahjong-analysis.js']); pure = true; }

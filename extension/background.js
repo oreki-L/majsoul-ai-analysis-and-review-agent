@@ -1,6 +1,6 @@
 'use strict';
 importScripts('contracts/snapshot.js', 'adapters/model-endpoint.js', 'adapters/engine-endpoint.js', 'adapters/mjai.js', 'mahjong-analysis.js', 'analysis.js');
-importScripts('harness.js', 'contracts/engine-explanation.js', 'xf-context.js', 'agent.js');
+importScripts('harness.js', 'contracts/engine-explanation.js', 'xf-context.js', 'engine-facts.js', 'agent.js');
 importScripts('pi-runtime.js', 'round-context.js', 'model-usage.js', 'model-session-transport.js', 'agent-run-store.js');
 importScripts('model-diagnostics.js');
 importScripts('contracts/engine-result.js', 'engine-agent.js');

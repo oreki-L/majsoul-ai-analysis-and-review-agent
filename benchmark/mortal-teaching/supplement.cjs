@@ -50,27 +50,38 @@ function supplementPlan(data) {
   return { selection: 'fixed-nine-round-representative-v2', roundIds: REPEAT_ROUNDS, samples,
     repeatNodes: samples.map(s => s.nodeId), followupNodes: samples.filter(s => s.followup).map(s => s.nodeId), questions: QUESTIONS };
 }
-async function runSupplement({ output, winner, engineConfig, fetchImpl = fetch, mock = false }) {
+async function runSupplement({ output, winner, engineConfig, fetchImpl = fetch, mock = false, promptDirectory, regressionStage = 'validation' }) {
   const data = read(path.join(output, 'dataset.json')), plan = read(path.join(output, 'supplement-plan.json'));
-  const variant = loadPrompts().variants.find(v => v.id === winner);
+  const variant = loadPrompts(promptDirectory).variants.find(v => v.id === winner);
   if (!variant) throw new Error('Unknown selected variant');
   const authorization = read(path.join(output, 'authorization.local.json')), pricing = read(path.join(output, 'pricing.json'));
   const unlock = acquireLock(path.join(output, 'experiment.lock'), true); let budget;
   try {
     if (!mock && read(path.join(output, 'selection.json')).winner !== winner) throw new Error('Supplement must use selected variant');
     const directory = path.join(output, mock ? 'mock' : 'live', 'supplement');
-    const records = ['development', 'validation'].flatMap(stage => readEvents(path.join(output, mock ? 'mock' : 'live', stage, 'results.jsonl')))
-      .filter(e => e.kind === 'result' && e.payload.variant === winner).map(e => e.payload);
+    const records = [...new Set(['development', regressionStage])].flatMap(stage => require('./reuse.cjs').mergedRows(output, path.join(output, mock ? 'mock' : 'live', stage), stage))
+      .filter(row => row.variant === winner);
     const anchors = new Map(records.map(r => [r.nodeId, r]));
     const batchId = fs.existsSync(path.join(output, 'contract.json')) ? read(path.join(output, 'contract.json')).batchId : 'fixture';
     const jobs = [...plan.repeatNodes.map(nodeId => ({ id: batchId + ':repeat:' + nodeId + ':' + winner, kind: 'repeat', nodeId })),
       ...plan.followupNodes.flatMap(nodeId => plan.questions.map((question, index) => ({ id: batchId + ':followup:' + nodeId + ':' + winner + ':' + index, kind: 'followup', nodeId, question, index })))];
     freeze(path.join(directory, 'schedule.json'), { winner, datasetHash: data.datasetHash, jobs });
     const log = journal(path.join(directory, 'results.jsonl')), queue = createQueue(path.join(output, mock ? 'mock-review' : 'review'), data.datasetHash);
+    const reuse = require('./reuse.cjs').loadReuse(output), reusedRows = reuse?.rows('supplement', winner) || [];
+    const reusedById = new Map(reusedRows.map(r => [r.id, r]));
+    reuse?.importReviews(queue, 'supplement', winner, mock);
+    if (jobs.length && reusedRows.length === jobs.length) {
+      queue.exportPackets();
+      return { planned: jobs.length, reused: jobs.length, newlyAttempted: 0, attempted: jobs.length, delivered: reusedRows.filter(r => r.delivered).length, mock, billing: null };
+    }
     const key = mock ? 'mock-secret' : await createCredentialResolver({ credentialsFile: authorization.credentialsFile, authorization })(authorization.allowedReferences[0]);
     if (!mock) budget = openBudget({ directory: authorization.budgetDirectory || path.join(output, 'billing'), authorization, pricing, fetchImpl, secrets: [key, engineConfig.apiKey] });
     const branches = new Map();
     for (const job of jobs) {
+      if (reusedById.has(job.id)) {
+        if (log.events.some(e => e.kind === 'start' && e.payload.id === job.id)) throw new Error('Reused supplement was dispatched again');
+        continue;
+      }
       const old = log.events.find(e => e.kind === 'start' && e.payload.id === job.id);
       if (old) {
         const finished = log.events.find(e => e.kind === 'result' && e.payload.id === job.id)?.payload;
@@ -121,7 +132,7 @@ async function runSupplement({ output, winner, engineConfig, fetchImpl = fetch, 
       if (result.reviewSource) queue.add(result.reviewSource);
     }
     queue.exportPackets();
-    return { planned: jobs.length, attempted: log.events.filter(e => e.kind === 'start').length, delivered: log.events.filter(e => e.kind === 'result' && e.payload.delivered).length, mock, billing: budget?.snapshot() || null };
+    return { planned: jobs.length, reused: reusedRows.length, newlyAttempted: log.events.filter(e => e.kind === 'start').length, attempted: reusedRows.length + log.events.filter(e => e.kind === 'start').length, delivered: reusedRows.filter(r => r.delivered).length + log.events.filter(e => e.kind === 'result' && e.payload.delivered).length, mock, billing: budget?.snapshot() || null };
   } finally { budget?.close(); unlock(); }
 }
 module.exports = { supplementPlan, runSupplement, QUESTIONS, REPEAT_ROUNDS, REPEAT_SELECTION };

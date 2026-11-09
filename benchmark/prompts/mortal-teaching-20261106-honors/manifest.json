@@ -1,0 +1,102 @@
+{
+  "format": "mortal-teaching-prompt-candidates-v1",
+  "status": "offline-candidates; real-api-unrun",
+  "date": "2026-11-06",
+  "baselineSource": {
+    "path": "extension/contracts/engine-explanation.js",
+    "promptVersion": 2,
+    "sha256": "05aadaea682b7910f1586de646fe4232e3f26252840a033f0e6b58ea3f449a8f"
+  },
+  "construction": "P0/R1/R2/R3 files and variant entries are inherited byte-for-byte from the frozen four-candidate source. R4 appends only Chinese honor-tile encoding guidance to R1 and enables only factCard + honorChinese; no R2 history isolation or R3 JSON-object mode.",
+  "outputFields": [
+    "summary",
+    "reasons",
+    "limitations"
+  ],
+  "alternativeComparison": "optional unless explicitly requested by user",
+  "productionDefaultChanged": false,
+  "experimentValidation": {
+    "factCard": "Deterministic current-snapshot facts; offline binding tests required; real teaching quality unverified.",
+    "isolateAutomaticHistory": "Automatic next decisions remove old model teaching and retain historical actions; explicit frozen follow-up context remains complete; real quality unverified.",
+    "jsonObject": "Experimental response_format:{type:json_object} on every model HTTP turn, including tool continuation. Mock compatibility only; real provider/tool compatibility pending smoke. No JSON schema support claimed; no repair, missing-field completion or retry.",
+    "honorChinese": "Deterministic model-side Chinese honor encoding for snapshot, engine action, fact card and tool results; original snapshot-v1 storage/hash and evaluator scoring contract remain authoritative and unchanged. Quality is unverified."
+  },
+  "variants": [
+    {
+      "id": "p0-release-v2",
+      "focus": "生产提示词原始字节基线",
+      "file": "p0-release-v2.txt",
+      "sha256": "05aadaea682b7910f1586de646fe4232e3f26252840a033f0e6b58ea3f449a8f",
+      "utf8Bytes": 2826,
+      "characters": 1182,
+      "experiment": {
+        "factCard": false,
+        "isolateAutomaticHistory": false,
+        "jsonObject": false
+      }
+    },
+    {
+      "id": "r1-facts",
+      "focus": "追加当前事实卡和简短依据指引",
+      "file": "r1-facts.txt",
+      "sha256": "e04fab48d83d59d8444551139b3ebf0d3b5ae014c3c2e6bbb1ea6a4097d809f6",
+      "utf8Bytes": 3389,
+      "characters": 1399,
+      "experiment": {
+        "factCard": true,
+        "isolateAutomaticHistory": false,
+        "jsonObject": false
+      }
+    },
+    {
+      "id": "r2-history",
+      "focus": "事实卡加自动下一决策旧教学隔离，完整保留显式追问承接",
+      "file": "r2-history.txt",
+      "sha256": "1361083f6ad1a2c4a30f9c7c8e93aa22f85da89b79e1c51c79f7bffab18b5e3b",
+      "utf8Bytes": 3651,
+      "characters": 1487,
+      "experiment": {
+        "factCard": true,
+        "isolateAutomaticHistory": true,
+        "jsonObject": false
+      }
+    },
+    {
+      "id": "r3-json",
+      "focus": "历史隔离加每次模型HTTP请求json_object模式",
+      "file": "r3-json.txt",
+      "sha256": "bae967868ec3d175c07ba526e01f218c5e97df35d8ac3820987b2c53c1cd839c",
+      "utf8Bytes": 3996,
+      "characters": 1650,
+      "experiment": {
+        "factCard": true,
+        "isolateAutomaticHistory": true,
+        "jsonObject": true
+      }
+    },
+    {
+      "id": "r4-honors-zh",
+      "focus": "仅以R1事实卡为基础，模型侧字牌改用东南西北白发中",
+      "file": "r4-honors-zh.txt",
+      "sha256": "d056f598430bd2b03b7142e14809b4d684b7b15914d393421db5160898c11b81",
+      "utf8Bytes": 4093,
+      "characters": 1661,
+      "experiment": {
+        "factCard": true,
+        "isolateAutomaticHistory": false,
+        "jsonObject": false,
+        "honorChinese": true
+      }
+    }
+  ],
+  "inheritedSource": {
+    "directory": "benchmark/prompts/mortal-teaching-20261106",
+    "manifestSha256": "b3fba8f5337f46e530bbfd3114d243a4e4f489e99d1fb34daa2d5e6cf0d21773",
+    "variantIds": [
+      "p0-release-v2",
+      "r1-facts",
+      "r2-history",
+      "r3-json"
+    ]
+  }
+}

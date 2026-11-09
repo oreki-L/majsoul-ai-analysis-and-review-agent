@@ -24,7 +24,7 @@ function setup(llm, stage = () => {}, memory = { version: 0, entries: [] }, engi
   const storage = { get: async () => structuredClone(data), set: async values => Object.assign(data, structuredClone(values)) };
   const discussions = Discussions.create({ storage }), requests = [], runs = [];
   const context = vm.createContext({ URL, TextEncoder, TextDecoder, Uint8Array, AbortController, structuredClone, performance, setTimeout, clearTimeout });
-  for (const file of ['contracts/snapshot.js','adapters/model-endpoint.js','adapters/engine-endpoint.js','adapters/mjai.js','mahjong-analysis.js','analysis.js','harness.js','contracts/engine-explanation.js','xf-context.js','agent.js','pi-runtime.js','model-usage.js','model-session-transport.js','contracts/engine-result.js','engine-agent.js','model-analysis-worker.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '../extension', file), 'utf8'), context);
+  for (const file of ['contracts/snapshot.js','adapters/model-endpoint.js','adapters/engine-endpoint.js','adapters/mjai.js','mahjong-analysis.js','analysis.js','harness.js','contracts/engine-explanation.js','xf-context.js','engine-facts.js','agent.js','pi-runtime.js','model-usage.js','model-session-transport.js','contracts/engine-result.js','engine-agent.js','model-analysis-worker.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '../extension', file), 'utf8'), context);
   const service = context.MJModelAnalysisWorker.create({ storage, permissions: { contains: async () => true }, runtime: context.MJPiRuntime,
     fetchModel: async (url, options) => { requests.push({ url, options }); return url.includes('127.0.0.1') ? Response.json({ action: { type: 'dahai', actor: 0, pai: '9p', tsumogiri: true }, ...(engineIdentity ? { identity: engineIdentity } : {}) }) : llm(url, options); },
     roundContexts: require('../extension/round-context.js').createStore({ storage }), runStore: { epoch: () => 1, append: async record => runs.push(record), clear: async () => {} },
@@ -128,11 +128,11 @@ test('conflicting explanation contract and HTTP failure retain action; explicit 
   const w = setup(async () => fail ? Response.json({ choices: [{ message: { content: '{"summary":"bad","decision":{"tile":"1m"},"reasons":[],"limitations":[]}' } }] }) : answer());
   const first = await w.service.analyze(input(), 1);
   assert.equal(first.ok, true); assert.equal(first.result.decision.tile, '9p'); assert.equal(first.explanation.status, 'failed'); assert.equal(first.calls, 1);
-  assert.equal(first.explanation.promptVersion, 2);
+  assert.equal(first.explanation.promptVersion, 3);
   fail = false;
   const retry = await w.service.analyze({ provider: 'chat', discussionId: first.discussionRecord.id, retryExplanation: true, selection: { hand: true, game: true, rivers: 'all' } }, 1);
   assert.equal(retry.ok, true, retry.error); assert.equal(retry.explanation.status, 'completed'); assert.equal(w.requests.filter(x => x.url.includes('127.0.0.1')).length, 1);
-  assert.equal(retry.explanation.promptVersion, 2);
+  assert.equal(retry.explanation.promptVersion, 3);
   assert.equal((await w.discussions.get(first.discussionRecord.id)).analysis.explanation.status, 'completed');
 });
 test('cancelled paid explanation retains action, accounts unknown usage, cannot resurrect cleared history', async () => {
@@ -213,4 +213,16 @@ test('first hybrid teaching receives isolated live history and pinned memory, en
   const manual = input(); manual.lane = 'manual-review';
   const other = setup(async (_url, options) => { assert.ok(!JSON.parse(options.body).tools.some(t => t.function.name === 'get_user_memory')); return answer(); }, () => {}, memory);
   assert.equal((await other.service.analyze(manual, 2)).ok, true);
+});
+
+test('missing limitations repairs teaching once without rerunning Mortal and records every paid call', async () => {
+  let calls = 0;
+  const w = setup(async () => ++calls === 1 ? Response.json({ choices: [{ message: { content: '{"summary":"依据当前牌形弃牌。","reasons":[]}' } }], usage: { prompt_tokens: 20, completion_tokens: 10 } }) : answer());
+  const result = await w.service.analyze(input(), 1);
+  assert.equal(result.ok, true, result.error);
+  assert.equal(result.explanation.status, 'completed');
+  assert.equal(calls, 2);
+  assert.equal(w.requests.filter(x => x.url.includes('127.0.0.1')).length, 1);
+  assert.equal(result.result.decision.tile, '9p');
+  assert.equal(result.calls, 2);
 });
