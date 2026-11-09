@@ -6,3 +6,6 @@ licenses/*.txt text eol=lf
 benchmark/prompts/mortal-teaching-20261105/*.txt text eol=lf
 benchmark/prompts/mortal-teaching-20261106/*.txt text eol=lf
 benchmark/prompts/mortal-teaching-20261106-honors/*.txt text eol=lf
+benchmark/prompts/mortal-teaching-20261105/manifest.json text eol=lf
+benchmark/prompts/mortal-teaching-20261106/manifest.json text eol=lf
+benchmark/prompts/mortal-teaching-20261106-honors/manifest.json text eol=lf
