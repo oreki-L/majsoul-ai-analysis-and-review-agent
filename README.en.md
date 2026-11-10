@@ -25,6 +25,18 @@ Switch themes with the button at the top right of the analysis card. These are o
 - **Inspect the evidence**: local calculations provide shanten, effective tiles and per-opponent genbutsu / suji / wall evidence. LLM read-only tools can consult these facts, and you can expand the analysis evidence to check them.
 - **Track calls and costs**: analyze manually or opt into automatic hints, with starting-turn, interval and per-round limits for automatic calls. Engine time and LLM tokens / estimated costs are recorded separately and can be exported; unknown costs stay unknown.
 
+### Measured results and scope
+
+**The earlier S2 teaching setup passed 107 of 127 fixed positions (84.25%), averaging 3.550/4.** Three setups used the same positions, delivering all 381/381 answers for independent blind review by GPT-6.1 Sol / medium. Major factual errors fail the quality gate.
+
+| Historical teaching setup | Quality passes | Pass rate | End-to-end mean / 4 |
+| --- | ---: | ---: | ---: |
+| S1: fact-reading rules | 87/127 | 68.50% | 3.209 |
+| **S2: add current-action focus** | **107/127** | **84.25%** | **3.550** |
+| S3: also isolate automatic teaching history | 99/127 | 77.95% | 3.387 |
+
+The 127 positions came from 12 previously observed rounds, not a hidden independent sample. Each answer had one blind reviewer, without inter-rater agreement measurement. Delivery includes the single format-repair mechanism; three S2 answers were recovered by repair. These measure **teaching quality in an earlier experiment**, not playing strength or live-game win rate. v0.16.9 adds event-order safety checks, local completion tiles and production integration to S2; it has no new real-LLM score. This version passed **127/127** offline production-Agent checks with mock teaching and **0** real model/engine API calls; new fact/safety tests passed **12/12**, and workspace engineering tests total **841: 838 passed, 3 skipped, 0 failed**. See the [S2 validation record](docs/validation/MORTAL_TEACHING_S2_VALIDATION.md) for methods and limits.
+
 ### Understand a hand through follow-up questions
 
 For example, ask within the same decision's discussion:
