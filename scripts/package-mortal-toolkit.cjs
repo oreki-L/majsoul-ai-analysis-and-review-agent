@@ -19,7 +19,7 @@ async function writeStart(out){await writeLauncher(out,'start');}
 async function writeGuide(out,profile='bootstrap'){
   await fs.writeFile(path.join(out,'README.md'),`# 雀魂本机模型管理工具（Windows x64）
 
-发布资产：\`majsoul-model-manager-windows-x64-0.16.7.zip\`。此可选包自带固定 Node.js 22.19.0；${profile==='bootstrap'?'此引导包不含模型权重或完整 Python':'此显式离线导出包含 '+profile+' 权重及固定 Python 环境'}。普通 LLM 使用无需安装本工具。
+发布资产：\`majsoul-model-manager-windows-x64-${require('../package.json').version}.zip\`。此可选包自带固定 Node.js 22.19.0；${profile==='bootstrap'?'此引导包不含模型权重或完整 Python':'此显式离线导出包含 '+profile+' 权重及固定 Python 环境'}。普通 LLM 使用无需安装本工具。
 
 1. 完整解压 ZIP 到可写目录，双击 \`start.cmd\`。包内运行环境先校验文件，随后自动打开本机管理页；保持终端运行，无需另装 Node、Python 或 Rust。
 2. 选择所需模型并点击“安装”。只有这一步才下载选中权重及其必要环境；可保持零模型，安装后也不会自动推理。安装完成后点击“启动分析”。

@@ -6,7 +6,7 @@ A browser extension for the Mahjong Soul web client: compare tile efficiency and
 
 **Start with little setup: local tile-efficiency analysis works as soon as the extension is loaded; AI explanations need your endpoint, model ID and API key; optional local engines have an extract-and-double-click runtime package.**
 
-[**Download v0.16.8**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.8) · [Quick start](#quick-start) · [Highlights](#why-choose-majsoul-agent) · [Local models](#using-local-models) · [FAQ](#faq) · [Documentation](docs/README.md)
+[**Download v0.16.9**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.9) · [Quick start](#quick-start) · [Highlights](#why-choose-majsoul-agent) · [Local models](#using-local-models) · [FAQ](#faq) · [Documentation](docs/README.md)
 
 [简体中文](README.md) | **English** | [日本語](README.ja.md)
 
@@ -43,16 +43,18 @@ Answers use **the hand and public table at that decision, the original recommend
 
 ## Downloads
 
-Current release: **v0.16.8**. Start with the full Agent.
+Current release: **v0.16.9**. Start with the full Agent.
+
+This version brings S2's count table and current-action index into engine teaching, with local shape completion tiles and safety evidence checked against event order. The new patch has offline fact checks but has not been retested with a real LLM; the earlier S2 pass rate of 84.25% is not this version's result. See the [changelog](CHANGELOG.md) and [S2 validation scope](docs/validation/MORTAL_TEACHING_S2_VALIDATION.md).
 
 | Package | Who it is for |
 | --- | --- |
-| [**Full Agent extension**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.8/majsoul-ai-analysis-and-review-agent-0.16.8.zip) | Recommended entry point: local calculations, model analysis, follow-up questions, history and settings |
-| [Optional local model runtime · Windows x64](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.8/majsoul-model-manager-windows-x64-0.16.8.zip) | Download when you want local Mortal / Akagi; includes the Node runtime needed by the manager |
-| [Standalone Collector](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.8/majsoul-collector-0.16.8.zip) | Collection, display and export without AI analysis |
-| [Source package](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.8/majsoul-ai-analysis-and-review-agent-source-0.16.8.zip) | Development, builds and offline review |
+| [**Full Agent extension**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.9/majsoul-ai-analysis-and-review-agent-0.16.9.zip) | Recommended entry point: local calculations, model analysis, follow-up questions, history and settings |
+| [Optional local model runtime · Windows x64](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.9/majsoul-model-manager-windows-x64-0.16.9.zip) | Download when you want local Mortal / Akagi; includes the Node runtime needed by the manager |
+| [Standalone Collector](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.9/majsoul-collector-0.16.9.zip) | Collection, display and export without AI analysis |
+| [Source package](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.9/majsoul-ai-analysis-and-review-agent-source-0.16.9.zip) | Development, builds and offline review |
 
-[All release files and SHA-256 checksums](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.8). Extension packages contain no model weights. Agent and Collector have separate local storage; enable only one on the same game page.
+[All release files and SHA-256 checksums](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.9). Extension packages contain no model weights. Agent and Collector have separate local storage; enable only one on the same game page.
 
 ## Quick start
 

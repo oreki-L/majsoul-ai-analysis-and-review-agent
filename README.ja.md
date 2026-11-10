@@ -6,7 +6,7 @@
 
 **導入も設定も手軽に。ローカル牌効率は拡張を読み込むだけで使えます。AI 解説は接続先・モデル名・API Key を設定し、任意のローカルエンジンは実行パッケージを展開してダブルクリックで始められます。**
 
-[**v0.16.8 をダウンロード**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.8) · [使い始める](#使い始める) · [特徴](#majsoul-agent-の特徴) · [ローカルモデル](#ローカルモデルの使い方) · [よくある質問](#よくある質問) · [ドキュメント](docs/README.md)
+[**v0.16.9 をダウンロード**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.9) · [使い始める](#使い始める) · [特徴](#majsoul-agent-の特徴) · [ローカルモデル](#ローカルモデルの使い方) · [よくある質問](#よくある質問) · [ドキュメント](docs/README.md)
 
 [简体中文](README.md) | [English](README.en.md) | **日本語**
 
@@ -43,16 +43,18 @@
 
 ## ダウンロード
 
-現在のリリース：**v0.16.8**。初めて使う場合は完全版 Agent から始めてください。
+現在のリリース：**v0.16.9**。初めて使う場合は完全版 Agent から始めてください。
+
+本版では S2 の枚数表と現在の行動に対応する索引をエンジン解説へ導入し、局所的な搭子の完成牌とイベント順序を確認した安全根拠を追加しました。新パッチはオフラインの事実検証済みですが、実際の LLM では再評価していません。旧 S2 の合格率 84.25% は本版の成績ではありません。[変更履歴](CHANGELOG.md)と [S2 の検証範囲](docs/validation/MORTAL_TEACHING_S2_VALIDATION.md)をご確認ください。
 
 | パッケージ | 用途 |
 | --- | --- |
-| [**完全版 Agent 拡張**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.8/majsoul-ai-analysis-and-review-agent-0.16.8.zip) | 推奨の入口。ローカル計算・モデル分析・追加質問・履歴・設定を含む |
-| [任意のローカルモデル実行パッケージ · Windows x64](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.8/majsoul-model-manager-windows-x64-0.16.8.zip) | 本機で Mortal / Akagi を使う場合に取得。管理用の Node を同梱 |
-| [独立 Collector](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.8/majsoul-collector-0.16.8.zip) | AI 分析を使わず、収集・表示・エクスポートだけを利用 |
-| [ソースパッケージ](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.8/majsoul-ai-analysis-and-review-agent-source-0.16.8.zip) | 開発・ビルド・オフライン検討 |
+| [**完全版 Agent 拡張**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.9/majsoul-ai-analysis-and-review-agent-0.16.9.zip) | 推奨の入口。ローカル計算・モデル分析・追加質問・履歴・設定を含む |
+| [任意のローカルモデル実行パッケージ · Windows x64](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.9/majsoul-model-manager-windows-x64-0.16.9.zip) | 本機で Mortal / Akagi を使う場合に取得。管理用の Node を同梱 |
+| [独立 Collector](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.9/majsoul-collector-0.16.9.zip) | AI 分析を使わず、収集・表示・エクスポートだけを利用 |
+| [ソースパッケージ](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.9/majsoul-ai-analysis-and-review-agent-source-0.16.9.zip) | 開発・ビルド・オフライン検討 |
 
-[全リリースファイルと SHA-256 チェックサム](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.8)。拡張にはモデルの重みを含みません。Agent と Collector の保存領域は独立しており、同じゲームページでは片方だけ有効にしてください。
+[全リリースファイルと SHA-256 チェックサム](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.9)。拡張にはモデルの重みを含みません。Agent と Collector の保存領域は独立しており、同じゲームページでは片方だけ有効にしてください。
 
 ## 使い始める
 

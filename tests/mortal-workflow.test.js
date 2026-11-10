@@ -128,11 +128,11 @@ test('conflicting explanation contract and HTTP failure retain action; explicit 
   const w = setup(async () => fail ? Response.json({ choices: [{ message: { content: '{"summary":"bad","decision":{"tile":"1m"},"reasons":[],"limitations":[]}' } }] }) : answer());
   const first = await w.service.analyze(input(), 1);
   assert.equal(first.ok, true); assert.equal(first.result.decision.tile, '9p'); assert.equal(first.explanation.status, 'failed'); assert.equal(first.calls, 1);
-  assert.equal(first.explanation.promptVersion, 3);
+  assert.equal(first.explanation.promptVersion, 4);
   fail = false;
   const retry = await w.service.analyze({ provider: 'chat', discussionId: first.discussionRecord.id, retryExplanation: true, selection: { hand: true, game: true, rivers: 'all' } }, 1);
   assert.equal(retry.ok, true, retry.error); assert.equal(retry.explanation.status, 'completed'); assert.equal(w.requests.filter(x => x.url.includes('127.0.0.1')).length, 1);
-  assert.equal(retry.explanation.promptVersion, 3);
+  assert.equal(retry.explanation.promptVersion, 4);
   assert.equal((await w.discussions.get(first.discussionRecord.id)).analysis.explanation.status, 'completed');
 });
 test('cancelled paid explanation retains action, accounts unknown usage, cannot resurrect cleared history', async () => {

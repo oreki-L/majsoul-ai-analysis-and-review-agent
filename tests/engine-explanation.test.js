@@ -5,6 +5,20 @@ const E = require('../extension/contracts/engine-explanation.js');
 const Agent = require('../extension/agent.js');
 const { fixture } = require('../agent/eval.cjs');
 
+test('production v4 prompt carries S2 fact semantics and preserves autonomous comparisons', () => {
+  assert.equal(E.PROMPT_VERSION, 4);
+  for (const requirement of [/facts\.explanationFocus/, /facts\.handTileAvailability/, /依columns读取rows/,
+    /只有status为complete且已见4/, /partial不作全场见尽断言/, /invalid\/unavailable不推算/,
+    /不能据此否定已持有的对子或刻子/, /单张不等于孤张/, /先核对实体是否重叠/,
+    /summary也必须与reasons、当前手牌和场况一致/, /当前弃牌与备选各用对应候选/,
+    /river表示该玩家本人牌河证据/, /riichi-passed表示/, /unknown或未列出座位/, /不能推出不安全/,
+    /由你根据教学价值决定是否比较备选/, /历史建议与教学只用于承接/]) assert.match(E.prompt, requirement);
+  assert.doesNotMatch(E.prompt, /自动分析的历史教学正文已移除|只保留历史动作和时点|至少比较一个实质备选/);
+  assert.deepEqual(E.parse('{"summary":"打出这张牌。","reasons":[],"limitations":[]}'), {
+    summary: '打出这张牌。', reasons: [], limitations: [], promptVersion: 4
+  });
+});
+
 function snapshot() {
   const s = fixture('123m123p123s111z20p');
   s.source = 'live'; s.lastStep = 4; s.selfDrawnTile = '0p';
