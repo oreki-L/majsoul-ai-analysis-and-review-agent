@@ -1,0 +1,23 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { runJobs } = require('../benchmark/job-runner.cjs');
+test('invalid next-stage summary retains exact text, hash, usage and timing before rejection without replay', async t => {
+  const output = fs.mkdtempSync(path.join(os.tmpdir(), 'summary-invalid-'));
+  t.after(() => fs.rmSync(output, {recursive:true,force:true}));
+  const descriptor = {id:'summary-invalid',contract:'next-stage-summary/1',sourceHash:'source',coveredSourceIds:['s'],source:{facts:[{sourceId:'s',position:1}],opinions:[]},messages:[{role:'user',content:'Summarize'}],mockText:' {invalid response bytes}\n'};
+  const manifest = {schemaVersion:1,id:'invalid-next',sourceFreezeHash:'freeze',models:{mock:{provider:'mock',model:'synthetic',maxTokens:4096}},budget:{cap:70,currency:'CNY'},jobs:[{id:descriptor.id,modelId:'mock',credentialAlias:'alias:fixture',schemeId:'shared-2A-summary',descriptor}]};
+  const first = await runJobs(manifest,{mode:'mock',output});
+  assert.equal(first.status,'incomplete');
+  const r = first.requests[descriptor.id];
+  assert.equal(r.status,'failed'); assert.equal(r.responseText,descriptor.mockText);
+  assert.match(r.validationFailure,/SUMMARY_JSON/); assert.match(r.rawResponseSha256,/^[a-f0-9]{64}$/);
+  assert.ok(r.startedAt && r.finishedAt && r.attempts[0].usage);
+  assert.equal(first.results.length,0);
+  const second = await runJobs(manifest,{mode:'mock',output,resume:true});
+  assert.deepEqual(second.requests,first.requests); assert.equal(second.results.length,0);
+  const cp = JSON.parse(fs.readFileSync(path.join(output,'checkpoint.json'))); cp.requests[descriptor.id].status='received'; fs.writeFileSync(path.join(output,'checkpoint.json'),JSON.stringify(cp));
+  await assert.rejects(runJobs(manifest,{mode:'mock',output,resume:true}),/replay prohibited/);
+});

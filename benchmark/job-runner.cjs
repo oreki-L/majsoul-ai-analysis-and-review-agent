@@ -7,6 +7,12 @@ const { stableHash, validateSuite } = require('./core.cjs');
 const { createTransport } = require('./transport.cjs');
 const { createLedger, createSharedLedger, createCredentialResolver, deriveTrustedLiabilityContracts } = require('./accounting.cjs');
 const { saveAtomic, scrub } = require('./runner.cjs');
+function validateSummaryResponse(text, descriptor) {
+  if (descriptor.contract === 'next-stage-summary/1') {
+    const checked = require('./next-stage-context.cjs').validateSummary(text, descriptor);
+    if (!checked.valid) throw new Error('Next summary validation failed: ' + checked.code);
+  } else if (descriptor.outputSchema) require('./discussion-policies.cjs').validateTypedSummary(text, descriptor);
+}
 function validateJobManifest(raw) {
   if (raw?.schemaVersion !== 1 || typeof raw.id !== 'string' || !raw.sourceFreezeHash || !Array.isArray(raw.jobs) || !raw.jobs.length || !raw.models) throw new Error('Explicit source-bound job manifest required');
   validateSuite({ schemaVersion: 1, id: raw.id, dataset: 'not-loaded.json', models: raw.models, schemes: [{ id: 'validation-only', modelId: Object.keys(raw.models)[0], context: {} }], execution: { budget: raw.budget } });
@@ -18,7 +24,7 @@ function validateJobManifest(raw) {
   return raw;
 }
 function jobFingerprint(manifest, mode, authorizationHash) {
-  const files = ['job-runner.cjs', 'runner.cjs', 'core.cjs', 'context.cjs', 'transport.cjs', 'accounting.cjs', 'tools.cjs', 'discussion-policies.cjs', 'campaign-policies.cjs', 'production-v010.cjs', 'global-policies.cjs', '../extension/analysis.js', '../extension/mahjong-analysis.js', '../extension/contracts/snapshot.js'];
+  const files = ['job-runner.cjs', 'next-stage-context.cjs', 'summary-bindings.cjs', 'phase2-fixed-source.cjs', 'runner.cjs', 'core.cjs', 'context.cjs', 'transport.cjs', 'accounting.cjs', 'tools.cjs', 'discussion-policies.cjs', 'campaign-policies.cjs', 'production-v010.cjs', 'global-policies.cjs', '../extension/analysis.js', '../extension/mahjong-analysis.js', '../extension/contracts/snapshot.js'];
   return stableHash({ manifest, mode, authorizationHash, sources: Object.fromEntries(files.map(file => [file, stableHash(fs.readFileSync(path.resolve(__dirname, file), 'utf8').replace(/\r\n/g, '\n'))])) });
 }
 function validatePreparedJobs(manifest, prepared, checkpoint) {
@@ -28,7 +34,7 @@ function validatePreparedJobs(manifest, prepared, checkpoint) {
     const result = prepared.summaries.filter(r => r.id === job.id), stored = checkpoint.results.filter(r => r.id === job.id), request = checkpoint.requests[job.id];
     if (result.length !== 1 || stored.length !== 1 || stableHash(result[0]) !== stableHash(stored[0]) || !result[0].text || result[0].synthetic || request?.status !== 'success' || request.responseTextHash !== stableHash(result[0].text) || !request.attempts?.some(a => a.dispatched && !a.mock && a.status === 'success' && a.usage)) throw new Error('Cold summary must match checkpoint raw response and actual accounted request');
     for (const [key, value] of Object.entries(job.descriptor)) if (stableHash(result[0][key]) !== stableHash(value)) throw new Error('Cold summary descriptor/source mismatch');
-    if (job.descriptor.outputSchema) require('./discussion-policies.cjs').validateTypedSummary(result[0].text, job.descriptor);
+    validateSummaryResponse(result[0].text, job.descriptor);
   }
   return prepared;
 }
@@ -45,10 +51,14 @@ async function runJobs(raw, options = {}) {
     const authorizationHash = stableHash(options.authorization ?? null), fingerprint = jobFingerprint(manifest, mode, authorizationHash);
     const prior = options.resume ? JSON.parse(fs.readFileSync(checkpoint, 'utf8')) : null;
     if (!options.resume && fs.existsSync(checkpoint)) throw new Error('Job checkpoint exists; explicit resume required');
-    if (prior && (prior.fingerprint !== fingerprint || Object.values(prior.requests).some(r => r.status === 'pending') || prior.ledger?.unknownLiability || prior.ledger?.blockedReason || prior.ledger?.reserved)) throw new Error('Job resume mismatch or unresolved paid liability; replay prohibited');
+    if (prior && (prior.fingerprint !== fingerprint || Object.values(prior.requests).some(r => ['pending', 'received', 'unresolved'].includes(r.status)) || prior.ledger?.unknownLiability || prior.ledger?.blockedReason || prior.ledger?.reserved)) throw new Error('Job resume mismatch or unresolved paid liability; replay prohibited');
     const trustedLiabilityContracts = deriveTrustedLiabilityContracts(manifest.models);
-    ledger = options.budgetFile ? createSharedLedger({ filename: options.budgetFile, ...manifest.budget, trustedLiabilityContracts }) : createLedger({ ...manifest.budget, initial: prior?.ledger, trustedLiabilityContracts });
-    const state = prior ?? { schemaVersion: 1, fingerprint, authorizationHash, manifestId: manifest.id, mode, synthetic: mode === 'mock', sourceFreezeHash: manifest.sourceFreezeHash, requests: {}, results: [], status: 'running' }, secrets = [];
+    ledger = options.budgetFile ? createSharedLedger({ filename: options.budgetFile, ...manifest.budget, trustedLiabilityContracts, autonomous: true }) : createLedger({ ...manifest.budget, initial: prior?.ledger, trustedLiabilityContracts });
+    if (options.budgetFile && prior?.ledger) {
+      const shared = ledger.snapshot();
+      if (shared.nextId < prior.ledger.nextId || shared.estimatedCost + 1e-12 < prior.ledger.estimatedCost || stableHash(shared.records.slice(0, prior.ledger.records.length)) !== stableHash(prior.ledger.records)) throw new Error('Shared campaign budget no longer contains job checkpoint accounting; audited recovery required');
+    }
+    const state = prior ?? { schemaVersion: 1, runId: crypto.randomUUID(), fingerprint, authorizationHash, manifestId: manifest.id, mode, synthetic: mode === 'mock', sourceFreezeHash: manifest.sourceFreezeHash, requests: {}, results: [], status: 'running' }, secrets = [];
     const resolveCredential = mode === 'live' ? options.credentialResolver ?? createCredentialResolver({ credentialsFile: options.credentialsFile, authorization: options.authorization }) : null;
     const credentialResolver = resolveCredential ? async ref => { const key = await resolveCredential(ref); secrets.push(key); return key; } : null;
     function persist() { state.ledger = ledger.snapshot(); saveAtomic(checkpoint, state, secrets); }
@@ -56,18 +66,21 @@ async function runJobs(raw, options = {}) {
     for (const job of manifest.jobs) {
       if (state.requests[job.id]) continue;
       if (ledger.snapshot().unknownLiability || ledger.snapshot().blockedReason) break;
-      const started = Date.now(), model = { ...manifest.models[job.modelId], credentialAlias: job.credentialAlias };
+      const started = Date.now(), startedAt = new Date(started).toISOString(), model = { ...manifest.models[job.modelId], credentialAlias: job.credentialAlias };
       state.requests[job.id] = { status: 'pending', role: 'probe-summary-preparation', schemeId: job.schemeId }; persist();
-      const transport = createTransport({ model, mode: mode === 'live' ? 'real' : 'mock', ledger, credentialResolver, fetch: options.fetch,
+      const transport = createTransport({ runIdentity: state.runId, model, mode: mode === 'live' ? 'real' : 'mock', ledger, credentialResolver, fetch: options.fetch,
         beforeRequest: ({ requestBody }) => { persist(); fs.appendFileSync(path.join(output, 'requests.private.jsonl'), JSON.stringify(scrub({ jobId: job.id, body: requestBody }, secrets)) + '\n'); },
         onAttempt: ({ attempt, responseMessage }) => { persist(); fs.appendFileSync(path.join(output, 'responses.private.jsonl'), JSON.stringify(scrub({ jobId: job.id, attempt, responseMessage }, secrets)) + '\n'); }
       });
       try {
-        const response = await transport.runModel({ messages: job.descriptor.messages, tools: [], timeoutMs: manifest.timeoutMs ?? 180000, maxModelRequests: null, maxToolCalls: 0, meta: { requestId: job.id, schemeId: job.schemeId, role: 'probe-summary-preparation', campaignKind: 'probe-preparation', channel: 'realtime', modelId: job.modelId, keyAlias: job.credentialAlias, credentialAlias: job.credentialAlias }, mockText: job.descriptor.mockText ?? 'SYNTHETIC cold summary; never formal evidence.' });
-        if (job.descriptor.outputSchema) require('./discussion-policies.cjs').validateTypedSummary(response.text, job.descriptor);
+        const response = await transport.runModel({ messages: job.descriptor.messages, tools: [], timeoutMs: manifest.timeoutMs ?? 180000, maxModelRequests: null, maxToolCalls: 0, meta: { runId: state.runId, requestId: job.id, schemeId: job.schemeId, role: 'probe-summary-preparation', campaignKind: 'probe-preparation', channel: 'realtime', modelId: job.modelId, keyAlias: job.credentialAlias, credentialAlias: job.credentialAlias }, mockText: job.descriptor.mockText ?? 'SYNTHETIC cold summary; never formal evidence.' });
+        // Persist paid evidence before parsing/validation; invalid summaries remain auditable.
+        state.requests[job.id] = { status: 'received', startedAt, finishedAt: new Date().toISOString(), responseText: response.text, responseTextHash: stableHash(response.text), rawResponseSha256: crypto.createHash('sha256').update(response.text, 'utf8').digest('hex'), attempts: transport.attempts, latencyMs: Date.now() - started };
+        persist();
+        validateSummaryResponse(response.text, job.descriptor);
         const record = { ...job.descriptor, text: response.text, schemeId: job.schemeId, preparedForDecisionId: job.decisionId, coldPreparationMs: Date.now() - started, actualOnlineLatency: false, synthetic: mode === 'mock' };
-        state.results.push(record); state.requests[job.id] = { status: 'success', responseTextHash: stableHash(response.text), attempts: transport.attempts, latencyMs: Date.now() - started };
-      } catch { state.requests[job.id] = { status: ledger.snapshot().unknownLiability ? 'unresolved' : 'failed', attempts: transport.attempts }; }
+        state.results.push(record); state.requests[job.id] = { ...state.requests[job.id], status: 'success' };
+      } catch (error) { state.requests[job.id] = { ...state.requests[job.id], status: ledger.snapshot().unknownLiability ? 'unresolved' : 'failed', startedAt, finishedAt: new Date().toISOString(), validationFailure: state.requests[job.id].status === 'received' ? String(error.message) : null, attempts: transport.attempts }; }
       persist();
     }
     state.status = ledger.snapshot().unknownLiability || ledger.snapshot().blockedReason ? 'stopped-liability' : state.results.length === manifest.jobs.length ? 'complete' : 'incomplete'; persist();
