@@ -97,16 +97,23 @@ function validateSuite(raw) {
   if (!Array.isArray(raw.schemes) || !raw.schemes.length) fail('suite.schemes', 'expected nonempty array');
   const seen = new Set();
   const schemes = raw.schemes.map(s => {
-    keys(s, ['id', 'modelId', 'credentialAlias', 'context', 'review', 'summaryModelId', 'description', 'aliasOf'], 'scheme');
+    keys(s, ['id', 'modelId', 'credentialAlias', 'context', 'review', 'summaryModelId', 'description', 'aliasOf', 'pairedCorrectionOf'], 'scheme');
     id(s.id, 'scheme.id'); if (seen.has(s.id)) fail('scheme.id', 'duplicate'); seen.add(s.id);
     if (!Object.hasOwn(models, s.modelId)) fail('scheme.modelId', 'unknown model');
     if (s.summaryModelId !== undefined && !Object.hasOwn(models, s.summaryModelId)) fail('scheme.summaryModelId', 'unknown model');
     if (s.credentialAlias !== undefined) id(s.credentialAlias, 'scheme.credentialAlias');
     if (s.aliasOf !== undefined) id(s.aliasOf, 'scheme.aliasOf');
+    if (s.pairedCorrectionOf !== undefined) id(s.pairedCorrectionOf, 'scheme.pairedCorrectionOf');
     if (s.review !== undefined && typeof s.review !== 'boolean') fail('scheme.review', 'expected boolean');
     return { ...s, context: validateContext(s.context), review: s.review ?? false };
   });
   for (const s of schemes) if (s.aliasOf && (!schemes.some(t => t.id === s.aliasOf && !t.aliasOf) || s.aliasOf === s.id)) fail('scheme.aliasOf', 'requires a distinct canonical scheme');
+  for (const s of schemes) if (s.pairedCorrectionOf) {
+    const source = schemes.find(t => t.id === s.pairedCorrectionOf && !t.aliasOf && !t.pairedCorrectionOf);
+    if (!source || s.aliasOf || s.review || source.review || !s.context.module || !source.context.module) fail('scheme.pairedCorrectionOf', 'requires a distinct trusted typed source without review/alias');
+    const model = name => { const { credentialAlias, liabilityBound, ...contract } = models[name]; return contract; };
+    if (stableHash(model(s.modelId)) !== stableHash(model(source.modelId))) fail('scheme.pairedCorrectionOf', 'paired models must have the same generation contract');
+  }
   const e = raw.execution ?? {};
   keys(e, ['repetitions', 'seed', 'concurrency', 'timeoutMs', 'maxModelRequests', 'maxToolCalls', 'budget', 'backgroundPolicy', 'foregroundQuotaId', 'summaryQuotaId'], 'execution');
   const b = e.budget ?? {}; keys(b, ['cap', 'currency'], 'execution.budget');

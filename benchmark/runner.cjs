@@ -34,7 +34,7 @@ function fingerprint(suite) {
 }
 function manifest(suite, mode) { return { strictValidationPolicy: { repair: 'same-model schema/code/path feedback, no count cap', noProgress: 'same normalized text hash plus same validation code/path seen in this logical request terminates; normalization only for detection, raw preserved', minimumHttpRemainingMs: Math.min(5000, suite.execution.timeoutMs / 10), deadline: 'initial+review share one logical timeout; each QA has one logical timeout' }, fingerprint: fingerprint(suite), suiteId: suite.id, datasetId: suite.dataset.id, mode, seed: suite.execution.seed, repetitions: suite.execution.repetitions, schemeIds: suite.schemes.map(s => s.id), decisions: suite.dataset.rounds.flatMap(r => r.decisions.map(d => d.id)), backgroundPolicy: suite.execution.backgroundPolicy ?? 'defer', quotaAssumption: suite.execution.backgroundPolicy === 'independent-quota' ? { foreground: suite.execution.foregroundQuotaId, summary: suite.execution.summaryQuotaId, userDeclared: true, providerVerified: false } : null, globalScope: suite.schemes.some(s => s.context.options?.stage === 'global') ? 'explicit selected-round/asOf scoped custom adapter; non-contiguous selected rounds, never whole-match evidence' : 'generic entry is round-bound; selected-round global requires explicit versioned adapter', synthetic: mode === 'mock' }; }
 function planSuite(suite) {
-  const jobs = [], rounds = suite.dataset.rounds, schemes = suite.schemes.filter(s => !s.aliasOf);
+  const jobs = [], rounds = suite.dataset.rounds, schemes = suite.schemes.filter(s => !s.aliasOf && !s.pairedCorrectionOf);
   for (let repeat = 0; repeat < suite.execution.repetitions; repeat++) {
     const max = Math.max(...rounds.map(r => r.decisions.length));
     for (let index = 0; index < max; index++) for (let offset = 0; offset < rounds.length; offset++) {
@@ -46,7 +46,7 @@ function planSuite(suite) {
   }
   return jobs;
 }
-function dryRun(suite) { const schedule = planSuite(suite); return { manifest: manifest(suite, 'dry-run'), network: false, credentialsRead: false, initialRequests: schedule.length, followupRequests: schedule.reduce((n, j) => n + j.node.followups.length, 0), globalRequests: schedule.reduce((n, j) => n + (j.round.globalTasks ?? []).filter(t => t.nodeId === j.node.id).length, 0), reviewRequests: schedule.filter(j => j.scheme.review).length, summaryRequests: 'data dependent; budget includes all roles', schedule: schedule.map(j => ({ repeat: j.repeat, schemeId: j.scheme.id, decisionId: j.node.id, roundId: j.round.id })) }; }
+function dryRun(suite) { const schedule = planSuite(suite); return { manifest: manifest(suite, 'dry-run'), network: false, credentialsRead: false, initialRequests: schedule.length, pairedCorrectionOutputs: schedule.reduce((n, j) => n + suite.schemes.filter(s => s.pairedCorrectionOf === j.scheme.id).length, 0), followupRequests: schedule.reduce((n, j) => n + j.node.followups.length, 0), globalRequests: schedule.reduce((n, j) => n + (j.round.globalTasks ?? []).filter(t => t.nodeId === j.node.id).length, 0), reviewRequests: schedule.filter(j => j.scheme.review).length, summaryRequests: 'data dependent; budget includes all roles', schedule: schedule.map(j => ({ repeat: j.repeat, schemeId: j.scheme.id, decisionId: j.node.id, roundId: j.round.id })) }; }
 function livePreflight(suite) {
   const e = suite.execution;
   if (!Number.isFinite(e.budget.cap) || e.budget.cap <= 0) throw new Error('Live requires explicit positive budget cap');
@@ -58,7 +58,7 @@ function saveAtomic(filename, state, secrets) {
   const temp = filename + '.tmp'; const { localWrite } = require('./durable.cjs'); localWrite(() => { const fd = fs.openSync(temp, 'w', 0o600); try { fs.writeFileSync(fd, JSON.stringify(scrub(state, secrets), null, 2) + '\n'); fs.fsyncSync(fd); } finally { fs.closeSync(fd); } fs.renameSync(temp, filename); });
 }
 function loadCheckpoint(filename) { return JSON.parse(fs.readFileSync(filename, 'utf8')); }
-function mockText(node) { return JSON.stringify({ task: 'combined', danger: [], efficiency: [], decision: { action: 'unknown', tile: node.legalActions[0].tile, reasons: ['纯合成模拟：风险未知，仅用于验证执行流程。'] }, limitations: ['未调用真实模型。'] }); }
+function mockText(node, context) { return JSON.stringify({ task: 'combined', danger: [], efficiency: [], decision: { action: 'unknown', tile: node.legalActions[0].tile, reasons: ['纯合成模拟：风险未知，仅用于验证执行流程。'] }, limitations: ['未调用真实模型。'], ...(context?.prepared?.responseSchema?.properties?.factClaims ? { factClaims: [] } : {}) }); }
 function normalizedInvalidText(text) {
   const value = text.replace(/\r\n/g, '\n').trim().replace(/^```(?:json)?\s*\n([\s\S]*?)\n```$/i, '$1');
   try { return Core.canonicalStringify(JSON.parse(value)); } catch { /* Malformed JSON still gets lexical whitespace normalization. */ }
@@ -70,7 +70,7 @@ function normalizedInvalidText(text) {
   }
   return normalized;
 }
-function validateAnswer(text, context, node) { const answer = Analysis.parseResult(text, context.prepared); if (!node.legalActions.some(a => a.tile === answer.decision.tile)) { const error = new Error('Recommendation outside constrained legalActions'); error.validation = { code: 'constrained_legal_action', path: 'decision.tile' }; throw error; } return answer; }
+function validateAnswer(text, context, node) { const projected = context.validateAnswer ? context.validateAnswer(text, node) : text; const answer = Analysis.parseResult(projected, context.prepared); if (!node.legalActions.some(a => a.tile === answer.decision.tile)) { const error = new Error('Recommendation outside constrained legalActions'); error.validation = { code: 'constrained_legal_action', path: 'decision.tile' }; throw error; } return answer; }
 
 async function runSuite(suite, options = {}) {
   const checkpoint = options.checkpoint ?? path.resolve('research/evidence/benchmark', suite.id, 'checkpoint.json');
@@ -225,7 +225,11 @@ async function runSuiteUnlocked(suite, options = {}) {
     for (const descriptor of jobs) {
       const id = `${key}:${descriptor.id}`;
       if (state.summaries[id]) continue;
-      state.summaries[id] = { ...descriptor, id: descriptor.id, storageId: id, originDecisionId: job.node.id, status: 'deferred', reason: 'foreground-priority' };
+      const coalesceScope = descriptor.coalesceKey ? `${key}:${descriptor.coalesceKey}` : null;
+      if (coalesceScope) for (const [oldId] of deferred) if (state.summaries[oldId]?.coalesceScope === coalesceScope) {
+        deferred.delete(oldId); Object.assign(state.summaries[oldId], { status: 'superseded', reason: 'newer-pending-watermark', supersededBy: descriptor.id });
+      }
+      state.summaries[id] = { ...descriptor, ...(coalesceScope ? { coalesceScope } : {}), id: descriptor.id, storageId: id, originDecisionId: job.node.id, status: 'deferred', reason: 'foreground-priority' };
       deferred.set(id, { descriptor, job });
     }
     pump();
@@ -235,13 +239,18 @@ async function runSuiteUnlocked(suite, options = {}) {
     // quota contract exists, paid summaries yield every foreground request slot.
     const capacity = flush ? Math.max(1, suite.execution.concurrency - 1) : mode === 'live' && !['independent-quota', 'shared-quota'].includes(suite.execution.backgroundPolicy) ? 0 : suite.execution.backgroundPolicy === 'shared-quota' ? Math.min(1, Math.max(0, suite.execution.concurrency - 1)) : Math.max(0, suite.execution.concurrency - 1);
     while (tasks.size < capacity && deferred.size) {
-      const [id, pending] = deferred.entries().next().value; deferred.delete(id);
+      const next = [...deferred.entries()].find(([id]) => !state.summaries[id]?.coalesceScope || !Object.values(state.summaries).some(s => s.status === 'pending' && s.coalesceScope === state.summaries[id].coalesceScope));
+      if (!next) break;
+      const [id, pending] = next; deferred.delete(id);
       const { descriptor: d, job } = pending;
       const task = (async () => {
         state.summaries[id].status = 'pending';
         try {
           const response = await call({ id, role: 'summary', scheme: job.scheme, modelId: job.scheme.summaryModelId ?? job.scheme.modelId, node: job.node, messages: d.messages, text: d.mockText ?? '合成摘要：保留来源时点；历史建议是模型意见，风险未知。' });
-          if (d.outputSchema) require('./discussion-policies.cjs').validateTypedSummary(response.text, d);
+          if (d.contract === 'next-stage-summary/1') {
+            const validation = require('./next-stage-context.cjs').validateSummary(response.text, d);
+            if (!validation?.valid) throw new Error('Invalid bound summary: ' + (validation?.code ?? 'unknown'));
+          } else if (d.outputSchema) require('./discussion-policies.cjs').validateTypedSummary(response.text, d);
           Object.assign(state.summaries[id], { status: state.foregroundComplete ? 'late-unused' : 'ready', text: response.text, reason: state.foregroundComplete ? 'no-remaining-foreground-consumer' : null });
         } catch { Object.assign(state.summaries[id], { status: 'discarded', reason: ledger.snapshot().unknownLiability ? 'unknown-liability' : 'request-failed' }); }
         persist('summary-final');
@@ -251,8 +260,73 @@ async function runSuiteUnlocked(suite, options = {}) {
   }
   function summariesFor(key) { return Object.entries(state.summaries).filter(([id, s]) => id.startsWith(key + ':') && s.status === 'ready').map(([, s]) => s); }
   function contextFor(job, key, extra = {}) { return builders.get(job.scheme.id)({ scheme: job.scheme, node: job.node, events: job.round.events, history: state.histories[key] ?? [], summary: summariesFor(key), channel: 'realtime', ...extra }); }
+  async function pairedCorrections(job, original, began) {
+    const { node, repeat } = job, sourceKey = historyKey(repeat, job.scheme.id), sourceId = `${sourceKey}:${component(node.id)}:main`;
+    for (const scheme of suite.schemes.filter(s => s.pairedCorrectionOf === job.scheme.id)) {
+      const key = historyKey(repeat, scheme.id), id = `${key}:${component(node.id)}:main`;
+      if (done.has(id)) continue;
+      const shared = { id, repeat, schemeId: scheme.id, decisionId: node.id, roundId: node.roundId, channel: 'main', statisticalRole: 'paired-correction-not-independent-draft', sharedDraftRequestId: sourceId, sharedDraftSchemeId: job.scheme.id };
+      let paired;
+      if (original.status !== 'success' || !state.requests[sourceId]?.response?.text) {
+        paired = { ...shared, status: 'blocked', reason: 'shared-draft-unavailable', correctionTriggered: false, latencyMs: original.latencyMs ?? 0 };
+      } else {
+        let triggered = false, before;
+        try {
+          const sourceFrozen = state.frozen[sourceId];
+          const context = contextFor({ ...job, scheme }, sourceKey, { history: sourceFrozen?.history ?? [], summary: sourceFrozen?.summary ?? [] });
+          if (!context.inspectAnswer || !context.correctionFeedback) throw new Error('Paired correction requires a typed frozen evidence contract');
+          const draftText = state.requests[sourceId].response.text;
+          before = context.inspectAnswer(draftText);
+          const feedback = context.correctionFeedback(draftText);
+          triggered = feedback.shouldCorrect === true;
+          const sourceRequest = state.requests[sourceId];
+          const deadlineWallAt = sourceRequest.deadlineWallAt ?? Date.parse(sourceRequest.submittedAt) + suite.execution.timeoutMs;
+          const deadlineAt = Math.min(began + suite.execution.timeoutMs, performance.now() + Math.max(0, deadlineWallAt - Date.now()));
+          let finalText = draftText, validation = original.validation, response;
+          if (triggered) {
+            const message = typeof feedback.message === 'string' ? { role: 'user', content: feedback.message } : feedback.message;
+            if (message?.role !== 'user' || typeof message.content !== 'string' || !message.content) throw new Error('Correction requires grounded feedback');
+            response = await call({ id, role: 'evidence-correction', scheme, modelId: scheme.modelId, context, node, messages: [...context.messages, { role: 'assistant', content: draftText }, message], analysisJson: true, text: draftText, deadlineAt });
+            finalText = response.text; validation = response.validation;
+          } else {
+            // A zero-dispatch projection remains independently reviewable but never
+            // creates a second transport/usage record for the shared draft.
+            state.requests[id] = { status: 'success', role: 'evidence-correction', schemeId: scheme.id, decisionId: node.id, modelId: scheme.modelId, channel: 'realtime', repeat, sourceRequestId: sourceId, dispatchedModelRequests: 0, modelRequests: 0, toolCalls: 0, submittedAt: sourceRequest.submittedAt, deadlineWallAt,
+              frozenInput: scrub({ messages: context.messages, prepared: context.prepared, events: context.events, snapshot: context.snapshot, node, analysisJson: true }, secrets), response: { text: draftText, latencyMs: 0, sharedDraft: true } };
+          }
+          const answer = validateAnswer(finalText, context, node), after = context.inspectAnswer(finalText);
+          const baseCost = state.requests[sourceId].response.cost ?? null, incrementCost = triggered ? response.cost ?? null : 0;
+          paired = { ...shared, status: 'success', answer, text: finalText, correctionTriggered: triggered, validation, draftValidation: original.validation, factInspection: after, draftFactInspection: before,
+            latencyMs: Math.max(performance.now() - began, (original.latencyMs ?? 0) + (response?.latencyMs ?? 0)), correctionLatencyMs: response?.latencyMs ?? 0,
+            costAttribution: { sharedDraftRequestId: sourceId, actualSharedDraftBilledOnce: true, incrementalRequestId: triggered ? id : null, sharedDraftUsageEstimate: baseCost, incrementalUsageEstimate: incrementCost, standaloneUsageEstimate: baseCost === null || incrementCost === null ? null : baseCost + incrementCost, standaloneEstimateRequiresSharedDraftCost: true }, sourceDecisionIds: context.sourceDecisionIds, compression: context.compression };
+        } catch {
+          paired = { ...shared, status: 'failed', error: 'Evidence correction failed; original draft is retained', correctionTriggered: triggered, ...(before ? { draftFactInspection: before } : {}), latencyMs: Math.max(original.latencyMs ?? 0, performance.now() - began) };
+        }
+      }
+      const requestCost = requestId => {
+        const request = state.requests[requestId];
+        if (!request) return null;
+        if (request.response) return request.response.cost ?? null;
+        const attempts = request.attempts ?? [];
+        return attempts.some(a => a.cost === null || a.cost === undefined) ? null : attempts.length ? attempts.reduce((n, a) => n + a.cost, 0) : request.dispatchedModelRequests > 0 ? null : 0;
+      };
+      const baseCost = requestCost(sourceId), incrementCost = paired.correctionTriggered ? requestCost(id) : 0;
+      paired.costAttribution = { sharedDraftRequestId: sourceId, actualSharedDraftBilledOnce: true, incrementalRequestId: paired.correctionTriggered ? id : null, sharedDraftUsageEstimate: baseCost, incrementalUsageEstimate: incrementCost, standaloneUsageEstimate: baseCost === null || incrementCost === null ? null : baseCost + incrementCost, standaloneEstimateRequiresSharedDraftCost: true };
+      if (state.requests[sourceId]?.recoveryOutsideDeadline || state.requests[id]?.recoveryOutsideDeadline) {
+        paired.recoveryOutsideDeadline = true;
+        paired.statisticalRole = 'recovered-delivery-outside-original-realtime-deadline';
+        if (state.requests[id]) state.requests[id].recoveryOutsideDeadline = true;
+      }
+      state.results.push(paired); done.set(id, paired); persist('paired-correction-final');
+    }
+  }
   if (prior) for (const [id, summary] of Object.entries(state.summaries)) {
-    if (summary.status === 'pending' && state.requests[id]?.status === 'success') { summary.text = state.requests[id].response.text; summary.status = 'ready'; }
+    if (summary.status === 'pending' && state.requests[id]?.status === 'success') {
+      summary.text = state.requests[id].response.text;
+      const validation = summary.contract === 'next-stage-summary/1' ? require('./next-stage-context.cjs').validateSummary(summary.text, summary) : null;
+      if (validation && !validation.valid) { summary.status = 'discarded'; summary.reason = 'invalid-summary-on-recovery'; }
+      else { summary.status = 'ready'; }
+    }
     if (summary.status === 'deferred' || runtime && summary.status === 'pending') {
       const job = planSuite(suite).find(j => id.startsWith(historyKey(j.repeat, j.scheme.id) + ':') && j.node.id === summary.originDecisionId && j.node.roundId === summary.scope.roundId);
       if (job) deferred.set(id, { descriptor: summary, job });
@@ -283,7 +357,7 @@ async function runSuiteUnlocked(suite, options = {}) {
         for (const [summaryId, summary] of Object.entries(state.summaries)) if (summaryId.startsWith(key + ':') && summary.status === 'ready' && sourceMessages.includes(summary.sourceHash)) summary.consumedBy = [...new Set([...(summary.consumedBy ?? []), id])];
         const sourceAnswer = options.fixedMainAnswers?.[node.id];
         if (context.requireFixedMainSource && !sourceAnswer) throw new Error('This controlled stage requires the fixed actual shared original answer, not a new main generation');
-        const response = sourceAnswer ? { text: typeof sourceAnswer === 'string' ? sourceAnswer : JSON.stringify(sourceAnswer), latencyMs: 0, sourceFixture: true } : await call({ id, role: repeat ? 'repeat' : 'initial', scheme, modelId: scheme.modelId, context, node, text: mockText(node), analysisJson: true, deadlineAt: began + suite.execution.timeoutMs });
+        const response = sourceAnswer ? { text: typeof sourceAnswer === 'string' ? sourceAnswer : JSON.stringify(sourceAnswer), latencyMs: 0, sourceFixture: true } : await call({ id, role: repeat ? 'repeat' : 'initial', scheme, modelId: scheme.modelId, context, node, text: mockText(node, context), analysisJson: true, deadlineAt: began + suite.execution.timeoutMs });
         let validation = response.validation, answer = validateAnswer(response.text, context, node), finalAnswerText = response.text, requestLatency = response.latencyMs ?? 0;
         if (scheme.review) {
           const review = await call({ id: id + ':review', role: 'review', scheme, modelId: scheme.modelId, context, node, messages: [...context.messages, { role: 'user', content: '独立复核以下有来源的草案；仅用本次冻结事实与工具重新判断，可保留或修改，输出完整JSON：\n' + JSON.stringify({ draft: answer, sourceDecisionId: node.id, sourcePosition: node.position, sourceSnapshotHash: Core.stableHash(node.snapshot), meaning: 'unverified model draft; not fact' }) }], text: mockText(node), analysisJson: true, deadlineAt: began + suite.execution.timeoutMs });
@@ -292,13 +366,14 @@ async function runSuiteUnlocked(suite, options = {}) {
           finalAnswerText = review.text;
           requestLatency += review.latencyMs ?? 0;
         }
-        result = { id, repeat, schemeId: scheme.id, decisionId: node.id, roundId: node.roundId, channel: 'main', status: 'success', answer, ...(validation ? { validation } : {}), latencyMs: Math.max(performance.now() - began, requestLatency), ...(sourceAnswer ? { statisticalRole: 'frozen-source-fixture-not-new-model-result', sourceFixture: true } : {}), compression: context.compression, sourceDecisionIds: context.sourceDecisionIds };
+        result = { id, repeat, schemeId: scheme.id, decisionId: node.id, roundId: node.roundId, channel: 'main', status: 'success', answer, ...(validation ? { validation } : {}), ...(context.inspectAnswer ? { factInspection: context.inspectAnswer(finalAnswerText), text: finalAnswerText } : {}), latencyMs: Math.max(performance.now() - began, requestLatency), ...(sourceAnswer ? { statisticalRole: 'frozen-source-fixture-not-new-model-result', sourceFixture: true } : {}), compression: context.compression, sourceDecisionIds: context.sourceDecisionIds };
         state.histories[key] ??= [];
         state.histories[key].push((runtime ? freezeTree : x => x)({ decisionId: node.id, position: node.position, roundId: node.roundId, sessionId: node.sessionId, authorization: node.authorization, snapshot: node.snapshot, answer, request: context.messages.filter(m => m.role === 'user').at(-1).content, answerText: finalAnswerText, ...(context.historyPolicy ? { historyPolicy: context.historyPolicy } : {}) }));
         state.frozen[id].answer = answer;
       } catch { result = { id, repeat, schemeId: scheme.id, decisionId: node.id, roundId: node.roundId, channel: 'main', status: 'failed', error: 'Request or final validation failed', validation: { initial: state.requests[id]?.validation ?? null, review: state.requests[id + ':review']?.validation ?? null }, latencyMs: performance.now() - began }; }
       state.results.push(result); done.set(id, result); persist('decision-final');
     }
+    await pairedCorrections(job, result, began);
     if (result.status !== 'success') {
       const blocked = node.followups.map(q => ({ ...q, channel: 'branch' }));
       for (const q of blocked) { const qid = `${key}:${component(node.id)}:${q.channel}:${component(q.id)}`; if (!done.has(qid)) { const row = { id: qid, repeat, schemeId: scheme.id, decisionId: node.id, questionId: q.id, channel: q.channel, status: 'blocked', reason: 'main-answer-unavailable' }; state.results.push(row); done.set(qid, row); } }
