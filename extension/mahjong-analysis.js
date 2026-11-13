@@ -152,7 +152,8 @@
         const canDiscard = fourteen && riichiAllowed;
         const candidates = canDiscard ? [...new Set(hand)].filter(t => own.riichi !== true || t === s.selfDrawnTile).map(t => { const i = index(t); c[i]--; const result = entry(t); c[i]++; return result; }) : [];
         efficiency = { status: 'available', reasons: own.riichi === true && !riichiAllowed ? ['已立直且摸牌未知，无法给出合法弃牌候选'] : [], handSize: hand.length, meldCount: melds, shanten: value, canDiscard,
-          mathDefinition: '普通型、七对子、国士的标准形状向听；零向听额外验证合法和牌进张，排除自家持满四枚的死等待。高向听未做全部后续摸打路径可达性搜索。外部已见耗尽不改变形状向听。',
+          mathDefinition: '普通型、七对子、国士的标准形状向听；零向听仅验证牌形完成及牌张数量可行性，排除自家持满四枚的死等待。不核验役种、振听或计分，形状完成进张不等于已确认可以和牌；宝牌不能单独成役。高向听未做全部后续摸打路径可达性搜索。外部已见耗尽不改变形状向听。',
+          completionValidation: { shape: true, yaku: false, furiten: false, scoring: false },
           candidates, current: fourteen ? null : entry(null), visibleTiles };
       }
     }

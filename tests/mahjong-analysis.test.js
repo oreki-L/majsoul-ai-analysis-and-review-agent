@@ -14,6 +14,20 @@ test('ordinary winning hand and single east wait are exact', () => {
   assert.equal(e.shanten, 0); assert.equal(e.canDiscard, false); assert.deepEqual(e.candidates, []);
   assert.deepEqual(e.current.effectiveTiles, [{ tile: '2z', unseenUpperBound: 3 }]);
 });
+
+test('shape-completion evidence explicitly leaves yaku, furiten and scoring unverified', () => {
+  const s = snapshot('135m123p123s22z');
+  s.game.players[0].melds = [{ type: 0, tiles: tiles('304s'), froms: [0, 0, 3] }];
+  const e = M.analyze(s).efficiency;
+  assert.equal(e.status, 'available');
+  const discard1 = e.candidates.find(c => c.tile === '1m'), discard5 = e.candidates.find(c => c.tile === '5m');
+  assert.equal(discard1.shanten, 0); assert.equal(discard5.shanten, 0);
+  assert.deepEqual(discard1.effectiveTiles, [{tile:'4m',unseenUpperBound:4}]);
+  assert.deepEqual(discard5.effectiveTiles, [{tile:'2m',unseenUpperBound:4}]);
+  assert.deepEqual(e.completionValidation, {shape:true,yaku:false,furiten:false,scoring:false});
+  assert.match(e.mathDefinition, /不核验役种、振听或计分/);
+  assert.doesNotMatch(e.mathDefinition, /额外验证合法和牌进张/);
+});
 test('seven pairs and thirteen orphans include unique-kind correction', () => {
   assert.equal(M.shanten(tiles('1122m3344p5566s7z')), 0);
   assert.equal(M.shanten(tiles('1122m3344p5566s77z')), -1);
