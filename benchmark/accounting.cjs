@@ -179,23 +179,32 @@ function createSharedLedger({ filename, cap, currency, trustedLiabilityContracts
   if (typeof filename !== 'string' || !filename || !Number.isFinite(cap) || cap <= 0 || typeof currency !== 'string' || !currency) throw new Error('Shared ledger requires filename, positive cap and currency');
   const target = path.resolve(filename), lock = target + '.lock', token = crypto.randomUUID();
   fs.mkdirSync(path.dirname(target), { recursive: true });
-  const durable = autonomous ? require('./durable.cjs') : null;
-  const durableRelease = durable ? durable.acquireLock(lock, true) : null;
-  let budgetLog; try { budgetLog = durable ? durable.journal(target + '.events.jsonl') : null; } catch (error) { durableRelease?.(); throw error; }
-  let descriptor;
-  if (!durable) try { descriptor = fs.openSync(lock, 'wx', 0o600); fs.writeFileSync(descriptor, token); fs.closeSync(descriptor); descriptor = null; }
-  catch { if (descriptor !== undefined && descriptor !== null) fs.closeSync(descriptor); const safe = new Error('Shared campaign budget is locked'); safe.code = 'BENCHMARK_BUDGET_LOCKED'; throw safe; }
+  // Shared accounting must not change persistence protocols with the caller's mode.
+  // Keep accepting autonomous for existing callers; all writers now use the same log/lock.
+  const durable = require('./durable.cjs'); let durableRelease;
+  try { durableRelease = durable.acquireLock(lock, true); }
+  catch (cause) { const error = new Error('Shared campaign budget is locked: ' + cause.message, { cause }); error.code = 'BENCHMARK_BUDGET_LOCKED'; throw error; }
+  let budgetLog; try { budgetLog = durable.journal(target + '.events.jsonl'); } catch (error) { durableRelease(); throw error; }
+  const lockOwner = fs.readFileSync(lock, 'utf8');
   let closed = false;
-  function close() { if (closed) return; closed = true; if (durableRelease) { durableRelease(); return; } if (fs.existsSync(lock) && fs.readFileSync(lock, 'utf8') === token) fs.unlinkSync(lock); }
+  function close() { if (closed) return; closed = true; durableRelease(); }
   try {
-    const initial = budgetLog?.latestBudget() ?? (fs.existsSync(target) ? JSON.parse(fs.readFileSync(target, 'utf8')) : null);
-    if (initial && (initial.cap !== cap || initial.currency !== currency)) throw new Error('Shared campaign budget cap or currency mismatch');
-    if (initial && (!Number.isFinite(initial.estimatedCost) || initial.estimatedCost < 0 || !Number.isFinite(initial.reserved) || initial.reserved < 0 || typeof initial.unknownLiability !== 'boolean' || !Array.isArray(initial.records))) throw new Error('Shared campaign budget state is invalid');
+    const logged = budgetLog.latestBudget(), saved = fs.existsSync(target) ? JSON.parse(fs.readFileSync(target, 'utf8')) : null;
+    for (const state of [logged, saved]) {
+      if (state && (state.cap !== cap || state.currency !== currency)) throw new Error('Shared campaign budget cap or currency mismatch');
+      if (state && (!Number.isFinite(state.estimatedCost) || state.estimatedCost < 0 || !Number.isFinite(state.reserved) || state.reserved < 0 || typeof state.unknownLiability !== 'boolean' || !Array.isArray(state.records))) throw new Error('Shared campaign budget state is invalid');
+    }
+    if (logged && saved && require('./core.cjs').stableHash(logged) !== require('./core.cjs').stableHash(saved)) {
+      const error = new Error('Shared campaign budget snapshot/journal divergence; audited recovery required');
+      error.code = 'BENCHMARK_BUDGET_DIVERGENCE'; throw error;
+    }
+    // A legacy snapshot without a journal is imported once; never guess between branches.
+    const initial = logged ?? saved;
     const ledger = createLedger({ cap, currency, initial, trustedLiabilityContracts });
     function save() {
-      if (closed || !durable && fs.readFileSync(lock, 'utf8') !== token) throw new Error('Shared campaign budget lock lost');
+      if (closed || fs.readFileSync(lock, 'utf8') !== lockOwner) throw new Error('Shared campaign budget lock lost');
       const temporary = target + '.' + token + '.tmp';
-      try { budgetLog?.write('budget', { snapshot: ledger.snapshot() }); const write = () => { const fd = fs.openSync(temporary, 'w', 0o600); try { fs.writeFileSync(fd, JSON.stringify(ledger.snapshot(), null, 2) + '\n'); fs.fsyncSync(fd); } finally { fs.closeSync(fd); } fs.renameSync(temporary, target); }; if (durable) durable.localWrite(write); else write(); }
+      try { const snapshot = ledger.snapshot(); budgetLog.write('budget', { snapshot }); durable.localWrite(() => { const fd = fs.openSync(temporary, 'w', 0o600); try { fs.writeFileSync(fd, JSON.stringify(snapshot, null, 2) + '\n'); fs.fsyncSync(fd); } finally { fs.closeSync(fd); } fs.renameSync(temporary, target); }); }
       catch { ledger.block(); throw new Error('Shared campaign budget persistence failed'); }
     }
     const clearBase = ledger.clearPersistenceBlock; ledger.clearPersistenceBlock = () => { clearBase(); save(); };
