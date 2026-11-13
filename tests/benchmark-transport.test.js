@@ -166,8 +166,10 @@ test('reservation balances derive from outstanding obligations and never absorb 
   assert.equal(pending.snapshot().reserved, 0); assert.equal(pending.snapshot().reservationCount, 1); pending.close();
   const unresolved = createSharedLedger({ filename, cap: 50, currency: 'CNY' }); assert.equal(unresolved.snapshot().unknownLiability, true); assert.equal(unresolved.snapshot().reservationCount, 1);
   assert.throws(() => unresolved.reserve({ inputTokens: 1, maxOutputTokens: 1, rates }), /liability/); unresolved.close();
-  fs.writeFileSync(filename, JSON.stringify({ ...completed, reserved: 1e-16, reservationCount: 1 }));
-  const tinyDebt = createSharedLedger({ filename, cap: 50, currency: 'CNY' }); assert.equal(tinyDebt.snapshot().reserved, 1e-16); assert.equal(tinyDebt.snapshot().unknownLiability, true); tinyDebt.close();
+  // Legacy import has no journal; overwriting a journal-backed snapshot is now a rejected fork.
+  const tinyFilename = path.join(folder, 'legacy-tiny-debt.json');
+  fs.writeFileSync(tinyFilename, JSON.stringify({ ...completed, reserved: 1e-16, reservationCount: 1 }));
+  const tinyDebt = createSharedLedger({ filename: tinyFilename, cap: 50, currency: 'CNY' }); assert.equal(tinyDebt.snapshot().reserved, 1e-16); assert.equal(tinyDebt.snapshot().unknownLiability, true); tinyDebt.close();
 });
 
 test('group-array credentials resolve exact id and DeepSeek thinking is explicit in wire body', async t => {
