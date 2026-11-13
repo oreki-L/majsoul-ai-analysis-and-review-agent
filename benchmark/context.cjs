@@ -197,10 +197,21 @@ function loadContextBuilder(scheme, { baseDir = process.cwd() } = {}) {
     const scopedInput = { scheme: { ...input.scheme, context: { ...spec } }, node: safeNode, events: baseline.events, snapshot: baseline.snapshot, prepared: baseline.prepared,
       channel: input.channel ?? 'realtime', question: input.question ?? null, originalAnswer: input.originalAnswer ?? null,
       branchHistory: input.branchHistory ?? [], globalHistory: input.globalHistory ?? [], history: scopedHistory, summary: input.summary ?? [], baseline, options: spec.options };
+    const bindingFields = ['source', 'phase', 'selfSeat', 'lastStep', 'authorization'];
+    const expectedBinding = Object.fromEntries(bindingFields.map(field => [field, stableHash(baseline.prepared.data[field] ?? null)]));
+    const expectedTask = baseline.prepared.task;
     const output = mod.buildContext(scopedInput);
     if (output?.then) error('custom builder must be synchronous');
     if (!output || !Array.isArray(output.messages) || !output.messages.length || output.messages.some(m => !['system', 'user', 'assistant'].includes(m.role) || typeof m.content !== 'string')) error('custom builder must return text messages');
-    return { ...baseline, ...output, snapshot: baseline.snapshot, events: baseline.events, prepared: baseline.prepared };
+    // A frozen trusted adapter may preserve a historical preparation contract or
+    // extend its output schema. It must still describe this exact authorized node.
+    const prepared = output.prepared ?? baseline.prepared;
+    if (prepared?.task !== expectedTask || !prepared.responseSchema || typeof prepared.systemPrompt !== 'string' || !prepared.data) error('invalid custom preparation');
+    for (const field of bindingFields) if (stableHash(prepared.data[field] ?? null) !== expectedBinding[field]) error('custom preparation state or authorization mismatch');
+    const actual = prepared.data.outputConstraints?.legalDiscards;
+    if (!Array.isArray(actual) || stableHash([...actual].sort()) !== stableHash(safeNode.legalActions.map(a => a.tile).sort())) error('custom preparation legal actions mismatch');
+    for (const hook of ['validateAnswer', 'inspectAnswer', 'correctionFeedback']) if (output[hook] !== undefined && typeof output[hook] !== 'function') error('invalid answer contract hook');
+    return { ...baseline, ...output, snapshot: baseline.snapshot, events: baseline.events, prepared };
   };
 }
 module.exports = { buildContext, loadContextBuilder, compactSnapshot, extractSnapshot, codeSnapshot, cutoffEvents, SYSTEM, ANALYSIS_JSON_CONTRACT };

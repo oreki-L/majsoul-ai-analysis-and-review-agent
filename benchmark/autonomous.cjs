@@ -13,7 +13,7 @@ async function executeFrozen(output, options = {}) {
   const suite = compileSuite(path.join(output, 'bundle', contract.suite)), checkpoint = path.join(output, 'checkpoint.json');
   const execution = JSON.parse(fs.readFileSync(path.join(output, 'bundle', 'execution.json'), 'utf8'));
   if (execution.mode && execution.mode !== options.mode) throw new Error('Frozen mode mismatch');
-  const queue = createReviewQueue(output, contract.hash, contract.reviewRules ? JSON.parse(fs.readFileSync(path.join(output, contract.reviewRules.path), 'utf8')) : undefined);
+  const queue = createReviewQueue(output, contract.hash, contract.reviewRules ? JSON.parse(fs.readFileSync(path.join(output, contract.reviewRules.path), 'utf8')) : undefined, { dataset: suite.dataset });
   const runner = require(path.join(output, 'bundle', 'benchmark', 'runner.cjs'));
   const state = await runner.runSuite(suite, { ...options, authorization: execution.authorization, budgetFile: execution.budgetFile, mode: options.mode ?? 'mock', checkpoint, resume: fs.existsSync(checkpoint) || fs.existsSync(path.join(output, 'events.jsonl')), autonomousPolicy: { ...contract.policy, policyHash: stableHash(contract.policy) }, onProgress: run => queue.sync(run) });
   try { queue.sync(state); } catch { state.reviewExportPending = true; } await refresh(output, state, queue);
@@ -24,7 +24,7 @@ async function refresh(output, state = null, queue = null, labels = null) {
   if (path.resolve(__dirname) !== path.resolve(output, 'bundle', 'benchmark')) return require(path.join(output, 'bundle', 'benchmark', 'autonomous.cjs')).refresh(output, state, null, labels);
   state ??= journal(path.join(output, 'events.jsonl')).latestState();
   if (!state) throw new Error('No durable execution snapshot');
-  queue ??= createReviewQueue(output, contract.hash, contract.reviewRules ? JSON.parse(fs.readFileSync(path.join(output, contract.reviewRules.path), 'utf8')) : undefined); try { queue.sync(state); } catch { state.reviewExportPending = true; }
+  queue ??= createReviewQueue(output, contract.hash, contract.reviewRules ? JSON.parse(fs.readFileSync(path.join(output, contract.reviewRules.path), 'utf8')) : undefined, { dataset: compileSuite(path.join(output, 'bundle', contract.suite)).dataset }); try { queue.sync(state); } catch { state.reviewExportPending = true; }
   const { createReport, writeReport } = require('./report.cjs');
   labels ??= contract.evaluation ? JSON.parse(fs.readFileSync(path.join(output, contract.evaluation.path), 'utf8')) : null;
   const score = labels ? require('./scoring.cjs').scoreRun(state, labels) : null;

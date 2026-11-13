@@ -10,7 +10,7 @@ function validateReviewRules(rules) {
   if (!rules || !Number.isSafeInteger(rules.version) || rules.version < 1 || typeof rules.requiredModel !== 'string' || !rules.requiredModel || typeof rules.reasoningEffort !== 'string' || !Array.isArray(rules.dimensions) || rules.dimensions.length !== DIMENSIONS.length || rules.dimensions.some((d, i) => d !== DIMENSIONS[i]) || rules.minimum !== 0 || rules.maximum !== 4 || DIMENSIONS.some(d => typeof rules.semantics?.[d] !== 'string' || !rules.semantics[d]) || typeof rules.citations !== 'string') throw new Error('Invalid frozen six-dimension review rules');
   return rules;
 }
-function createReviewQueue(output, contractHash, rules = RULES) {
+function createReviewQueue(output, contractHash, rules = RULES, options = {}) {
   validateReviewRules(rules);
   const directory = path.join(output, 'review'), log = journal(path.join(directory, 'queue.jsonl')), jobs = new Map();
   for (const event of log.events) if (event.kind === 'job') jobs.set(event.payload.resultId, event.payload);
@@ -23,7 +23,10 @@ function createReviewQueue(output, contractHash, rules = RULES) {
       const request = run.requests[result.id], input = request?.frozenInput;
       if (!input) continue;
       const blindId = crypto.randomUUID(), answer = request.response?.text ?? result.text ?? JSON.stringify(result.answer);
-      const packet = { schemaVersion: 1, blindId, rules, answer, facts: { snapshot: input.node.snapshot, legalActions: input.node.legalActions, asOf: input.node.position, decisionContext: input.node.decisionContext, messages: input.messages.map(m => ({ role: m.role, content: m.content })) } };
+      const facts = rules.contractVersion === 'first-answer/1.0.1'
+        ? require('./next-stage-review.cjs').buildBlindFacts(input, run, options)
+        : { snapshot: input.node.snapshot, legalActions: input.node.legalActions, asOf: input.node.position, decisionContext: input.node.decisionContext, messages: input.messages.map(m => ({ role: m.role, content: m.content })) };
+      const packet = { schemaVersion: 1, blindId, rules, answer, facts };
       // Scheme metadata is absent from builders' normal messages; reject explicit metadata
       // rather than trying to guess/redact a free-text scheme name inside a factual tile.
       const text = JSON.stringify(packet);
@@ -34,6 +37,7 @@ function createReviewQueue(output, contractHash, rules = RULES) {
     }
   }
   function validate(job, result) {
+    if (rules.contractVersion === 'first-answer/1.0.1') return require('./next-stage-review.cjs').validateReviewResult(job, result);
     if (result.blindId !== job.blindId || result.sourceHash !== job.sourceHash || result.rulesHash !== job.rulesHash || result.model !== job.packet.rules.requiredModel || result.reasoningEffort !== job.packet.rules.reasoningEffort) throw new Error('Review identity, source hash, rubric or model mismatch');
     if (!result.scores || Object.keys(result.scores).length !== DIMENSIONS.length || DIMENSIONS.some(d => !Number.isFinite(result.scores[d]) || result.scores[d] < 0 || result.scores[d] > 4)) throw new Error('Review must score all six dimensions within 0..4');
     if (!Array.isArray(result.citations) || !result.citations.length || result.citations.some(c => !['answer', 'facts'].includes(c.target) || typeof c.quote !== 'string' || !c.quote.length || !(c.target === 'answer' ? job.packet.answer : JSON.stringify(job.packet.facts)).includes(c.quote))) throw new Error('Review citation is missing or not in this blind source');
