@@ -1,6 +1,7 @@
 /* Runs only in the extension service worker. History never shares the model settings key. */
 'use strict';
 let historyWrites = Promise.resolve();
+let historyCommitObserver;
 chrome.runtime.onMessage.addListener((message, sender, respond) => {
   if (!['history:load', 'history:save'].includes(message?.type)) return;
   let game = false;
@@ -11,7 +12,11 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
     if (message.type === 'history:load') return { ok: true, matches: roundHistoryV1 };
     if (typeof message.match !== 'object' || JSON.stringify(message.match).length > 1000000) throw new Error('整场记录过大');
     const matches = MJHistory.merge(roundHistoryV1, message.match);
-    await chrome.storage.local.set({ roundHistoryV1: matches });
+    const normalized = matches.find(match => match.id === message.match.id);
+    if (historyCommitObserver && Number.isSafeInteger(message.matchStart) && normalized &&
+        !roundHistoryV1.some(match => match.id === normalized.id && match.closed)) {
+      await historyCommitObserver(matches, normalized, message.matchStart, sender);
+    } else await chrome.storage.local.set({ roundHistoryV1: matches });
     return { ok: true, matches };
   };
   const operation = historyWrites.then(work);

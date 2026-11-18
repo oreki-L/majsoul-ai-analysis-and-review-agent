@@ -52,6 +52,64 @@ test('restored MJStart with a different opening does not merge unrelated matches
   await c.flush();
 });
 
+function observeMatch() {
+  const writes = [];
+  const controller = make({ observeMatchEnd: true, storage: {
+    load: async () => [], save: async (match, _matches, matchStart) => { writes.push({ match, matchStart }); }
+  } });
+  const emit = event => send(controller, { source: 'live', socketId: 1, ...event });
+  return { controller, writes, emit };
+}
+
+for (const playerCount of [3, 4]) {
+  test(`complete ${playerCount}-player match supplies its start only at the first terminal write`, async () => {
+    const { controller, writes, emit } = observeMatch();
+    const scores = Array(playerCount).fill(playerCount === 3 ? 35000 : 25000);
+    await controller.ready;
+    if (playerCount === 3) emit({ kind: 'MJStart', step: 0 });
+    for (let round = 0; round < playerCount; round++) {
+      const step = playerCount === 3 ? round * 2 : 0;
+      emit(opening('live', { round, scores, step }));
+      const gameEnded = round === playerCount - 1;
+      const result = { kind: gameEnded && playerCount === 4 ? 'Hule' : 'NoTile', step: step + 1, scores, gameEnded };
+      emit(result);
+      await controller.flush();
+      assert.equal(writes.at(-1).match.rounds.length, round + 1);
+      assert.equal(writes.at(-1).match.closed, gameEnded);
+      assert.equal(writes.at(-1).matchStart, gameEnded ? writes[0].match.startedAt : undefined);
+      if (gameEnded) emit(result);
+    }
+    await controller.flush();
+    assert.deepEqual(writes.filter(write => write.matchStart !== undefined).map(write => write.match.rounds.length), [playerCount]);
+  });
+}
+
+test('restoration, disconnection and missing actions permanently disqualify the current match', async t => {
+  for (const scenario of ['restored opening', 'same-socket restore', 'disconnect', 'action gap', 'opening step gap', 'missing round']) {
+    await t.test(scenario, async () => {
+      const { controller, writes, emit } = observeMatch();
+      const scores = [25000,25000,25000,25000];
+      await controller.ready;
+      emit(opening('live', scenario === 'restored opening' ? { restored: true } : {}));
+      if (scenario === 'disconnect') controller.receive({ type: 'connection', payload: { socketId: 1, state: 'closed' } });
+      else if (scenario === 'same-socket restore') emit({ kind: 'DealTile', seat: 1, tile: '1m', step: 1, restored: true });
+      emit({ kind: 'NoTile', step: ['same-socket restore', 'action gap'].includes(scenario) ? 2 : 1, scores });
+      const nextRound = scenario === 'missing round' ? 2 : 1;
+      const openingStep = scenario === 'opening step gap' ? 3 : 0;
+      const socketId = scenario === 'disconnect' ? 2 : 1;
+      emit(opening('live', { round: nextRound, step: openingStep, socketId }));
+      emit({ kind: 'NoTile', step: openingStep + 1, scores, socketId });
+      emit(opening('live', { round: nextRound + 1, socketId }));
+      assert.equal(controller.getView().live.turnProgress.status, 'known');
+      emit({ kind: 'NoTile', step: 1, scores, gameEnded: true, socketId });
+      await controller.flush();
+      assert.equal(writes.at(-1).match.closed, true);
+      assert.deepEqual(writes.at(-1).match.rounds.map(round => round.key), [`0:0:0`, `0:${nextRound}:0`, `0:${nextRound + 1}:0`]);
+      assert.ok(writes.every(write => write.matchStart === undefined));
+    });
+  }
+});
+
 test('new socket recovery ignores old socket actions and late close', async () => {
   const c = make();
   send(c, opening('live', { socketId: 1 }));

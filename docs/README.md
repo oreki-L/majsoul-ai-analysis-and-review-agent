@@ -53,6 +53,7 @@
 | [社区 Mortal v4](guides/MORTAL_V4.md) | 两个社区 v4 的固定来源、范围与开发命令；通用管理操作以上一篇为准 |
 | [可选 mjai 本地引擎](guides/MJAI.md) | 自备引擎 HTTP／mjai 接入、动作与解释合同；保留固定 v2 旧命令路径 |
 | [可选 NAGA 导出](guides/NAGA-INTEGRATION.md) | 本地转换、规则确认及用户自行提交 |
+| [可选聊天模块](guides/CHAT_INTEGRATIONS.md) | 独立聊天版的渠道配置、手动赛后分享及整场结算订阅 |
 
 ## 开发与维护
 

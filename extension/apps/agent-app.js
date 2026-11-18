@@ -3,14 +3,15 @@
   const scriptUrl = typeof document !== 'undefined' ? document.currentScript?.src : '';
   function start() {
     if (document.getElementById('mj-agent-host') || document.getElementById('mj-observer-host')) return null;
-    const ports = root.MJCollectorBrowser.create({ window: root.window, scriptUrl: scriptUrl });
-    const controller = root.MJCollectorController.create(ports);
+    const observeMatchEnd = root.majsoulAddon?.observeMatchEnd === true;
+    const ports = root.MJCollectorBrowser.create({ window: root.window, scriptUrl: scriptUrl, observeMatchEnd });
+    const controller = root.MJCollectorController.create({ ...ports, observeMatchEnd });
     const hints = root.MJHandHints.create({ onCalibrationChange(state) {
       analysis.render();
       if (!state.editing) document.getElementById('mj-agent-host')?.shadowRoot?.querySelector('#analysis-calibrate')?.focus({ preventScroll: true });
     } });
     let memoryAdvice = null;
-    const hintHooks = { onHints: value => {
+    const panelHooks = { ...root.majsoulAddon, onHints: value => {
       memoryAdvice = value?.decision ? JSON.stringify({ action: value.decision.action, tile: value.decision.tile,
         reasons: (value.decision.reasons || []).filter(reason => typeof reason === 'string').slice(0, 3).map(reason => reason.slice(0, 160)) }) : null;
       hints.update(value);
@@ -92,7 +93,7 @@
           health: view.mode === 'live' && !view.historical ? view.health : undefined,
           replayRevision: view.mode === 'replay' ? view.replayRevision : null,
           cursor: !view.historical && view.mode === 'replay' ? view.cursor : null
-        }, render, hintHooks);
+        }, render, panelHooks);
         let replaySlot = container.querySelector('[data-naga-slot]');
         if (!replaySlot) {
           replaySlot = document.createElement('div'); replaySlot.dataset.nagaSlot = '';

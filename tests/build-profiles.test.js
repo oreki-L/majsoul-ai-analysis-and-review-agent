@@ -9,8 +9,8 @@ test('collector installs without model files, optional model hosts or settings; 
   const { buildExtensions } = await import('../scripts/build-extensions.mjs');
   const temporary = mkdtempSync(join(tmpdir(), 'majsoul-profiles-'));
   try {
-    const [agent, collector] = buildExtensions(temporary);
-    for (const directory of [agent, collector]) {
+    const [agent, collector, chat] = buildExtensions(temporary);
+    for (const directory of [agent, collector, chat]) {
       for (const file of ['LICENSE', 'THIRD_PARTY_NOTICES.md', 'licenses/SOURCES.md', 'licenses/pi-LICENSE.txt', 'licenses/typebox-LICENSE.txt']) {
         assert.ok(existsSync(join(directory, file)), file);
         assert.equal(readFileSync(join(directory, file), 'utf8'), readFileSync(join(__dirname, '..', file), 'utf8'));
@@ -23,6 +23,21 @@ test('collector installs without model files, optional model hosts or settings; 
     const manifest = JSON.parse(readFileSync(join(collector, 'manifest.json')));
     assert.equal('options_ui' in manifest, false); assert.equal('optional_host_permissions' in manifest, false);
     assert.deepEqual(manifest.permissions, ['storage']);
+    const standard = JSON.parse(readFileSync(join(agent, 'manifest.json')));
+    const optional = JSON.parse(readFileSync(join(chat, 'manifest.json')));
+    for (const directory of [agent, collector]) {
+      assert.equal(existsSync(join(directory, 'chat')), false);
+      assert.equal(existsSync(join(directory, 'background-chat.js')), false);
+    }
+    assert.deepEqual(standard.permissions, ['storage']);
+    assert.deepEqual(optional.permissions, ['storage', 'alarms']);
+    assert.deepEqual(optional.optional_host_permissions, standard.optional_host_permissions);
+    assert.deepEqual(optional.web_accessible_resources, standard.web_accessible_resources);
+    assert.equal(standard.background.service_worker, 'background.js');
+    assert.equal(optional.background.service_worker, 'background-chat.js');
+    assert.ok(optional.content_scripts.find(group => group.world === 'ISOLATED').js.includes('chat/panel.js'));
+    assert.doesNotMatch(readFileSync(join(agent, 'options.html'), 'utf8'), /navChannels|chat\//);
+    assert.match(readFileSync(join(chat, 'options.html'), 'utf8'), /navChannels/);
     for (const file of ['collector/controller.js', 'collector/browser-adapter.js', 'overlay.js']) {
       assert.ok(existsSync(join(collector, file)), file);
       assert.ok(existsSync(join(agent, file)), file);

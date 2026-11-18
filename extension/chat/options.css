@@ -1,0 +1,14 @@
+.channel-controls{border:0;margin:0;padding:0;min-inline-size:0}
+.channel-sr-only{position:absolute;width:1px;height:1px;clip-path:inset(50%);overflow:hidden;white-space:nowrap}
+.channel-section{padding:18px 0 22px;border-top:1px solid var(--line)}
+.channel-preview{border-top:2px solid var(--accent)}
+.channel-preview pre{font:inherit;background:#f2f6f9;margin:0;padding:12px 16px;border-left:3px solid var(--accent)}
+.channel-editor{margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
+.channel-list{overflow-wrap:anywhere}
+.channel-row{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px 16px;padding:10px 0;border-bottom:1px solid var(--line)}
+.channel-row p,.channel-row .actions{margin:0}
+.channel-row .hint{margin-top:2px}
+.channel-state[data-state=accepted]{color:#236455}
+.channel-state[data-state=failed],.channel-state[data-state=unknown],.channel-state[data-state=expired]{color:#8b4b22}
+#channelStatus{color:var(--accent)}
+#channelStatus:empty{display:none}

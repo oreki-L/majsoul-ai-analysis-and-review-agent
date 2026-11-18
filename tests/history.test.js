@@ -136,6 +136,33 @@ test('worker serializes history updates, isolates model credentials and authenti
   assert.equal(await send({type:'history:save',match:a},{...sender,url:'https://evil.example/'}),undefined);
 });
 
+test('worker observes a newly closed match using normalized history and the trusted document, only once', async () => {
+  let listener;
+  const stored = {}, observations = [];
+  const storage = {
+    async get(key) { return { [key]: structuredClone(stored[key]) }; },
+    async set(values) { Object.assign(stored, structuredClone(values)); }
+  };
+  const chrome = { runtime: { id: 'extension', onMessage: { addListener(fn) { listener = fn; } } }, storage: { local: storage } };
+  const context = vm.createContext({ chrome, MJHistory: H, URL, observer: async (matches, match, matchStart, sender) => {
+    observations.push({ match, matchStart, sender });
+    await storage.set({ roundHistoryV1: matches });
+  } });
+  vm.runInContext(fs.readFileSync(require.resolve('../extension/history-storage.js'), 'utf8'), context);
+  vm.runInContext('historyCommitObserver = observer', context);
+  const sender = { id: 'extension', frameId: 0, tab: { id: 7 }, documentId: 'game-doc', url: 'https://game.maj-soul.com/1/' };
+  const matchStart = 1700000000000;
+  const state = finish(S.apply(S.initial(), opening()), { step: 1, gameEnded: true });
+  const match = { ...H.addRound(H.create('live', 'live-finished', matchStart), state), account: 'PRIVATE' };
+  const save = () => new Promise(resolve => listener({ type: 'history:save', match, matchStart }, sender, resolve));
+  assert.ok((await Promise.all([save(), save()])).every(reply => reply.ok));
+  assert.equal(observations.length, 1);
+  assert.equal(observations[0].matchStart, matchStart);
+  assert.equal(observations[0].sender.documentId, 'game-doc');
+  assert.equal(observations[0].match.closed, true);
+  assert.doesNotMatch(JSON.stringify(observations[0].match), /PRIVATE/);
+});
+
 
 test('history snapshots and JSON reload preserve unknown discard methods and legacy boolean values', () => {
   const s = finish(S.apply(S.initial(), opening()));

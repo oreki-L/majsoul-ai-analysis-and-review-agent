@@ -13,9 +13,9 @@
         if (!response?.ok) throw new Error('History load failed');
         return response.matches;
       },
-      async save(match, matches) {
+      async save(match, matches, matchStart) {
         if (!extension) { local.setItem(key, JSON.stringify(matches)); return; }
-        const response = await chromeApi.runtime.sendMessage({ type: 'history:save', match });
+        const response = await chromeApi.runtime.sendMessage({ type: 'history:save', match, ...(options.observeMatchEnd && matchStart !== undefined ? { matchStart } : {}) });
         if (!response?.ok) throw new Error('History save failed');
       }
     };

@@ -185,8 +185,11 @@ def main(output=None):
     archives = [source]
     if agent_project:
         subprocess.run(['node', str(ROOT / 'scripts/build-extensions.mjs'), str(output)], check=True)
-        for profile in ['agent', 'collector']:
-            directory = output / ((project if profile == 'agent' else 'majsoul-collector') + '-' + version)
+        profiles = [project, 'majsoul-collector']
+        if (ROOT / 'extension/background-chat.js').is_file():
+            profiles.append('majsoul-agent-chat')
+        for profile in profiles:
+            directory = output / (profile + '-' + version)
             archive = Path(str(directory) + '.zip')
             write_zip(archive, [(path, path.relative_to(directory).as_posix()) for path in directory.rglob('*') if path.is_file()])
             archives.append(archive)

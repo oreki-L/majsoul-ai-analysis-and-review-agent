@@ -24,7 +24,7 @@ async function clearAgentData(clearRuns = true) {
   modelDiagnostics.cancel();
   await analysisWorker.invalidate(clearRuns);
 }
-chrome.storage.local.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' });
+const trustedStorage = chrome.storage.local.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' });
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'local' && (changes.modelConfig || changes.llmProfilesV1 || changes.analysisProviders)) modelDiagnostics.cancel();
   if (area !== 'local' || !(changes.modelConfig || changes.analysisProviders || changes.llmProfilesV1)) return;

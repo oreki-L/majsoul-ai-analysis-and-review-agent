@@ -56,7 +56,9 @@ test('enter/sync restoration decodes plain bodies, preserves order and deduplica
     await flush();
     const events = h.messages.filter(m => m.type === 'event');
     assert.deepEqual(events.map(m => m.payload.encoding), ['plain', 'plain', 'plain']);
-    assert.ok(events.every(m => m.payload.restored === true));
+    assert.deepEqual(events.map(m => [m.payload.kind, m.payload.step, m.payload.restored]), [
+      ['NewRound', 0, true], ['DealTile', 1, true], ['DealTile', 1, true]
+    ], method);
     const c = makeController();
     for (const m of h.messages) c.receive(m);
     assert.equal(c.getView().live.selfHand.length, 14);
@@ -108,6 +110,8 @@ test('login secrets and unrelated traffic are never emitted, only normalized act
   const serialized = JSON.stringify(h.messages);
   assert.equal(serialized.includes('PRIVATE_'), false); assert.equal(serialized.includes('Lobby.login'), false);
   const events = h.messages.filter(m => m.type === 'event'); assert.equal(events.length, 1); assert.equal(events[0].payload.kind, 'NewRound');
+  assert.equal(events[0].payload.step, 0);
+  assert.equal(events[0].payload.restored, undefined);
 });
 test('Blob arrivals preserve event order and request IDs are isolated per socket', async () => {
   const h = harness();

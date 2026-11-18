@@ -274,6 +274,7 @@
     };
     const { groups, group, summary, references } = reviewPlan || {};
     if (!group) return;
+    if (available && summary) hooks.reviewActions?.($('review-refresh'), group.key, error => { reviewError = error; render(); });
     $('review-match').onchange = event => { reviewKey = groups[Number(event.target.value)]?.key || ''; reviewError = ''; reviewLimits = {}; render(); };
     summary.topics.forEach(topic => {
       if (topic.references.length > (reviewLimits[topic.id] || 5)) $('review-more-' + topic.id).onclick = () => { reviewLimits[topic.id] = (reviewLimits[topic.id] || 5) + 5; render(); };
@@ -711,6 +712,7 @@
     $('analysis-collector').onclick = () => current?.onCollector?.();
     $('analysis-history').onclick = () => current?.onHistory?.();
     $('model-settings').onclick = event => { if (event.isTrusted) send({ type: 'model:settings' }).catch(() => { failure = '扩展连接失效，请刷新游戏。'; render(); }); };
+    if (available) hooks.settingsActions?.($('model-refresh'), error => { failure = error; render(); });
     $('model-refresh').onclick = refresh;
     for (const key of ['danger', 'efficiency', 'strategy']) $('feature-' + key).onchange = e => { if (e.isTrusted) changePreferences({ [key]: e.target.checked }); };
     $('model-auto').onchange = e => { if (e.isTrusted) changePreferences({ automatic: e.target.checked }); };

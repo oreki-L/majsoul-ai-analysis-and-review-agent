@@ -5,14 +5,15 @@ import { isDeepStrictEqual } from 'node:util';
 import { dependencies, checkBoundaries, workerImports, agentOnlyModules } from './check-boundaries.mjs';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const json = path => JSON.parse(readFileSync(path, 'utf8'));
+const chatResources = ['background-chat.js', 'chat/delivery.js', 'chat/integrations.js', 'chat/options.css', 'chat/options.js', 'chat/panel.js'];
 function safePath(file) {
   if (file.includes('\\') || file.startsWith('/') || file.includes(':') || file.split('/').includes('..')) throw new Error('Unsafe extension resource: ' + file);
   return file;
 }
 function htmlScripts(text) { return [...text.matchAll(/<script\b[^>]*\bsrc=["']([^"']+)["']/gi)].map(m => m[1]); }
 function htmlResources(text) { return [...text.matchAll(/\b(?:src|href)=["']([^"']+)["']/gi)].map(m => m[1]); }
-export function validateProfile(source, manifest) {
-  const files = new Set(), read = file => readFileSync(join(source, safePath(file)), 'utf8');
+export function validateProfile(source, manifest, generated = {}) {
+  const files = new Set(), read = file => generated[file] ?? readFileSync(join(source, safePath(file)), 'utf8');
   const add = file => {
     safePath(file);
     if (files.has(file)) return;
@@ -60,10 +61,34 @@ export function checkProfiles(source = join(root, 'extension')) {
   checkBoundaries(source);
   const profiles = ['agent', 'collector'].map(name => ({ name, manifest: json(join(source, 'profiles', name + '.json')) }));
   if (!isDeepStrictEqual(json(join(source, 'manifest.json')), profiles[0].manifest)) throw new Error('Default manifest differs from explicit agent profile');
+  const chat = structuredClone(profiles[0].manifest);
+  chat.name += ' (Chat)';
+  chat.permissions.push('alarms');
+  chat.background.service_worker = 'background-chat.js';
+  const isolated = chat.content_scripts.find(group => group.js.includes('apps/agent-app.js'));
+  isolated.js.splice(isolated.js.indexOf('apps/agent-app.js'), 0, 'chat/panel.js');
+  const options = readFileSync(join(source, 'options.html'), 'utf8');
+  const fragment = readFileSync(join(source, 'chat/options-fragment.html'), 'utf8');
+  const slots = [
+    ['</head>', '<link rel="stylesheet" href="chat/options.css"></head>'],
+    ['</nav>', '<button type="button" id="navChannels">聊天分享</button></nav>'],
+    ['</main>', '</main>' + fragment],
+    ['</body>', '<script src="chat/options.js"></script></body>'],
+  ];
+  const chatOptions = slots.reduce((html, [slot, markup]) => {
+    if (html.split(slot).length !== 2) throw new Error('Expected one chat options slot: ' + slot);
+    return html.replace(slot, () => markup);
+  }, options);
+  profiles.push({ name: 'chat', manifest: chat, generated: { 'options.html': chatOptions } });
   const version = json(join(root, 'package.json')).version;
   for (const profile of profiles) {
     if (profile.manifest.version !== version) throw new Error('Profile version differs: ' + profile.name);
-    profile.files = validateProfile(source, profile.manifest);
+    profile.files = validateProfile(source, profile.manifest, profile.generated);
+    const chatFiles = profile.files.filter(file => file.startsWith('chat/') || file === 'background-chat.js');
+    if (profile.name !== 'chat' && (chatFiles.length || profile.manifest.permissions.includes('alarms'))) throw new Error('Chat resources escaped the optional profile');
+    if (profile.name === 'chat' && !isDeepStrictEqual(chatFiles, chatResources)) throw new Error('Optional chat profile has unexpected resources');
+    if (profile.manifest.content_scripts.some(group => group.js.some(file => /^chat\//.test(file) && (file !== 'chat/panel.js' || group.world !== 'ISOLATED'))) ||
+      profile.manifest.web_accessible_resources?.some(group => group.resources.some(file => /^(?:chat\/|\*|background-chat)/.test(file)))) throw new Error('Chat resources exposed to the game page');
     if (profile.name === 'collector' && profile.files.some(file => agentOnlyModules.includes(file) || /^(?:analysis(?:-panel)?\.(?:js|css)|naga-panel\.(?:js|css)|hand-hints\.js|mahjong-analysis\.js|agent\.js|engine-agent\.js|harness\.js|adapters\/(?:model-endpoint|engine-endpoint|mjai|naga-replay)\.js|contracts\/engine-result\.js|options\.)/.test(file))) throw new Error('Collector dependency closure contains analysis/model files');
   }
   return profiles;
@@ -71,11 +96,18 @@ export function checkProfiles(source = join(root, 'extension')) {
 export function buildExtensions(destination = join(root, 'dist')) {
   const source = join(root, 'extension'), profiles = checkProfiles(source), outputs = [];
   mkdirSync(destination, { recursive: true });
-  for (const { name, manifest, files } of profiles) {
-    const directory = join(destination, `${name === 'agent' ? json(join(root, 'package.json')).name : 'majsoul-collector'}-${manifest.version}`);
+  const project = json(join(root, 'package.json')).name;
+  const names = { agent: project, collector: 'majsoul-collector', chat: 'majsoul-agent-chat' };
+  for (const { name, manifest, files, generated = {} } of profiles) {
+    const directory = join(destination, `${names[name]}-${manifest.version}`);
     if (existsSync(directory)) renameSync(directory, directory + '.previous-' + Date.now());
     mkdirSync(directory);
-    for (const file of files) { mkdirSync(join(directory, posix.dirname(file)), { recursive: true }); cpSync(join(source, file), join(directory, file)); }
+    for (const file of files) {
+      const target = join(directory, file);
+      mkdirSync(join(directory, posix.dirname(file)), { recursive: true });
+      if (Object.hasOwn(generated, file)) writeFileSync(target, generated[file]);
+      else cpSync(join(source, file), target);
+    }
     writeFileSync(join(directory, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
     for (const name of ['LICENSE', 'THIRD_PARTY_NOTICES.md']) cpSync(join(root, name), join(directory, name));
     cpSync(join(root, 'licenses'), join(directory, 'licenses'), { recursive: true });

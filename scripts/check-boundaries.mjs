@@ -11,6 +11,7 @@ export const providers = {
   MJPiRuntime: 'pi-runtime.js', MJRoundContext: 'round-context.js', MJModelUsage: 'model-usage.js',
   MJModelAnalysisWorker: 'model-analysis-worker.js', MJModelConfigStore: 'model-config-store.js', MJModelProfiles: 'model-profiles.js', MJModelDiagnostics: 'model-diagnostics.js', MJModelSessionTransport: 'model-session-transport.js', MJRunStore: 'agent-run-store.js', MJDecisionDiscussions: 'decision-discussions.js', MJPostgameReview: 'postgame-review.js', MJOfficialMortalReport: 'official-mortal-report.js',
   MJUserMemoryWorker: 'user-memory-worker.js', MJUserMemory: 'user-memory.js', MJUserMemoryAgent: 'user-memory-agent.js', MJUserMemoryCapture: 'user-memory-capture.js',
+  MJChatDelivery: 'chat/delivery.js', MJChatIntegrations: 'chat/integrations.js',
   MJMjaiAdapter: 'adapters/mjai.js', MJEngineEndpoint: 'adapters/engine-endpoint.js',
   MJNagaReplay: 'adapters/naga-replay.js', MJNagaPanel: 'naga-panel.js',
   MJEngineFacts: 'engine-facts.js', MJEngineExplanation: 'contracts/engine-explanation.js', MJEngineAgent: 'engine-agent.js', MJEngineResult: 'contracts/engine-result.js',
@@ -121,6 +122,7 @@ export function workerImports(source) {
 }
 export function checkSourceBoundary(file, source) {
   const deps = dependencies(file, source), ids = tokens(source).filter(t => t.type === 'id').map(t => t.value);
+  if (file !== 'background-chat.js' && deps.some(dep => ['chat/delivery.js', 'chat/integrations.js'].includes(dep))) throw new Error(`${file}: chat transport is background-only`);
   if (file.startsWith('collector/') && deps.some(dep => [...agentOnlyModules, 'analysis.js', 'analysis-panel.js', 'naga-panel.js', 'adapters/naga-replay.js', 'hand-hints.js', 'agent.js', 'engine-agent.js', 'harness.js', 'adapters/model-endpoint.js', 'adapters/mjai.js', 'adapters/engine-endpoint.js', 'contracts/engine-result.js', 'mahjong-analysis.js'].includes(dep))) throw new Error(`${file}: collector must not depend on analysis/model layers`);
   let allowed = null, pure = false;
   if (file.startsWith('contracts/')) { allowed = new Set(); pure = true; }
