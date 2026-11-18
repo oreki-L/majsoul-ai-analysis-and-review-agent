@@ -43,12 +43,12 @@ function browserExecutable() {
     }
   }
   const candidates = process.platform === 'darwin' ? ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome']
-    : ['chromium', 'chromium-browser', 'google-chrome', 'google-chrome-stable'];
+    : ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser'];
   return candidates.find(file => spawnSync(file, ['--version'], { timeout: 3000 }).status === 0);
 }
 
 async function polling(get) {
-  for (let attempt = 0; attempt < 100; attempt += 1) {
+  for (let attempt = 0; attempt < 250; attempt += 1) {
     const result = await get().catch(() => null);
     if (result) return result;
     await sleep(100);
@@ -68,8 +68,11 @@ async function browserRunner(browser, suite) {
   const url = `http://127.0.0.1:${server.address().port}/`;
   const flags = ['--headless', '--disable-gpu', '--no-first-run', '--no-default-browser-check', '--disable-background-networking',
     '--disable-component-update', '--remote-debugging-port=0', `--user-data-dir=${profile}`, url];
-  if (process.getuid?.() === 0) flags.push('--no-sandbox');
-  const child = spawn(browser, flags, { stdio: 'ignore', windowsHide: true });
+  if (process.getuid?.() === 0 || (process.platform === 'linux' && process.env.GITHUB_ACTIONS === 'true')) flags.push('--no-sandbox');
+  if (process.platform === 'linux') flags.push('--disable-dev-shm-usage');
+  const child = spawn(browser, flags, { stdio: ['ignore', 'ignore', 'pipe'], windowsHide: true });
+  let startupOutput = '';
+  child.stderr.setEncoding('utf8').on('data', chunk => { startupOutput = (startupOutput + chunk).slice(-3000); });
   const stopped = once(child, 'exit').catch(() => {});
   let socket;
   suite.after(async () => {
@@ -82,9 +85,14 @@ async function browserRunner(browser, suite) {
     assert.equal(dirname(resolved), temp);
     await rm(resolved, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
-  const [port] = (await polling(() => readFile(join(profile, 'DevToolsActivePort'), 'utf8'))).split(/\r?\n/);
-  const tab = await polling(async () => (await (await fetch(`http://127.0.0.1:${port}/json/list`)).json())
-    .find(item => item.type === 'page' && item.url === url));
+  let tab;
+  try {
+    const [port] = (await polling(() => readFile(join(profile, 'DevToolsActivePort'), 'utf8'))).split(/\r?\n/);
+    tab = await polling(async () => (await (await fetch(`http://127.0.0.1:${port}/json/list`)).json())
+      .find(item => item.type === 'page' && item.url === url));
+  } catch (error) {
+    throw new Error(`${browser}: ${error.message}; browser exit: ${child.exitCode ?? child.signalCode ?? 'running'}\n${startupOutput}`);
+  }
   socket = new WebSocket(tab.webSocketDebuggerUrl);
   await new Promise((resolve, reject) => {
     socket.addEventListener('open', resolve, { once: true });
