@@ -6,7 +6,7 @@
 
 **安装简单，配置按需：本地牌效加载即用；AI 讲解填好服务地址、模型名称和 API Key 即可开始；本地引擎提供解压双击的可选运行包。**
 
-[**下载 v0.16.9**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.9) · [快速开始](#快速开始) · [功能亮点](#为什么选择-majsoul-agent) · [本地模型使用](#本地模型使用) · [常见问题](#常见问题) · [详细文档](docs/README.md)
+[**下载 v0.16.10**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.10) · [快速开始](#快速开始) · [功能亮点](#为什么选择-majsoul-agent) · [本地模型使用](#本地模型使用) · [常见问题](#常见问题) · [详细文档](docs/README.md)
 
 [简体中文](README.md) | [English](README.en.md) | [日本語](README.ja.md)
 
@@ -27,15 +27,9 @@
 
 ### 已测结果与范围
 
-**旧 S2 教学方案在 127 个固定局面中通过 107 个（84.25%），平均 3.550/4。** 同一批局面分别测试三套方案，共 381/381 份答案交付，由 GPT-6.1 Sol / medium 独立盲评；重大事实错误按不通过处理。
+**提示词 v6／事实卡 v5 在 127 个冻结局面全部交付；独立盲评质量通过 111/127（87.40%），平均 3.676/4，16 条答案含重大错误。** 历史 v0.16.9 同局面参照为 98/127（77.17%）、3.581/4、27 条答案含重大错误。
 
-| 历史教学方案 | 质量通过 | 通过率 | 端到端均分 / 4 |
-| --- | ---: | ---: | ---: |
-| S1：补充事实读取规则 | 87/127 | 68.50% | 3.209 |
-| **S2：再聚焦当前动作** | **107/127** | **84.25%** | **3.550** |
-| S3：再隔离自动历史教学 | 99/127 | 77.95% | 3.387 |
-
-127 点来自 12 个已观察过的小局，非隐藏独立样本；每答由一名代理盲评，未做双评一致性测量。全部交付包含一次格式修正机制，S2 有 3 答经修正挽回。这些是**旧实验的教学质量数据**，不是牌力或实战胜率。v0.16.9 在 S2 基础上新增安全时序、局部补牌和生产接入，尚无真实 LLM 新分数。本版生产 Agent + mock 教学离线核验 **127/127**，真实模型／引擎 API 调用 **0**；新增事实／安全测试 **12/12**，工作区工程测试 **841 项：838 通过、3 跳过、0 失败**。完整方法与边界见 [S2 验证记录](docs/validation/MORTAL_TEACHING_S2_VALIDATION.md)。
+复用 12 个已观察过的小局和缓存的 Mortal 动作，本轮以真实 LLM 重新生成全部回答，由独立 GPT-6.1 Sol / medium 对去除版本标识的答案逐条盲评；每答一名评审，未测评审一致性。平均交付 3.86 秒、P95 5.87 秒，不含重新运行引擎。样本曾用于开发，同局面历史比较不证明因果，也不代表牌力或胜率；没有浏览器在线对局。方法、问题与边界见[本轮验证记录](docs/validation/MORTAL_TEACHING_V6_VALIDATION.md)。
 
 ### 围绕一手牌，把问题问清楚
 
@@ -55,18 +49,18 @@
 
 ## 下载
 
-当前发布版本：**v0.16.9**。第一次使用，先下载完整 Agent 即可。
+当前发布版本：**v0.16.10**。第一次使用，先下载完整 Agent 即可。
 
-本版将 S2 的计数简表与当前动作索引用于引擎教学，并补充局部搭子完成牌和按时序核实的安全证据。新补丁已做离线事实核验，尚未真实 LLM 重测；旧 S2 的 84.25% 通过率不是本版成绩。详见 [变更记录](CHANGELOG.md)与 [S2 验证范围](docs/validation/MORTAL_TEACHING_S2_VALIDATION.md)。
+本版增加动作前后状态、牌形和明暗组合事实，帮助 LLM 围绕 Mortal 的已验证动作解释取舍；[验证记录](docs/validation/MORTAL_TEACHING_V6_VALIDATION.md)说明实测与限制。
 
 | 下载内容 | 适合谁 |
 | --- | --- |
-| [**完整 Agent 扩展**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.9/majsoul-ai-analysis-and-review-agent-0.16.9.zip) | 推荐入口，包含本地计算、模型分析、追问、历史与设置 |
-| [可选本地模型运行包 · Windows x64](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.9/majsoul-model-manager-windows-x64-0.16.9.zip) | 想在本机运行 Mortal / Akagi 时再下载，自带管理所需的 Node |
-| [独立 Collector](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.9/majsoul-collector-0.16.9.zip) | 只采集、展示与导出，不需要 AI 分析 |
-| [源码包](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.9/majsoul-ai-analysis-and-review-agent-source-0.16.9.zip) | 开发、构建与离线复盘 |
+| [**完整 Agent 扩展**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.10/majsoul-ai-analysis-and-review-agent-0.16.10.zip) | 推荐入口，包含本地计算、模型分析、追问、历史与设置 |
+| [可选本地模型运行包 · Windows x64](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.10/majsoul-model-manager-windows-x64-0.16.10.zip) | 想在本机运行 Mortal / Akagi 时再下载，自带管理所需的 Node |
+| [独立 Collector](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.10/majsoul-collector-0.16.10.zip) | 只采集、展示与导出，不需要 AI 分析 |
+| [源码包](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.10/majsoul-ai-analysis-and-review-agent-source-0.16.10.zip) | 开发、构建与离线复盘 |
 
-[全部发布文件与 SHA-256 校验](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.9)。扩展包不含模型权重；Agent 与 Collector 的本地存储独立，同一游戏页面只启用其中一个。
+[全部发布文件与 SHA-256 校验](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.10)。扩展包不含模型权重；Agent 与 Collector 的本地存储独立，同一游戏页面只启用其中一个。
 
 ## 快速开始
 

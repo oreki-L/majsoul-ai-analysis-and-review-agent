@@ -6,7 +6,7 @@ A browser extension for the Mahjong Soul web client: compare tile efficiency and
 
 **Start with little setup: local tile-efficiency analysis works as soon as the extension is loaded; AI explanations need your endpoint, model ID and API key; optional local engines have an extract-and-double-click runtime package.**
 
-[**Download v0.16.9**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.9) · [Quick start](#quick-start) · [Highlights](#why-choose-majsoul-agent) · [Local models](#using-local-models) · [FAQ](#faq) · [Documentation](docs/README.md)
+[**Download v0.16.10**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.10) · [Quick start](#quick-start) · [Highlights](#why-choose-majsoul-agent) · [Local models](#using-local-models) · [FAQ](#faq) · [Documentation](docs/README.md)
 
 [简体中文](README.md) | **English** | [日本語](README.ja.md)
 
@@ -27,15 +27,9 @@ Switch themes with the button at the top right of the analysis card. These are o
 
 ### Measured results and scope
 
-**The earlier S2 teaching setup passed 107 of 127 fixed positions (84.25%), averaging 3.550/4.** Three setups used the same positions, delivering all 381/381 answers for independent blind review by GPT-6.1 Sol / medium. Major factual errors fail the quality gate.
+**Prompt v6 / fact card v5 delivered answers for all 127 frozen positions.** Independent blind review passed 111/127 (87.40%), with a mean of 3.676/4; 16 answers contained major errors. The historical v0.16.9 reference on the same positions passed 98/127 (77.17%), averaged 3.581/4 and had 27 answers with major errors.
 
-| Historical teaching setup | Quality passes | Pass rate | End-to-end mean / 4 |
-| --- | ---: | ---: | ---: |
-| S1: fact-reading rules | 87/127 | 68.50% | 3.209 |
-| **S2: add current-action focus** | **107/127** | **84.25%** | **3.550** |
-| S3: also isolate automatic teaching history | 99/127 | 77.95% | 3.387 |
-
-The 127 positions came from 12 previously observed rounds, not a hidden independent sample. Each answer had one blind reviewer, without inter-rater agreement measurement. Delivery includes the single format-repair mechanism; three S2 answers were recovered by repair. These measure **teaching quality in an earlier experiment**, not playing strength or live-game win rate. v0.16.9 adds event-order safety checks, local completion tiles and production integration to S2; it has no new real-LLM score. This version passed **127/127** offline production-Agent checks with mock teaching and **0** real model/engine API calls; new fact/safety tests passed **12/12**, and workspace engineering tests total **841: 838 passed, 3 skipped, 0 failed**. See the [S2 validation record](docs/validation/MORTAL_TEACHING_S2_VALIDATION.md) for methods and limits.
+The test reused 12 previously observed rounds and cached Mortal actions, while generating all answers afresh with a real LLM. One independent GPT-6.1 Sol / medium reviewer assessed each answer with version identifiers hidden; inter-rater agreement was not measured. Mean delivery was 3.86 seconds, P95 5.87 seconds, excluding an engine rerun. These positions were used in development; the historical comparison does not establish causation, playing strength or win rate. No browser live game was tested. See the [validation record](docs/validation/MORTAL_TEACHING_V6_VALIDATION.md).
 
 ### Understand a hand through follow-up questions
 
@@ -55,18 +49,18 @@ Answers use **the hand and public table at that decision, the original recommend
 
 ## Downloads
 
-Current release: **v0.16.9**. Start with the full Agent.
+Current release: **v0.16.10**. Start with the full Agent.
 
-This version brings S2's count table and current-action index into engine teaching, with local shape completion tiles and safety evidence checked against event order. The new patch has offline fact checks but has not been retested with a real LLM; the earlier S2 pass rate of 84.25% is not this version's result. See the [changelog](CHANGELOG.md) and [S2 validation scope](docs/validation/MORTAL_TEACHING_S2_VALIDATION.md).
+This release adds action transitions, hand shapes and open/concealed meld facts to Mortal teaching. See the [validation record](docs/validation/MORTAL_TEACHING_V6_VALIDATION.md) for the measured results and limits.
 
 | Package | Who it is for |
 | --- | --- |
-| [**Full Agent extension**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.9/majsoul-ai-analysis-and-review-agent-0.16.9.zip) | Recommended entry point: local calculations, model analysis, follow-up questions, history and settings |
-| [Optional local model runtime · Windows x64](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.9/majsoul-model-manager-windows-x64-0.16.9.zip) | Download when you want local Mortal / Akagi; includes the Node runtime needed by the manager |
-| [Standalone Collector](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.9/majsoul-collector-0.16.9.zip) | Collection, display and export without AI analysis |
-| [Source package](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.9/majsoul-ai-analysis-and-review-agent-source-0.16.9.zip) | Development, builds and offline review |
+| [**Full Agent extension**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.10/majsoul-ai-analysis-and-review-agent-0.16.10.zip) | Recommended entry point: local calculations, model analysis, follow-up questions, history and settings |
+| [Optional local model runtime · Windows x64](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.10/majsoul-model-manager-windows-x64-0.16.10.zip) | Download when you want local Mortal / Akagi; includes the Node runtime needed by the manager |
+| [Standalone Collector](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.10/majsoul-collector-0.16.10.zip) | Collection, display and export without AI analysis |
+| [Source package](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.10/majsoul-ai-analysis-and-review-agent-source-0.16.10.zip) | Development, builds and offline review |
 
-[All release files and SHA-256 checksums](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.9). Extension packages contain no model weights. Agent and Collector have separate local storage; enable only one on the same game page.
+[All release files and SHA-256 checksums](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.10). Extension packages contain no model weights. Agent and Collector have separate local storage; enable only one on the same game page.
 
 ## Quick start
 

@@ -71,6 +71,7 @@
       const texts = (values, limit, chars) => Array.isArray(values) ? values.filter(v => typeof v === 'string' && v.length <= chars).slice(0, limit) : [];
       const task = entry.task || request?.task;
       const advice = { decisionId: entry.id, position: entryPosition, excerpt: true,
+        ...(engineTeaching ? { evidenceRole:'historical-model-advice', currentFacts:false, actionWasExecuted:null } : {}),
         task: ['combined', 'danger', 'efficiency'].includes(task) ? task : 'combined',
         question: typeof request?.question === 'string' ? request.question.slice(0, 4000) : '',
         decision: { action: answer.decision.action, tile: answer.decision.tile === null ? null : C.tile(answer.decision.tile), reasons: texts(answer.decision.reasons, 3, 300) },
@@ -90,7 +91,7 @@
     const recent = exchanges.slice(-4);
     const defense = exchanges.slice(0, Math.max(0, exchanges.length - 4)).filter(e => ['defend', 'fold'].includes(e.decision.action)).slice(-2);
     return { policy: 'H2-dedup+AdviceHistory-Extract', recentLimit: 4, earlierDefenseLimit: 2,
-      historicalAdviceOnly: true, advice: [...defense, ...recent],
+      historicalAdviceOnly: true, ...(engineTeaching ? { currentFactsSource:'current snapshot and engine facts only', interpretation:'以下是此前模型建议与教学，可能有错；不是当前场况或真实执行记录。局名、自风、巡目、手牌、候选数值、安全对象只查当前事实，不沿用历史文字。' } : {}), advice: [...defense, ...recent],
       importantEvents: authorizedEvents(input, context.events || [], position).filter(e =>
         ['NewRound', 'ChiPengGang', 'AnGangAddGang', 'BaBei', 'Hule', 'NoTile', 'LiuJu'].includes(e.kind) ||
         (e.kind === 'DiscardTile' && e.riichi === true)) };

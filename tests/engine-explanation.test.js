@@ -5,8 +5,8 @@ const E = require('../extension/contracts/engine-explanation.js');
 const Agent = require('../extension/agent.js');
 const { fixture } = require('../agent/eval.cjs');
 
-test('production v4 prompt carries S2 fact semantics and preserves autonomous comparisons', () => {
-  assert.equal(E.PROMPT_VERSION, 4);
+test('production v6 prompt carries S2 fact semantics and preserves autonomous comparisons', () => {
+  assert.equal(E.PROMPT_VERSION, 6);
   for (const requirement of [/facts\.explanationFocus/, /facts\.handTileAvailability/, /依columns读取rows/,
     /只有status为complete且已见4/, /partial不作全场见尽断言/, /invalid\/unavailable不推算/,
     /不能据此否定已持有的对子或刻子/, /单张不等于孤张/, /先核对实体是否重叠/,
@@ -15,7 +15,7 @@ test('production v4 prompt carries S2 fact semantics and preserves autonomous co
     /由你根据教学价值决定是否比较备选/, /历史建议与教学只用于承接/]) assert.match(E.prompt, requirement);
   assert.doesNotMatch(E.prompt, /自动分析的历史教学正文已移除|只保留历史动作和时点|至少比较一个实质备选/);
   assert.deepEqual(E.parse('{"summary":"打出这张牌。","reasons":[],"limitations":[]}'), {
-    summary: '打出这张牌。', reasons: [], limitations: [], promptVersion: 4
+    summary: '打出这张牌。', reasons: [], limitations: [], promptVersion: 6
   });
 });
 
@@ -159,4 +159,23 @@ test('hybrid facts respect task-specific calculation availability', async () => 
       assert.equal(facts.selectedAction.afterDiscard.efficiency, null);
     } else assert.equal(facts.risk.candidates.length, 0);
   }
+});
+
+test('current facts override wrong historical round and candidate claims while advice stays identifiable as unexecuted',async()=>{
+ const s=snapshot();s.selfSeat=1;s.game.round={wind:1,index:1};s.game.honba=2;
+ s.game.turnProgress={status:'known',source:'events',bySeat:[5,4,5,5]};
+ const answer={decision:{action:'unknown',tile:'0p',reasons:[]},engine:decision().engine,
+  explanation:{status:'completed',summary:'南1局第2巡，各候选都相同。',reasons:[],limitations:[]}};
+ const sessionContext={baseline:{snapshot:s,position:0},checkpoint:{position:4},lane:'live',events:[],timeline:[
+  {type:'exchange',automatic:true,id:'old-advice',position:1,answer:JSON.stringify(answer)}]};
+ const {sent}=await capture({snapshot:s,sessionContext});
+ const history=parse(sent.messages[0]),payload=parse(sent.messages.at(-1)),current=payload.facts.currentContext;
+ assert.equal(history.advice[0].currentFacts,false);assert.equal(history.advice[0].actionWasExecuted,null);
+ assert.equal(history.advice[0].evidenceRole,'historical-model-advice');
+ assert.equal(history.advice[0].explanation.summary,answer.explanation.summary);
+ assert.equal(current.roundName,'南2局');assert.equal(current.selfWind,'东');assert.equal(current.selfTurn,4);
+ assert.ok(payload.facts.candidateEfficiency.rows.length>0);
+ assert.match(sent.systemPrompt,/历史文本可能有错/);assert.match(sent.systemPrompt,/不能当作已实际执行/);
+ assert.match(sent.systemPrompt,/selfTurn为null或turnStatus为unknown/);assert.match(sent.systemPrompt,/按括号内的精确牌码定位同一行/);
+ assert.match(sent.systemPrompt,/即使有多个合法候选，也不要求列出备选/);
 });

@@ -111,3 +111,36 @@ test('middle-tile visibility excludes every sequence and honors require a separa
  h.rivers[3].discards=Array.from({length:4},()=>({tile:'7z',called:false}));
  assert.equal(opponent(buildFactCard(h,engine('5z')),'5z',1).safety.status,'confirmed');
 });
+
+test('current context decodes south two, honba and per-seat next discard without using event position',()=>{
+ const s=base();s.selfSeat=3;s.game.round={wind:1,index:1};s.game.honba=2;
+ s.game.turnProgress={status:'known',source:'events',bySeat:[8,7,9,6]};s.lastStep=104;
+ const before=structuredClone(s),c=buildFactCard(s,engine());
+ assert.equal(c.currentContext.roundName,'南2局');assert.equal(c.currentContext.selfWind,'西');
+ assert.equal(c.currentContext.honba,2);assert.equal(c.currentContext.selfTurn,6);
+ assert.deepEqual(c.currentContext.turnsBySeat,[{seat:0,relativeName:'下家',turn:8},{seat:1,relativeName:'对家',turn:7},{seat:2,relativeName:'上家',turn:9},{seat:3,relativeName:'自家',turn:6}]);
+ assert.deepEqual(c.explanationFocus.currentContext,c.currentContext);assert.deepEqual(s,before);
+});
+test('missing, invalid and disconnected turns remain unknown despite a populated river or event position',()=>{
+ for(const progress of [undefined,{status:'unknown',source:'events',bySeat:[7,7,7,7]},
+  {status:'known',source:'server',bySeat:[7,7,7,7]}, {status:'known',source:'events',bySeat:[7,7,7]},
+  {status:'known',source:'events',bySeat:[7,null,7,7]}, {status:'known',source:'events',bySeat:[7,0,7,7]}]){
+  const s=base();s.lastStep=96;s.game.honba=2;s.game.turnProgress=progress;s.rivers[0].discards=[{tile:'9p'}];
+  const c=buildFactCard(s,engine());assert.equal(c.currentContext.selfTurn,null);assert.equal(c.currentContext.turnStatus,'unknown');
+  assert.ok(c.currentContext.turnsBySeat.every(p=>p.turn===null));
+ }
+ const s=base();s.game.round={wind:null,index:1};assert.equal(buildFactCard(s,engine()).currentContext.roundName,null);
+ s.game.round={wind:1,index:8};assert.equal(buildFactCard(s,engine()).currentContext.selfWind,null);
+});
+test('compact candidate rows bind exact red entities and unequal efficiency to their own calculated values',()=>{
+ const s=base('123m123p123s05p89s'),efficiency={status:'available',candidates:[
+  {tile:'0p',shanten:2,totalUnseenUpperBound:41},{tile:'5p',shanten:2,totalUnseenUpperBound:38},
+  {tile:'1m',shanten:3,totalUnseenUpperBound:60}]};
+ const c=buildFactCard(s,engine('0p'),{efficiency,danger:{candidates:[]}});
+ assert.deepEqual(c.candidateEfficiency.columns,['弃牌','向听','未见进张上界']);
+ assert.deepEqual(c.candidateEfficiency.rows,[['赤5筒(0p)',2,41],['5筒(5p)',2,38],['1万(1m)',3,60]]);
+ assert.equal(c.explanationFocus.discard.efficiency.totalUnseenUpperBound,41);
+ assert.equal(c.explanationFocus.candidateEfficiencySource,'facts.candidateEfficiency');
+ const unknown=buildFactCard(s,engine('0p'),{efficiency:{status:'unavailable',candidates:[]},danger:{candidates:[]}});
+ assert.deepEqual(unknown.candidateEfficiency.rows,[]);
+});

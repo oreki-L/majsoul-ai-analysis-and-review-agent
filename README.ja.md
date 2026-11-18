@@ -6,7 +6,7 @@
 
 **導入も設定も手軽に。ローカル牌効率は拡張を読み込むだけで使えます。AI 解説は接続先・モデル名・API Key を設定し、任意のローカルエンジンは実行パッケージを展開してダブルクリックで始められます。**
 
-[**v0.16.9 をダウンロード**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.9) · [使い始める](#使い始める) · [特徴](#majsoul-agent-の特徴) · [ローカルモデル](#ローカルモデルの使い方) · [よくある質問](#よくある質問) · [ドキュメント](docs/README.md)
+[**v0.16.10 をダウンロード**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.10) · [使い始める](#使い始める) · [特徴](#majsoul-agent-の特徴) · [ローカルモデル](#ローカルモデルの使い方) · [よくある質問](#よくある質問) · [ドキュメント](docs/README.md)
 
 [简体中文](README.md) | [English](README.en.md) | **日本語**
 
@@ -27,15 +27,9 @@
 
 ### 測定結果と範囲
 
-**旧 S2 解説構成は固定 127 局面中 107 局面で合格（84.25%）、平均 3.550/4 でした。** 同じ局面を三つの構成で評価し、381/381 件すべてを出力。GPT-6.1 Sol / medium が構成名を伏せて独立評価し、重大な事実誤りがある回答は不合格としました。
+**プロンプト v6／事実カード v5 は固定 127 局面すべてに回答し、独立盲評で 111/127（87.40%）が合格、平均 3.676/4 でした。** 重大な誤りを含む回答は 16 件です。同じ局面の過去の v0.16.9 は 98/127（77.17%）、平均 3.581/4、重大な誤りを含む回答は 27 件でした。
 
-| 過去の解説構成 | 品質合格 | 合格率 | 全機会の平均 / 4 |
-| --- | ---: | ---: | ---: |
-| S1：事実の読み取り規則を追加 | 87/127 | 68.50% | 3.209 |
-| **S2：現在の行動に焦点を追加** | **107/127** | **84.25%** | **3.550** |
-| S3：自動解説の履歴も隔離 | 99/127 | 77.95% | 3.387 |
-
-127 局面は既に観察した 12 局に由来し、独立した未公開サンプルではありません。各回答の盲評は一名で、二重評価の一致度は未測定です。全件出力には一度の形式修正を含み、S2 は 3 件が修正で回復しました。これは**過去の実験における解説品質**であり、牌力や実戦勝率ではありません。v0.16.9 では S2 に安全根拠の時系列確認・局所的な完成牌・製品統合を追加しており、実際の LLM による新スコアはありません。本版の production Agent と模擬解説によるオフライン検証は **127/127**、実モデル／エンジン API 呼び出しは **0**。新しい事実／安全テストは **12/12**、作業ツリーの工程テストは **841 件：838 成功・3 スキップ・0 失敗**です。方法と限界は [S2 検証記録](docs/validation/MORTAL_TEACHING_S2_VALIDATION.md)を参照してください。
+観察済みの 12 局と Mortal の動作キャッシュを再利用し、実 LLM で全回答を新たに生成しました。版の識別情報を伏せ、独立した GPT-6.1 Sol / medium が各回答を一名で評価し、評定者間の一致度は測定していません。平均応答 3.86 秒、P95 5.87 秒にはエンジンの再実行を含みません。開発に使った局面での過去比較であり、因果関係や牌力・勝率の証明ではありません。ブラウザでのオンライン対局は未検証です。[検証記録](docs/validation/MORTAL_TEACHING_V6_VALIDATION.md)を参照してください。
 
 ### 一手について、納得するまで質問する
 
@@ -55,18 +49,18 @@
 
 ## ダウンロード
 
-現在のリリース：**v0.16.9**。初めて使う場合は完全版 Agent から始めてください。
+現在のリリース：**v0.16.10**。初めて使う場合は完全版 Agent から始めてください。
 
-本版では S2 の枚数表と現在の行動に対応する索引をエンジン解説へ導入し、局所的な搭子の完成牌とイベント順序を確認した安全根拠を追加しました。新パッチはオフラインの事実検証済みですが、実際の LLM では再評価していません。旧 S2 の合格率 84.25% は本版の成績ではありません。[変更履歴](CHANGELOG.md)と [S2 の検証範囲](docs/validation/MORTAL_TEACHING_S2_VALIDATION.md)をご確認ください。
+本版は行動前後の状態、牌形、明暗の組み合わせを Mortal の解説に追加します。測定結果と制約は[検証記録](docs/validation/MORTAL_TEACHING_V6_VALIDATION.md)をご確認ください。
 
 | パッケージ | 用途 |
 | --- | --- |
-| [**完全版 Agent 拡張**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.9/majsoul-ai-analysis-and-review-agent-0.16.9.zip) | 推奨の入口。ローカル計算・モデル分析・追加質問・履歴・設定を含む |
-| [任意のローカルモデル実行パッケージ · Windows x64](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.9/majsoul-model-manager-windows-x64-0.16.9.zip) | 本機で Mortal / Akagi を使う場合に取得。管理用の Node を同梱 |
-| [独立 Collector](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.9/majsoul-collector-0.16.9.zip) | AI 分析を使わず、収集・表示・エクスポートだけを利用 |
-| [ソースパッケージ](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.9/majsoul-ai-analysis-and-review-agent-source-0.16.9.zip) | 開発・ビルド・オフライン検討 |
+| [**完全版 Agent 拡張**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.10/majsoul-ai-analysis-and-review-agent-0.16.10.zip) | 推奨の入口。ローカル計算・モデル分析・追加質問・履歴・設定を含む |
+| [任意のローカルモデル実行パッケージ · Windows x64](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.10/majsoul-model-manager-windows-x64-0.16.10.zip) | 本機で Mortal / Akagi を使う場合に取得。管理用の Node を同梱 |
+| [独立 Collector](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.10/majsoul-collector-0.16.10.zip) | AI 分析を使わず、収集・表示・エクスポートだけを利用 |
+| [ソースパッケージ](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.10/majsoul-ai-analysis-and-review-agent-source-0.16.10.zip) | 開発・ビルド・オフライン検討 |
 
-[全リリースファイルと SHA-256 チェックサム](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.9)。拡張にはモデルの重みを含みません。Agent と Collector の保存領域は独立しており、同じゲームページでは片方だけ有効にしてください。
+[全リリースファイルと SHA-256 チェックサム](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.10)。拡張にはモデルの重みを含みません。Agent と Collector の保存領域は独立しており、同じゲームページでは片方だけ有効にしてください。
 
 ## 使い始める
 
