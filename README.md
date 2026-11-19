@@ -6,7 +6,7 @@
 
 **安装简单，配置按需：本地牌效加载即用；AI 讲解填好服务地址、模型名称和 API Key 即可开始；本地引擎提供解压双击的可选运行包。**
 
-[**下载 v0.16.11**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.11) · [快速开始](#快速开始) · [功能亮点](#为什么选择-majsoul-agent) · [本地模型使用](#本地模型使用) · [常见问题](#常见问题) · [详细文档](docs/README.md)
+[**下载 v0.16.12**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.12) · [快速开始](#快速开始) · [功能亮点](#为什么选择-majsoul-agent) · [本地模型使用](#本地模型使用) · [常见问题](#常见问题) · [详细文档](docs/README.md)
 
 [简体中文](README.md) | [English](README.en.md) | [日本語](README.ja.md)
 
@@ -27,7 +27,7 @@
 
 ### 已测结果与范围
 
-**提示词 v6／事实卡 v5 在 127 个冻结局面全部交付；独立盲评质量通过 111/127（87.40%），平均 3.676/4，16 条答案含重大错误。** 历史 v0.16.9 同局面参照为 98/127（77.17%）、3.581/4、27 条答案含重大错误。
+**历史提示词 v6／事实卡 v5 在 127 个冻结局面全部交付；独立盲评质量通过 111/127（87.40%），平均 3.676/4，16 条答案含重大错误。** 历史 v0.16.9 同局面参照为 98/127（77.17%）、3.581/4、27 条答案含重大错误。
 
 复用 12 个已观察过的小局和缓存的 Mortal 动作，本轮以真实 LLM 重新生成全部回答，由独立 GPT-6.1 Sol / medium 对去除版本标识的答案逐条盲评；每答一名评审，未测评审一致性。平均交付 3.86 秒、P95 5.87 秒，不含重新运行引擎。样本曾用于开发，同局面历史比较不证明因果，也不代表牌力或胜率；没有浏览器在线对局。方法、问题与边界见[本轮验证记录](docs/validation/MORTAL_TEACHING_V6_VALIDATION.md)。
 
@@ -49,19 +49,19 @@
 
 ## 下载
 
-当前发布版本：**v0.16.11**。第一次使用，推荐下载不含聊天模块的标准 Agent。
+当前发布版本：**v0.16.12**。第一次使用，推荐下载不含聊天模块的标准 Agent。
 
-本版增加动作前后状态、牌形和明暗组合事实，帮助 LLM 围绕 Mortal 的已验证动作解释取舍；[验证记录](docs/validation/MORTAL_TEACHING_V6_VALIDATION.md)说明实测与限制。
+本版更新至提示词 v8／事实卡 v7，提供同向听档进张排名与风牌身份；40 点已通过离线链路回放，真实 LLM 回归和盲评尚未进行。上方成绩属于历史 v6／v5，见[验证记录](docs/validation/MORTAL_TEACHING_V8_VALIDATION.md)。
 
 | 下载内容 | 适合谁 |
 | --- | --- |
-| [**标准 Agent 扩展**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.11/majsoul-ai-analysis-and-review-agent-0.16.11.zip) | 推荐入口，包含本地计算、模型分析、追问、历史与设置，不含聊天模块 |
-| [可选 Agent 聊天版](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.11/majsoul-agent-chat-0.16.11.zip) | 替代安装包，支持飞书群和签名 HTTPS Webhook；默认不发送。见[使用指引](docs/guides/CHAT_INTEGRATIONS.md) |
+| [**标准 Agent 扩展**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.12/majsoul-ai-analysis-and-review-agent-0.16.12.zip) | 推荐入口，包含本地计算、模型分析、追问、历史与设置，不含聊天模块 |
+| [可选 Agent 聊天版](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.12/majsoul-agent-chat-0.16.12.zip) | 替代安装包，支持飞书群和签名 HTTPS Webhook；默认不发送。见[使用指引](docs/guides/CHAT_INTEGRATIONS.md) |
 | [可选本地模型运行包 · Windows x64](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.10/majsoul-model-manager-windows-x64-0.16.10.zip) | 想在本机运行 Mortal / Akagi 时再下载，自带管理所需的 Node |
-| [独立 Collector](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.11/majsoul-collector-0.16.11.zip) | 只采集、展示与导出，不需要 AI 分析 |
-| [源码包](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.11/majsoul-ai-analysis-and-review-agent-source-0.16.11.zip) | 开发、构建与离线复盘 |
+| [独立 Collector](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.12/majsoul-collector-0.16.12.zip) | 只采集、展示与导出，不需要 AI 分析 |
+| [源码包](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.12/majsoul-ai-analysis-and-review-agent-source-0.16.12.zip) | 开发、构建与离线复盘 |
 
-[全部发布文件与 SHA-256 校验](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.11)。扩展包不含模型权重；同一浏览器配置只启用一种扩展。本次未重发模型管理工具包，沿用上表的 `v0.16.10` 资产及其原校验。
+[全部发布文件与 SHA-256 校验](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.12)。扩展包不含模型权重；同一浏览器配置只启用一种扩展。本次未重发模型管理工具包，沿用上表的 `v0.16.10` 资产及其原校验。
 
 ## 快速开始
 

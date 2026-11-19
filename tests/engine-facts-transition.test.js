@@ -71,3 +71,36 @@ test('transition never guesses unavailable efficiency, unspecified discard metho
  assert.equal(buildFactCard(s,{action:{type:'pon',pai:'2z',consumed:['2z','2z']}}).actionTransition.status,'not-applicable');
  const reach=buildFactCard(s,{action:{type:'reach'},followUp:action().action});assert.equal(reach.actionTransition.status,'available');
 });
+test('partial visibility retains shape tenpai but suppresses the total-ukeire ranking', () => {
+ const s=base();
+ s.rivers=s.rivers.filter(r=>r.seat===s.selfSeat);
+ const c=buildFactCard(s,action()),comparison=c.explanationFocus.discard.efficiencyComparison;
+ assert.equal(c.localAnalysis.visibleTiles.partial,true);
+ assert.ok(comparison.tenpaiCount>0);
+ assert.equal(comparison.sameShantenUnseen,null);
+});
+
+test('same-shanten ranking identifies unique, tied, lower and singleton cases and rejects incomplete candidates',()=>{
+ const Analysis=require('../extension/mahjong-analysis.js'), s=base(), original=Analysis.analyze(s);
+ const candidates=original.efficiency.candidates;
+ function card(values, cut=false){
+  const rows=candidates.map((r,i)=>({...r,shanten:values[i]?.[0]??1,totalUnseenUpperBound:values[i]?.[1]??1}));
+  const efficiency={...original.efficiency,candidates:cut?rows.slice(1):rows};
+  return buildFactCard(s,action(rows[0].tile),{...original,efficiency}).explanationFocus.discard.efficiencyComparison;
+ }
+ assert.ok(candidates.length>=3);
+ assert.equal(card([[0,8],[0,7],[0,5]]).sameShantenUnseen.conclusion,'唯一最高');
+ const tie=card([[0,8],[0,8],[0,5]]).sameShantenUnseen;
+ assert.equal(tie.conclusion,'并列最高');assert.equal(tie.tiedWithOtherDiscards.length,1);
+ assert.equal(card([[0,5],[0,8],[0,7]]).sameShantenUnseen.conclusion,'非最高');
+ assert.equal(card([[0,5],[1,8],[1,7]]).sameShantenUnseen.conclusion,'该向听档只有这一项');
+ assert.equal(card([[0,5]],true),null);
+});
+test('wind roles distinguish seat, round, both and guest winds',()=>{
+ const s=base('123m123p123s1234z9p');s.game.round.wind=0;s.game.round.index=1;
+ assert.equal(buildFactCard(s,action('1z')).explanationFocus.discard.tileFacts.windRole,'场风');
+ assert.equal(buildFactCard(s,action('4z')).explanationFocus.discard.tileFacts.windRole,'自风');
+ assert.equal(buildFactCard(s,action('2z')).explanationFocus.discard.tileFacts.windRole,'客风');
+ s.game.round.index=0;
+ assert.equal(buildFactCard(s,action('1z')).explanationFocus.discard.tileFacts.windRole,'自风兼场风');
+});

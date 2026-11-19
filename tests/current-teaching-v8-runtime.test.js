@@ -1,7 +1,7 @@
 'use strict';
-const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+const {test}=require('node:test'),assert=require('node:assert/strict');
 const {stableHash}=require('../benchmark/core.cjs');
-const {createProductHarness}=require('../benchmark/current-teaching-v6/harness.cjs');
+const {createProductHarness}=require('../benchmark/current-teaching-v7/harness.cjs');
 const {createMock}=require('../benchmark/mortal-teaching/mock.cjs');
 const State=require('../extension/state.js'),Snapshot=require('../extension/collector/snapshot-adapter.js'),Mjai=require('../extension/adapters/mjai.js');
 function fixture(){
@@ -10,9 +10,7 @@ function fixture(){
  const message={provider:'mjai',task:'combined',lane:'live',snapshot:Snapshot.snapshot(state,{game:true,rivers:'all',hand:true}),engineRequest:Mjai.fromObservation({format:'mj-observer-v1',mode:'live',state,events},{hand:true}),context:{identity:{matchId:'fixture',roundStartId:'round'},position:1,events,historyComplete:true,eventWindowStart:0}};
  return {id:'node',roundId:'round',position:1,compatible:true,message,inputHash:stableHash(message),legalActions:[{action:'discard',tile:'9p'}]};
 }
-function harness(t,candidate,mode){
- const directory=fs.mkdtempSync(path.join(os.tmpdir(),'current-teaching-v6-'));
- t.after(()=>{const resolved=path.resolve(directory);assert.equal(path.dirname(resolved),path.resolve(os.tmpdir()));assert.ok(path.basename(resolved).startsWith('current-teaching-v6-'));fs.rmSync(resolved,{recursive:true,force:true});});
+function harness(mode){
  const node=fixture(),mock=createMock({nodes:[node]},{tools:mode==='tools'}),requests=[];let llm=0;
  const fetchModel=async(url,options)=>{
   if(!url.startsWith('http://127.0.0.1')){llm++;requests.push(JSON.parse(options.body));
@@ -21,37 +19,33 @@ function harness(t,candidate,mode){
   }
   return mock.fetch(url,options);
  };
- const h=createProductHarness({candidate,directory,persist:()=>{},engineConfig:{model:'Yuchen1457-mortal-v4-582500',engineProfile:'yuchen-582500',endpoint:'http://127.0.0.1:17342/analyze',apiKey:'mock-engine'},llmConfig:{model:'deepseek-flash',endpoint:'https://api.deepseek.com/chat/completions',apiKey:'mock-llm'},fetchModel});
+ const h=createProductHarness({versions:{prompt:8,facts:7},engineConfig:{model:'Yuchen1457-mortal-v4-582500',engineProfile:'yuchen-582500',endpoint:'http://127.0.0.1:17342/analyze',apiKey:'mock-engine'},llmConfig:{model:'deepseek-flash',endpoint:'https://api.deepseek.com/chat/completions',apiKey:'mock-llm'},fetchModel});
  return {h,node,requests,count:()=>llm};
 }
-test('current workspace v6 reach production Worker/Pi and preserve tool continuation and final action',async t=>{
- for(const candidate of ['current-workspace-v6']){
-  const {h,node,requests,count}=harness(t,candidate,'tools'),r=await h.worker.analyze(node.message,'test');
+test('current workspace reaches production Worker/Pi and preserves tool continuation and final action',async ()=>{
+  const {h,node,requests,count}=harness('tools'),r=await h.worker.analyze(node.message,'test');
   assert.equal(r.explanation.status,'completed',r.explanation.error);assert.equal(r.result.decision.tile,'9p');assert.equal(count(),2);assert.equal(h.traces[0].toolResults.length,1);
   assert.ok(requests[1].messages.some(m=>m.role==='tool'));assert.ok(h.traces[0].validateFinal);assert.ok(h.traces[0].formatRepairMessage);
- }
 });
-test('one format repair recovers missing arrays for current through the original parser',async t=>{
- for(const candidate of ['current-workspace-v6']){
-  const {h,node,count}=harness(t,candidate,'repair'),r=await h.worker.analyze(node.message,'test');
+test('one format repair recovers missing arrays through the original parser',async ()=>{
+  const {h,node,count}=harness('repair'),r=await h.worker.analyze(node.message,'test');
   assert.equal(r.explanation.status,'completed',r.explanation.error);assert.equal(count(),2);assert.equal(r.result.decision.tile,'9p');
- }
 });
-test('unrepaired invalid JSON structure stops after one repair and retains the Mortal action',async t=>{
- const {h,node,count}=harness(t,'current-workspace-v6','repair-fails'),r=await h.worker.analyze(node.message,'test');
+test('unrepaired invalid JSON structure stops after one repair and retains the Mortal action',async ()=>{
+ const {h,node,count}=harness('repair-fails'),r=await h.worker.analyze(node.message,'test');
  assert.equal(r.explanation.status,'failed');assert.equal(count(),2);assert.equal(r.result.decision.tile,'9p');
 });
-test('forbidden action field stays a delivery failure and is never accepted as a candidate action',async t=>{
- const {h,node,count}=harness(t,'current-workspace-v6','forbidden'),r=await h.worker.analyze(node.message,'test');
+test('forbidden action field stays a delivery failure and is never accepted as a candidate action',async ()=>{
+ const {h,node,count}=harness('forbidden'),r=await h.worker.analyze(node.message,'test');
  assert.equal(r.explanation.status,'failed');assert.equal(count(),1);assert.equal(r.result.decision.tile,'9p');
 });
-test('current v6 prompt and v5 facts reach production without a candidate suffix',async t=>{
- const {h,node}=harness(t,'current-workspace-v6','tools'),r=await h.worker.analyze(node.message,'test');
+test('current v8 prompt and v7 facts reach production without a candidate suffix',async ()=>{
+ const {h,node}=harness('tools'),r=await h.worker.analyze(node.message,'test');
  const Explanation=require('../extension/contracts/engine-explanation.js'),trace=h.traces[0];
- assert.equal(trace.promptVersion,6);assert.ok(trace.systemPrompt.startsWith(Explanation.prompt));
+ assert.equal(trace.promptVersion,8);assert.ok(trace.systemPrompt.startsWith(Explanation.prompt));
  assert.ok(!trace.systemPrompt.includes('S1')&&!trace.systemPrompt.includes('S2')&&!trace.systemPrompt.includes('S3'));
  const text=trace.messages.at(-1).content,payload=JSON.parse(text.slice(text.indexOf('{')));
- assert.equal(payload.facts.format,'mortal-teaching-fact-card-v5');
+ assert.equal(payload.facts.format,'mortal-teaching-fact-card-v7');
  assert.deepEqual(payload.facts.handTileAvailability.columns,['牌','已见','未见上界']);
  assert.equal(payload.facts.explanationFocus.position,node.position);
  assert.equal(payload.facts.actionTransition.status,'available');
@@ -62,7 +56,7 @@ test('current v6 prompt and v5 facts reach production without a candidate suffix
  assert.ok(payload.facts.situation.players.every(p=>Array.isArray(p.melds)));
  assert.match(trace.systemPrompt,/现有依据不足以确定该取舍/);
  assert.match(trace.systemPrompt,/只有对应集合确实仅一张/);
- assert.equal(r.explanation.promptVersion,6);
+ assert.equal(r.explanation.promptVersion,8);
  for(const c of payload.facts.risk.candidates)for(const o of c.opponents){assert.ok(['confirmed','unknown'].includes(o.safety.status));assert.ok(Array.isArray(o.safety.evidence));}
 });
 test('neutral blind history preserves prior action and actual teaching excerpt without policy prose',()=>{

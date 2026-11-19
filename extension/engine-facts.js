@@ -132,6 +132,47 @@ function candidateTable(efficiency) {
       Number.isInteger(c.totalUnseenUpperBound) && c.totalUnseenUpperBound >= 0 ? c.totalUnseenUpperBound : null]),
     meaning:'每行只对应括号内的精确弃牌编码，赤五单列；只读同一行数值，不能套用其他行。顺序不是引擎排名；该表不证明候选合法，不要求比较。' };
 }
+function efficiencyComparison(efficiency, tile, expectedTiles) {
+  const rows = efficiency.candidates;
+  if (efficiency.status !== 'available' || !efficiency.canDiscard || !Array.isArray(rows) ||
+      !expectedTiles || rows.length !== expectedTiles.size || new Set(rows.map(r => r.tile)).size !== rows.length ||
+      rows.some(r => !expectedTiles.has(r.tile) || !validTile(r.tile) || !Number.isInteger(r.shanten) || r.shanten < 0)) return null;
+  const selected = rows.find(r => r.tile === tile);
+  if (!selected) return null;
+  const tenpai = rows.filter(r => r.shanten === 0), peers = rows.filter(r => r.shanten === selected.shanten);
+  const comparable = efficiency.visibleTiles?.partial === false && efficiency.visibleTiles.invalid === false &&
+    peers.every(r => Number.isInteger(r.totalUnseenUpperBound) && r.totalUnseenUpperBound >= 0);
+  let sameShantenUnseen = null;
+  if (comparable) {
+    const highest = Math.max(...peers.map(r => r.totalUnseenUpperBound));
+    const othersAtHighest = peers.filter(r => r.tile !== tile && r.totalUnseenUpperBound === highest);
+    const tiedAtHighest = selected.totalUnseenUpperBound === highest && othersAtHighest.length > 0;
+    sameShantenUnseen = {
+      conclusion: peers.length === 1 ? '该向听档只有这一项' : selected.totalUnseenUpperBound < highest ? '非最高' : tiedAtHighest ? '并列最高' : '唯一最高',
+      highest,
+      ...(tiedAtHighest ? { tiedWithOtherDiscards: othersAtHighest.map(r => `${Snapshot.label(r.tile)}(${r.tile})`) } : {})
+    };
+  }
+  return { bestShanten: Math.min(...rows.map(r => r.shanten)), tenpaiCount: tenpai.length,
+    soleTenpaiDiscard: tenpai.length === 1 ? describe(tenpai[0].tile) : null,
+    sameShantenUnseen,
+    meaning: '只统计当前程序弃牌效率表，赤五单列；不是引擎排名或合法动作集合。tenpaiCount只指形状听牌。结论针对所选牌在同向听档的未见进张上界。' };
+}
+function discardTileFacts(f, tile) {
+  const { canonical, red } = tile, { indicators } = f.dora;
+  const row = f.handTileAvailability.rows.find(([label]) => label.endsWith('(' + canonical + ')'));
+  const isSeatWind = f.round.selfWind.code === null ? null : canonical === f.round.selfWind.code;
+  const isRoundWind = f.round.prevailingWind.code === null ? null : canonical === f.round.prevailingWind.code;
+  const windRole = !/^[1-4]z$/.test(canonical) ? null : isSeatWind === true && isRoundWind === true ? '自风兼场风' :
+    isSeatWind === true ? '自风' : isRoundWind === true ? '场风' : isSeatWind === false && isRoundWind === false ? '客风' : null;
+  return {
+    windRole, isSeatWind, isRoundWind,
+    isDragon: /^[5-7]z$/.test(canonical), isRedFive: red,
+    isDoraFromIndicator: indicators?.some(x => x.dora.code === canonical) ? true :
+      f.dora.rules === 'four-player' && indicators?.length && indicators.every(x => x.dora.code !== null) ? false : null,
+    visibility: { status: f.handTileAvailability.status, seen: row?.[1] ?? null, unseenUpperBound: row?.[2] ?? null }
+  };
+}
 function meldFact(m, index) {
   const tiles = Array.isArray(m.tiles) ? m.tiles : [], canonical = tiles.filter(validTile).map(Analysis.canonical), sorted = canonical.slice().sort();
   const known = canonical.length === tiles.length, same = known && tiles.length >= 3 && canonical.every(t => t === canonical[0]);
@@ -154,18 +195,23 @@ function actionTransition(f) {
     meldsChangedByDiscard:false,
     meaning:'摸切／手切只读discardMethod；改善向听须change=improved，unchanged只能说维持，不能把已完成摸牌带来的变化归给弃牌。局部牌形与孤张不等于引擎动机。' };
 }
-function focusFor(f) {
+function focusFor(f, expectedTiles) {
   const name = t => t?.code ? t.name + '(' + t.code + ')' : null;
   const shape = x => x ? { sameTileGroups: x.sameTileGroups.map(g => [name(g.tile),g.count,g.shapeName]), sequences: x.possibleSequences } : null;
   const selected = f.selectedAction, after = selected.afterDiscard, tile = selected.discard?.code, canonical = tile ? Analysis.canonical(tile) : null;
   const links = x => !x || !canonical ? null : x.incompleteSequenceCompletions.filter(p => p.tiles.includes(canonical));
   const risk = f.risk.candidates?.find(c => c.tile === tile);
   return { position: f.binding.position, currentContext: f.currentContext, candidateEfficiencySource: 'facts.candidateEfficiency', actionTransitionSource: 'facts.actionTransition', meldsSource: 'facts.situation.players[].melds', round: { prevailingWind: name(f.round.prevailingWind), selfWind: name(f.round.selfWind), dealerSeat: f.round.dealerSeat },
-    situation: f.situation, concealedSize: [f.hand.concealedCount, after?.concealedCount ?? null], availableGroups: { before: shape(f.hand.shape), after: shape(after?.shape) },
+    situation: f.situation, ownMeldBlocksTanyao: f.hand.melds?.some(m => m.status === 'known' && m.tiles.some(t => /^(?:[19][mps]|[1-7]z)$/.test(t.canonical))) ? true :
+      f.hand.melds?.every(m => m.status === 'known') ? false : null,
+    concealedSize: [f.hand.concealedCount, after?.concealedCount ?? null], availableGroups: { before: shape(f.hand.shape), after: shape(after?.shape) },
     discard: tile ? { tile: name(selected.discard), status: selected.discardStatus, method: selected.discardMethod,
       ownSameTile: [f.hand.canonicalCounts?.[canonical] ?? null, after?.sameTileInOwnConcealedHand.canonical ?? null],
       localLinks: { before: links(f.hand.shape), after: links(after?.shape) }, efficiency: after?.efficiency ?? null,
-      safetyByOpponent: risk?.opponents.map(o => ({ seat: o.seat, relativeName: o.relativeName, ...o.safety })) ?? [],
+      tileFacts: selected.discardStatus === 'available' ? discardTileFacts(f, selected.discard) : null,
+      efficiencyComparison: selected.discardStatus === 'available' ? efficiencyComparison(f.localAnalysis, tile, expectedTiles) : null,
+      safetyByOpponent: risk?.opponents.map(o => ({ seat: o.seat, relativeName: o.relativeName, ...o.safety,
+        sujiReferences: o.riverAvailable ? o.sujiReferences?.map(describe) ?? null : null })) ?? [],
       safetyScope: 'confirmed仅绑定对应对手和当前时点；unknown不是不安全。' } : null,
     scope: '仅索引当前动作；局部组合可能重叠，补牌不是总体进张；null为未知或不适用。' };
 }
@@ -209,7 +255,7 @@ function buildFactCard(snapshot, engine = {}, analysis, context = {}) {
   const events = authorizedTimeline(s, context.events);
   const visible = efficiency.visibleTiles;
   const card = {
-    format: 'mortal-teaching-fact-card-v5',
+    format: 'mortal-teaching-fact-card-v7',
     binding: { position: s.lastStep ?? null, source: s.source ?? 'unknown', selfSeat: self },
     tileLegend: [...ALL, '0m', '0p', '0s'].map(describe),
     round: { prevailingWind: describe(wind === null ? null : (wind + 1) + 'z'), roundIndex: dealer, handNumber: dealer === null ? null : dealer + 1, dealerSeat: dealer, selfSeat: self, selfWind: describe(selfWind), honba: game?.honba ?? null },
@@ -223,18 +269,19 @@ function buildFactCard(snapshot, engine = {}, analysis, context = {}) {
     selectedAction: { action, followUp, discard: discard ? describe(discard.pai) : null, discardStatus, reason: discardReason, discardMethod: typeof discard?.tsumogiri === 'boolean' ? discard.tsumogiri ? 'drawn-tile' : 'hand-tile' : 'unknown', afterDiscard: after ? { concealedTiles: after.map(describe), concealedCount: after.length, exactCounts: counts(after), canonicalCounts: canonicalCounts(after), countScope: 'self-concealed-hand-after-discard', sameTileInOwnConcealedHand: { exact: after.filter(t => t === discard.pai).length, canonical: after.filter(t => Analysis.canonical(t) === Analysis.canonical(discard.pai)).length, meaning: '只统计本次弃牌后自家暗手持有枚数；0不等于全场见尽，也不等于牌山无此牌。' }, shape: shapeFacts(after, visible), efficiency: selectedEfficiency } : null },
     localAnalysis: { ...efficiency, efficiencyCandidatesAreEngineLegalActions: false, visibleCountScope: '包含自家手牌（摸牌不重复追加）、宝牌指示牌、各家副露/暗杠和牌河；已鸣牌按本地工具规则去重。4减已见枚数为未见上界，非牌山剩余。' },
     situation: { riichiSeats: game?.players?.filter(p => p.riichi === true).map(p => p.seat) ?? null, players: seats.map(p => { const v = game?.players?.find(x => x.seat === p.seat); return { seat: p.seat, relativeName: p.relativeName, riichi: typeof v?.riichi === 'boolean' ? v.riichi : null, meldCount: Array.isArray(v?.melds) ? v.melds.length : null, melds: Array.isArray(v?.melds) ? v.melds.map(meldFact).map(m => ({ label:m.label, status:m.status, tiles:m.tiles.map(t => t.name + '(' + t.code + ')') })) : null }; }) },
-    risk: { ...local.danger, riverIndexBase: 0, candidates: (local.danger?.candidates || []).map(c => ({ ...c, tileIdentity: describe(c.tile), opponents: c.opponents.map(o => {
-        const riverIndices = s.rivers?.find(r => r.seat === o.seat)?.discards?.flatMap((d,index) => Analysis.canonical(d.tile) === Analysis.canonical(c.tile) ? [index] : []) ?? [];
+    risk: { ...local.danger, riverIndexBase: 0, discardNumberMeaning: 'discardNumber(s)为对应玩家牌河的第几张弃牌，从1起；不等于巡目，riverIndices为从0起的索引。', candidates: (local.danger?.candidates || []).map(c => ({ ...c, tileIdentity: describe(c.tile), opponents: c.opponents.map(o => {
+        const matches = s.rivers?.find(r => r.seat === o.seat)?.discards?.flatMap((d, index) => Analysis.canonical(d.tile) === Analysis.canonical(c.tile) ? [{ index, discardNumber: index + 1, tile: describe(d.tile) }] : []) ?? null;
         const exclusion = visibleExclusion(s, visible, c.tile);
-        const evidence = [...(riverIndices.length ? [{type:'river',riverIndices}] : []), ...passedRiichiEvidence(s, events, o.seat, c.tile), ...(exclusion ? [exclusion] : [])];
-        return ({ ...o, safety: { status: evidence.length ? 'confirmed' : 'unknown', evidence, scope: '仅限本座位在当前冻结时点不能荣和该牌；不推断其他牌或未来。' }, relativeName: seats[o.seat]?.relativeName ?? 'unknown', wind: seats[o.seat]?.wind ?? describe(null), genbutsuMeaning: 'true仅依据该对手本人牌河；false表示本工具未找到本人弃牌证据，不否定立直后他家打出并通过等其他已核实安全证据。', genbutsuRiverIndices: s.rivers?.find(r => r.seat === o.seat)?.discards?.flatMap((d, index) => Analysis.canonical(d.tile) === Analysis.canonical(c.tile) ? [{ index, tile: describe(d.tile) }] : []) ?? null }); }) })) },
+        const evidence = [...(matches?.length ? [{type:'river',riverIndices: matches.map(x => x.index), discardNumbers: matches.map(x => x.discardNumber)}] : []), ...passedRiichiEvidence(s, events, o.seat, c.tile), ...(exclusion ? [exclusion] : [])];
+        return ({ ...o, safety: { status: evidence.length ? 'confirmed' : 'unknown', evidence, scope: '仅限本座位在当前冻结时点不能荣和该牌；不推断其他牌或未来。' }, relativeName: seats[o.seat]?.relativeName ?? 'unknown', wind: seats[o.seat]?.wind ?? describe(null), genbutsuMeaning: 'true仅依据该对手本人牌河；false表示本工具未找到本人弃牌证据，不否定立直后他家打出并通过等其他已核实安全证据。', genbutsuRiverIndices: matches }); }) })) },
     yakuhai: { identities, completedGroups: groups, scoringVerified: false, concealedGroupMeaning: 'concealedHand 的 tripletPresent 仅表示手中至少三张同种役牌；可拆作其他牌形，不保证最终和牌分组或已成役。' },
     countScopes: { ownConcealed: 'hand与afterDiscard的counts仅是自家暗手；赤五在exactCounts中单列，在canonicalCounts中与普通五合并。', visible: 'localAnalysis.visibleTiles是本次已授权可见范围；partial或invalid时不能声称全场见尽。', unseen: 'effectiveTiles.unseenUpperBound是4减已见的上界；包含未知对手手牌、王牌和牌山，不能当实际牌山枚数。' },
     limitations: ['向听0仅代表形状听牌，不代表有役可和；完整役、振听和得分未知。', '安全证据只绑定对应座位和当前时点；unknown不是不安全，筋、壁不保证安全。', '不推算引擎Q值、分数、胜率或内部思考；效率候选不是引擎合法动作集合。']
   };
   card.handTileAvailability = compactCounts(s, card);
   card.actionTransition = actionTransition(card);
-  card.explanationFocus = focusFor(card);
+  const expectedTiles = hand && own && new Set(hand.filter(t => own.riichi !== true || t === s.selfDrawnTile));
+  card.explanationFocus = focusFor(card, expectedTiles);
   return card;
 }
 const api = { buildFactCard };
