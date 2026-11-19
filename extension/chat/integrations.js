@@ -1,71 +1,27 @@
 (function (root) {
   'use strict';
-  const Review = typeof module !== 'undefined' && module.exports ? require('../postgame-review.js') : root.MJPostgameReview;
-  const KEY = 'chatIntegrationsV1', HISTORY = 'roundHistoryV1';
+  const KEY = 'chatIntegrationsV1';
   const DUE = 'chat-delivery-due', WATCH = 'chat-delivery-watch';
   const SHARE = 'app.majsoul.review.summary.shared.v1', TEST = 'app.majsoul.integration.test.v1';
-  const COMPLETE = 'app.majsoul.match.completed.v1', MAX_PENDING = 20, SEND_TTL = 24 * 60 * 60 * 1000;
-  const END_REASONS = { Hule: 'win', NoTile: 'exhaustive_draw', LiuJu: 'abortive_draw' };
+  const COMPLETE = 'app.majsoul.match.completed.v1', SEND_TTL = 24 * 60 * 60 * 1000;
   const TTL = 15 * 60 * 1000, MAX_TARGETS = 12;
   const initial = () => ({ enabled: false, destinations: [], source: null, draft: null });
-  const settled = snapshot => snapshot?.phase === 'ended' && ['Hule', 'NoTile', 'LiuJu'].includes(snapshot.result?.kind);
-  const roundKey = snapshot => JSON.stringify([snapshot?.round?.wind, snapshot?.round?.index, snapshot?.honba]);
   const permissionPattern = url => {
     const endpoint = new URL(url);
     return `https://${endpoint.hostname}/*`;
   };
 
-  function matchResult(match) {
-    const first = match.rounds[0]?.snapshot, last = match.rounds.at(-1)?.snapshot;
-    const playerCount = first?.startScores?.length, result = last?.result;
-    if (!match.id.startsWith('live-') || match.source !== 'live' || !match.closed || match.droppedRounds ||
-        first?.round?.wind !== 0 || first.round.index !== 0 || first.honba !== 0 || ![3, 4].includes(playerCount) ||
-        !settled(last) || result.gameEnded !== true || !match.rounds.every(({ snapshot }) => snapshot?.source === 'live' &&
-          settled(snapshot) && snapshot.startScores?.length === playerCount && snapshot.turnProgress?.status === 'known')) return null;
-    const scores = result.scores;
-    const finalScores = result.kind !== 'LiuJu' && result.scoresKnown === true && Array.isArray(scores) && scores.length === playerCount &&
-      scores.every(score => Number.isSafeInteger(score) && Math.abs(score) <= 1000000) ? scores : undefined;
-    return { playerCount, roundCount: match.rounds.length, endReason: END_REASONS[result.kind], ...(finalScores ? { finalScores } : {}) };
-  }
-
-  function project(records, history, groupKey) {
-    if (typeof groupKey !== 'string' || groupKey.length > 512) return null;
-    const group = Review.groups(records).find(value => value.key === groupKey);
-    if (!group?.matchId) return null;
-    const match = history.find(value => value.id === group.matchId);
-    if (!match || !['live', 'replay'].includes(match.source) || !Array.isArray(match.rounds)) return null;
-    const last = match.rounds.at(-1)?.snapshot;
-    if (match.source === 'live' && (!match.id.startsWith('live-') || match.closed !== true ||
-      last?.source !== 'live' || !settled(last) || last.result.gameEnded !== true)) return null;
-    if (match.source === 'replay' && !/^replay-[a-f0-9]{64}$/.test(match.id)) return null;
-    const eligible = new Set(match.rounds.map(round => round.snapshot)
-      .filter(snapshot => settled(snapshot) && snapshot.source === match.source).map(roundKey));
-    const rounds = new Set(), decisions = new Set(), topics = new Set();
-    for (const record of group.records) {
-      const snapshot = record.snapshot, game = snapshot.game;
-      if (decisions.has(record.id) || snapshot.source !== match.source || !game || !eligible.has(roundKey(game))) continue;
-      decisions.add(record.id);
-      rounds.add(roundKey(game));
-      const result = record.analysis.result;
-      if (['attack', 'defend', 'fold'].includes(result.decision?.action) || result.danger?.length) topics.add('strategy');
-      if (result.efficiency?.length || record.analysis.localAnalysis?.efficiency) topics.add('efficiency');
-      if (game.players?.some(player => player.riichi === true || player.melds?.length) ||
-        snapshot.rivers?.some(river => river.discards?.some(discard => discard.riichi === true))) topics.add('calls');
-      if (record.chat?.length) topics.add('questions');
-    }
-    return decisions.size ? { scope: 'retained-decisions', roundCount: rounds.size, decisionCount: decisions.size,
-      topics: ['strategy', 'efficiency', 'calls', 'questions'].filter(topic => topics.has(topic)) } : null;
-  }
-
-  function create({ storage, discussions, deliveryApi, indexedDB, fetchRequest, permissions, alarms, runtime,
+  function create({ storage, completionInbox, readReviewSummary, deliveryApi, indexedDB, fetchRequest, permissions, alarms, runtime,
     storageReady, clock = Date.now, uuid = () => root.crypto.randomUUID() }) {
-    let state, loading, commands = Promise.resolve(), pumping, paused = false, changingTarget, permissionRevision = 0, changingSubscription = false;
+    let state, loading, commands = Promise.resolve(), pumping, wakeRequested = false, paused = false;
+    let changingTarget, permissionRevision = 0, changingSubscription = false, revokedScope;
+    let alarmWrites = Promise.resolve();
     const activeRequests = new Set();
     const load = () => state ? Promise.resolve(state) : (loading ||= Promise.resolve(storageReady)
       .then(() => storage.get(KEY)).then(values => (state = values[KEY] || initial())).finally(() => { loading = null; }));
-    const save = async (update, companion = {}) => {
+    const save = async update => {
       const next = { ...state, ...update };
-      await storage.set({ ...companion, [KEY]: next });
+      await storage.set({ [KEY]: next });
       state = next;
     };
     const serial = action => {
@@ -74,15 +30,15 @@
       return result;
     };
     const hasPermission = async url => (await permissions.contains({ origins: [permissionPattern(url)] })) === true;
-    const canPump = () => state?.enabled === true && !paused;
+    const canPump = () => state?.enabled === true && !paused && !state.clearPending;
     const currentTarget = id => canPump() && id !== changingTarget ? state.destinations.find(target => target.id === id) : null;
     const resolveDestination = async id => {
       await load();
       return currentTarget(id) || null;
     };
-    const activeScope = (scope, id, version) => scope === undefined || (!changingSubscription && state.subscription?.id === scope &&
+    const activeScope = (scope, id, version) => scope === undefined || (!changingSubscription && scope !== revokedScope && state.subscription?.id === scope &&
       state.subscription.target.id === id && state.subscription.target.version === version);
-    async function authorizeDispatch(destination, timeout, send, scope) {
+    async function authorizeDispatch(destination, timeout, send, scope, expiresAt = Infinity) {
       const { id, version, url } = destination;
       let revision, allowed;
       do {
@@ -93,6 +49,7 @@
       const current = currentTarget(id);
       if (!current?.enabled || current.version !== version || current.url !== url || !activeScope(scope, id, version)) return { status: 'failed', code: 'destination_changed' };
       if (!allowed) return { status: 'failed', code: 'permission_denied' };
+      if (expiresAt <= clock()) return { status: 'expired', code: 'delivery_expired' };
       const controller = new AbortController(), active = { id, url, scope, controller };
       const signal = AbortSignal.any([timeout, controller.signal]);
       activeRequests.add(active);
@@ -117,39 +74,51 @@
       stop(id);
       try { return await action(); } finally { changingTarget = undefined; }
     };
-    async function schedule() {
-      if (!alarms) return;
-      await load();
-      if (!state.enabled) {
-        await Promise.all([alarms.clear(DUE), alarms.clear(WATCH)]);
-        return;
-      }
-      if (!await alarms.get(WATCH)) await alarms.create(WATCH, { periodInMinutes: 1 });
+    const updateAlarms = action => {
+      const result = alarmWrites.then(action);
+      alarmWrites = result.catch(() => {});
+      return alarmWrites;
+    };
+    const watch = () => !alarms ? Promise.resolve() : updateAlarms(async () => {
+      if (state.enabled || state.clearPending) {
+        if (!await alarms.get(WATCH)) await alarms.create(WATCH, { periodInMinutes: 1 });
+      } else await Promise.all([alarms.clear(DUE), alarms.clear(WATCH)]);
+    });
+    async function scheduleDue() {
+      if (!alarms || !canPump()) return;
       const due = await queue.nextDue();
-      if (Number.isFinite(due)) await alarms.create(DUE, { when: Math.max(clock() + 1000, due) });
-      else await alarms.clear(DUE);
+      await updateAlarms(() => canPump() && Number.isFinite(due)
+        ? alarms.create(DUE, { when: Math.max(clock() + 1000, due) }) : alarms.clear(DUE));
     }
     function wake() {
+      wakeRequested = true;
       if (pumping) return pumping;
       pumping = (async () => {
-        await serial(flushMatches);
-        if (!canPump()) return;
-        await queue.pump();
+        do {
+          wakeRequested = false;
+          await load();
+          await watch();
+          await serial(flushMatches).catch(() => {});
+          if (canPump()) await queue.pump();
+        } while (wakeRequested);
       })().catch(() => {}).finally(() => {
         pumping = null;
-        schedule().catch(() => {});
+        if (wakeRequested) return wake();
+        scheduleDue().catch(() => {});
       });
       return pumping;
     }
     async function ready() {
-      await schedule();
       await wake();
     }
     const readSummary = async groupKey => {
-      const [records, history] = await Promise.all([discussions.list(), storage.get(HISTORY)]);
-      return project(records, history[HISTORY] || [], groupKey);
+      const summary = await readReviewSummary(groupKey);
+      if (summary?.version !== 1) return null;
+      const { scope, roundCount, decisionCount, topics } = summary;
+      return { scope, roundCount, decisionCount, topics };
     };
     const fail = (code, error) => ({ ok: false, code, error });
+    const listCommitted = () => completionInbox?.listCommitted() ?? Promise.resolve([]);
     const disabled = () => fail('disabled', '请先在扩展设置开启聊天分享。');
     const unavailable = () => fail('unavailable', '没有可核实的赛后留存摘要。');
     const changed = () => fail('changed', '摘要或目标已变化，请刷新预览后再确认。');
@@ -161,8 +130,8 @@
       return { ok: true };
     };
     const usableTarget = target => target?.enabled === true && hasPermission(target.url);
-    const event = (type, data, id = uuid()) => ({ specversion: '1.0', id, source: state.source, type,
-      time: new Date(clock()).toISOString(), datacontenttype: 'application/json', data });
+    const event = (type, data, id = uuid(), time = clock()) => ({ specversion: '1.0', id, source: state.source, type,
+      time: new Date(time).toISOString(), datacontenttype: 'application/json', data });
     const targetRef = ({ id, version }) => ({ id, version });
     const sourceRef = sender => Number.isInteger(sender?.tab?.id) && typeof sender.documentId === 'string' && sender.documentId
       ? { tabId: sender.tab.id, documentId: sender.documentId } : null;
@@ -185,37 +154,91 @@
       return { ok: true };
     }
 
-    async function persistHistory(matches, match, matchStart, sender) {
-      const history = { [HISTORY]: matches };
-      const queued = await serial(async () => {
-        const subscription = state.subscription;
-        const data = state.enabled && sameSource(sourceRef(sender), subscription?.source) &&
-          matchStart === match.startedAt && matchStart > subscription.since && matchStart <= clock() && matchResult(match);
-        if (!data) { await storage.set(history); return false; }
-        const now = clock(), previous = state.matchPending || [], pending = previous.filter(item => item.expiresAt > now);
-        const missed = (state.matchMissed || 0) + previous.length - pending.length;
-        if (pending.length >= MAX_PENDING) {
-          await save({ matchMissed: missed + 1 }, history);
-          return false;
-        }
-        await save({ matchMissed: missed, matchPending: [...pending, { event: event(COMPLETE, data), expiresAt: now + SEND_TTL,
-          target: { ...subscription.target, scope: subscription.id } }] }, history);
-        return true;
-      });
-      if (queued) wake();
+    function matchesSubscription(record) {
+      const subscription = state.subscription;
+      return record?.version === 1 && sameSource(record.sourceRef, subscription?.source) &&
+        Number.isSafeInteger(record.observedStartAt) && Number.isSafeInteger(record.committedAt) &&
+        subscription.since < record.observedStartAt && record.observedStartAt <= record.committedAt && record.committedAt <= clock();
     }
 
-    async function flushMatches() {
-      if (!state.enabled || !state.matchPending?.length) return;
+    async function enqueueMatch(outgoing, target, expiresAt) {
+      const { id, version, scope } = target || {};
+      if (!canPump() || !scope || !activeScope(scope, id, version) || outgoing?.type !== COMPLETE ||
+          outgoing.source !== state.source || !Number.isFinite(expiresAt) || expiresAt <= clock()) return true;
+      const destination = currentTarget(id);
+      if (destination?.version !== version || !await usableTarget(destination) || !activeScope(scope, id, version)) return true;
+      if (expiresAt <= clock()) return true;
+      const result = await queue.enqueue({ event: outgoing, destinations: [target], expiresAt });
+      return result?.ok === true || ['invalid_event', 'invalid_destination', 'event_conflict', 'delivery_expired'].includes(result?.code);
+    }
+
+    async function flushLegacyMatches() {
+      if (!state.matchPending?.length) return;
       const remaining = [];
       let missed = state.matchMissed || 0;
       for (const item of state.matchPending) {
-        const { id, version, scope } = item.target;
-        if (!activeScope(scope, id, version)) continue;
-        if (item.expiresAt <= clock()) { missed++; continue; }
-        if (!(await queue.enqueue({ event: item.event, destinations: [item.target] }))?.ok) remaining.push(item);
+        if (item?.expiresAt <= clock()) { missed++; continue; }
+        if (!await enqueueMatch(item?.event, item?.target, item?.expiresAt).catch(() => false)) remaining.push(item);
       }
       if (remaining.length !== state.matchPending.length) await save({ matchPending: remaining, matchMissed: missed });
+    }
+
+    async function flushCommittedMatches() {
+      for (const record of await listCommitted()) {
+        const expiresAt = record?.committedAt + SEND_TTL;
+        if (canPump() && matchesSubscription(record) && expiresAt > clock() && typeof record.id === 'string' && record.data) {
+          const { playerCount, roundCount, endReason, finalScores } = record.data;
+          const outgoing = event(COMPLETE, { playerCount, roundCount, endReason,
+            ...(finalScores === undefined ? {} : { finalScores }) }, record.id, record.committedAt);
+          const subscription = state.subscription;
+          if (!await enqueueMatch(outgoing, { ...subscription.target, scope: subscription.id }, expiresAt).catch(() => false)) continue;
+        }
+        if (typeof record?.id === 'string') await completionInbox.ack(record.id);
+      }
+    }
+
+    async function finishClear() {
+      if (state.clearPending === 'inbox') {
+        if (!state.clearInboxIds) {
+          // Without a readable snapshot, each successful fallback discard clears everything present at that point.
+          if ((await completionInbox?.discardPending())?.ok === false) throw new Error('Chat inbox not cleared');
+        } else {
+          for (const id of state.clearInboxIds) await completionInbox.ack(id);
+        }
+        await save({ clearPending: 'queue', clearInboxIds: null });
+      }
+      if (state.clearPending) {
+        const result = await queue.clear();
+        if (!result?.ok) return result;
+        await save({ clearPending: null });
+      }
+      return { ok: true };
+    }
+
+    async function clearDelivery(update = {}) {
+      return pauseTransport(async () => {
+        const clearInboxIds = await listCommitted().then(records => records.map(record => record.id)).catch(() => null);
+        await save({ draft: null, matchPending: [], matchMissed: 0, ...update, clearPending: 'inbox', clearInboxIds });
+        await watch();
+        return finishClear();
+      });
+    }
+
+    async function flushMatches() {
+      if (state.clearPending) {
+        if (!(await finishClear())?.ok) return;
+        await watch();
+      }
+      const bound = state.subscription;
+      if (bound) {
+        const target = currentTarget(bound.target.id);
+        if (bound.id === revokedScope || target?.version !== bound.target.version || !await usableTarget(target)) {
+          revokedScope = bound.id;
+          await stopSubscription({ sourceOffer: null });
+        }
+      }
+      await flushLegacyMatches().catch(() => {});
+      await flushCommittedMatches();
     }
 
     async function prepare(message) {
@@ -241,14 +264,17 @@
           const destinations = await Promise.all(state.destinations.map(async ({ id, version, kind, name, enabled, url }) =>
             ({ id, version, kind, name, enabled, origin: new URL(url).origin, hasPermission: await hasPermission(url) })));
           const draft = state.draft;
-          const deliveries = (await queue.list()).map(({ scope, ...delivery }) => ({ ...delivery, retryable: state.enabled &&
+          const deliveries = (await queue.list({ includeDeadline: true })).map(({ scope, expiresAt, ...delivery }) => ({ ...delivery, retryable: canPump() &&
             activeScope(scope, delivery.destinationId, delivery.destinationVersion) &&
-            ['failed', 'unknown'].includes(delivery.status) && delivery.createdAt + 24 * 60 * 60 * 1000 > clock() &&
-            destinations.some(target => target.id === delivery.destinationId && target.version === delivery.destinationVersion && target.hasPermission) }));
+            ['failed', 'unknown'].includes(delivery.status) && expiresAt > clock() &&
+            destinations.some(target => target.id === delivery.destinationId && target.version === delivery.destinationVersion && target.hasPermission && target.enabled) }));
           const subscription = state.subscription;
+          const committed = await listCommitted().catch(() => []);
+          const pending = canPump() && subscription && activeScope(subscription.id, subscription.target.id, subscription.target.version)
+            ? committed.filter(record => matchesSubscription(record) && record.committedAt + SEND_TTL > clock()).length : 0;
           return { ok: true, enabled: state.enabled, destinations, deliveries,
             matchPush: { offerId: state.enabled && !expired(state.sourceOffer) ? state.sourceOffer.id : null,
-              destinationId: subscription?.target.id ?? null, pending: state.matchPending?.length || 0, missed: state.matchMissed || 0 },
+              destinationId: subscription?.target.id ?? null, pending: pending + (state.matchPending?.length || 0), missed: state.matchMissed || 0 },
             share: state.enabled && !expired(draft) && !draft.submitted ? { draftId: draft.id, preview: draft.preview } : null };
         }
         case 'chat:configure': {
@@ -257,11 +283,9 @@
           if (message.enabled) {
             await save({ enabled: true, source: state.source || `urn:majsoul-agent:installation:${uuid()}` });
           } else {
-            await pauseTransport(async () => {
-              await save({ enabled: false, draft: null, subscription: null, sourceOffer: null, matchPending: [], matchMissed: 0,
-                destinations: state.destinations.map(target => ({ ...target, version: target.version + 1 })) });
-              if (!(await queue.clear())?.ok) throw new Error('Chat queue not cleared');
-            });
+            const cleared = await clearDelivery({ enabled: false, subscription: null, sourceOffer: null,
+              destinations: state.destinations.map(target => ({ ...target, version: target.version + 1 })) });
+            if (!cleared?.ok) return queueResult(cleared);
           }
           return { ok: true };
         }
@@ -302,10 +326,7 @@
           return { ok: true };
         }
         case 'chat:clear': {
-          return pauseTransport(async () => {
-            await save({ draft: null, matchPending: [], matchMissed: 0 });
-            return queueResult(await queue.clear());
-          });
+          return queueResult(await clearDelivery());
         }
         case 'chat:test': {
           if (!state.enabled) return disabled();
@@ -370,28 +391,47 @@
         if (message.type === 'chat:prepare-share' && game) return await prepare(message);
         if (message.type === 'chat:offer-match-source' && game) return await offerSource(sender);
         if (!optionsPage || ['chat:prepare-share', 'chat:offer-match-source'].includes(message.type)) return fail('forbidden', '此操作只能在对应的可信扩展页面发起。');
-        const result = await serial(() => options(message));
+        const result = await serial(async () => {
+          if (message.type !== 'chat:status' && state.clearPending && !(await finishClear())?.ok) return queueResult(null);
+          return options(message);
+        });
         if (message.type !== 'chat:status') {
-          await schedule().catch(() => {});
-          if (result.ok && ['chat:test', 'chat:retry', 'chat:confirm-share', 'chat:configure'].includes(message.type)) wake();
+          await watch();
+          wake();
         }
         return result;
-      } catch (_) { return fail('failed', '聊天分享操作失败，请稍后重试。'); }
+      } catch (_) {
+        if (state?.clearPending) wake();
+        return fail('failed', '聊天分享操作失败，请稍后重试。');
+      }
     }
 
+    completionInbox?.subscribe(wake);
     alarms?.onAlarm.addListener(alarm => { if (alarm.name === DUE || alarm.name === WATCH) wake(); });
     runtime.onStartup?.addListener(() => { ready().catch(() => {}); });
     runtime.onInstalled?.addListener(() => { ready().catch(() => {}); });
     permissions.onRemoved?.addListener(({ origins }) => {
       if (!origins?.length) return;
       permissionRevision++;
-      for (const { url, controller } of activeRequests) {
-        hasPermission(url).then(allowed => { if (!allowed) controller.abort(); }).catch(() => {});
+      const subscription = state?.subscription;
+      const target = state?.destinations.find(destination => destination.id === subscription?.target.id);
+      if (target && origins.includes(permissionPattern(target.url))) revokedScope = subscription.id;
+      for (const { url, scope, controller } of activeRequests) {
+        if ((scope && scope === revokedScope) || origins.includes(permissionPattern(url))) controller.abort();
+        else hasPermission(url).then(allowed => { if (!allowed) controller.abort(); }).catch(() => {});
       }
+      serial(async () => {
+        const bound = state.subscription;
+        const destination = state.destinations.find(value => value.id === bound?.target.id);
+        if (destination && (origins.includes(permissionPattern(destination.url)) || !await hasPermission(destination.url))) {
+          revokedScope = bound.id;
+          await stopSubscription({ sourceOffer: null });
+        }
+      }).catch(() => {}).finally(wake);
     });
-    return { handle, ready, persistHistory };
+    return { handle, ready };
   }
 
-  const api = { create, project, permissionPattern };
+  const api = { create, permissionPattern };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.MJChatIntegrations = api;
 })(globalThis);

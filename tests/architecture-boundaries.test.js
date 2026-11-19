@@ -152,3 +152,24 @@ test('injected model services cannot acquire ambient capabilities or collector d
     assert.throws(() => checkSourceBoundary('collector/controller.js', `require('../${file}')`), /collector must not depend/);
   }
 });
+
+test('summary and completion ports belong to the optional host, not chat, collector or panel', async () => {
+  const { checkSourceBoundary } = await import('../scripts/check-boundaries.mjs');
+  const forbidden = [
+    ['background.js', 'root.MJMatchCompletionInbox.parse(entries)'],
+    ['history-storage.js', "importScripts('match-completion-inbox.js')"],
+    ['collector/browser-adapter.js', 'root.MJReviewSummary.create()'],
+    ['chat/integrations.js', 'root.MJHistoryStorage.enableCompletionInbox()'],
+    ['chat/integrations.js', "storage.get('roundHistoryV1')"],
+    ['chat/integrations.js', "storage.get('matchCompletionInboxV1')"],
+    ['chat/integrations.js', 'root.MJPostgameReview.groups(records)'],
+    ['chat/panel.js', 'root.majsoulAddon = { observeMatchEnd: true }'],
+    ['apps/agent-app.js', "root['majsoulAddon'].observeMatchEnd"],
+    ['match-completion-inbox.js', 'chrome.storage.local.get()'],
+    ['review-summary.js', 'root.MJDecisionDiscussions.create()'],
+    ['review-summary.js', 'chrome.storage.local.get()']
+  ];
+  for (const [file, source] of forbidden) assert.throws(() => checkSourceBoundary(file, source), undefined, `${file}: ${source}`);
+  const host = 'MJReviewSummary.create({ listDiscussions, readHistory }); MJHistoryStorage.enableCompletionInbox(MJMatchCompletionInbox);';
+  assert.deepEqual(checkSourceBoundary('background-chat.js', host), ['review-summary.js', 'history-storage.js', 'match-completion-inbox.js']);
+});

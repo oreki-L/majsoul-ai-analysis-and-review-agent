@@ -27,7 +27,6 @@
     };
   }
   root.majsoulAddon = Object.freeze({
-    observeMatchEnd: true,
     reviewActions(anchor, groupKey, report) {
       action(anchor, '分享摘要…', { type: 'chat:prepare-share', groupKey }, report, response => response?.code === 'unavailable'
         ? '没有可核实的赛后摘要。仅支持已结算对局或已导入的离线复盘。' : '无法打开分享预览，请重试。');

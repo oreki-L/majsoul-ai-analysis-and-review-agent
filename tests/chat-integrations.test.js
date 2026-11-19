@@ -2,7 +2,8 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const vm = require('node:vm');
 const { readFileSync } = require('node:fs');
-const { create, project } = require('../extension/chat/integrations.js');
+const { create } = require('../extension/chat/integrations.js');
+const { create: createReviewSummary } = require('../extension/review-summary.js');
 const { normalizeDestination } = require('../extension/chat/delivery.js');
 
 const historyKey = 'roundHistoryV1';
@@ -55,33 +56,44 @@ function fixture() {
   const data = { [historyKey]: [match] }, deliveries = new Map(), origins = new Set();
   const alarmEntries = new Map(), eventInputs = [], network = [], checks = [], writes = [];
   let records = [decision], sequence = 0, now = 1700000000000, opened = 0, queueError = null, receiptError = false;
-  let beforeDispatch, sendHook;
+  let beforeDispatch, sendHook, afterSnapshot, afterMarker, afterAck, afterDiscard;
+  let ackError = false, clearError = false, phaseError = false;
+  const completions = new Map();
   const listeners = {};
   const deps = {
     storage: {
       get: async key => structuredClone({ [key]: data[key] }),
       set: async value => {
         if (receiptError && value.chatIntegrationsV1?.draft?.submitted) throw new Error('write interrupted');
+        if (phaseError && value.chatIntegrationsV1?.clearPending === 'queue') throw new Error('phase interrupted');
         const copy = structuredClone(value);
         writes.push(copy);
         Object.assign(data, copy);
+        if (copy[settingsKey]?.clearPending === 'inbox') await afterMarker?.(copy[settingsKey].clearInboxIds);
       },
     },
-    discussions: { list: async () => structuredClone(records) }, clock: () => now, uuid: () => `uuid-${++sequence}`,
+    readReviewSummary: createReviewSummary({ listDiscussions: async () => structuredClone(records), readHistory: async () => data[historyKey] }),
+    completionInbox: {
+      listCommitted: async () => { const result = structuredClone([...completions.values()]); await afterSnapshot?.(); return result; },
+      ack: async id => { if (ackError) throw new Error('ack interrupted'); completions.delete(id); await afterAck?.(id); },
+      discardPending: async () => { completions.clear(); await afterDiscard?.(); },
+      subscribe: listener => { listeners.completion = listener; },
+    },
+    clock: () => now, uuid: () => `uuid-${++sequence}`,
     fetchRequest: async (targetUrl, config) => { network.push(targetUrl); return sendHook?.(config); },
     permissions: { contains: async ({ origins: values }) => { checks.push(values); return values.length === 1 && origins.has(values[0]); },
       onRemoved: { addListener: listener => { listeners.removed = listener; } } },
-    runtime: { openOptionsPage: async () => { opened++; } },
+    runtime: { openOptionsPage: async () => { opened++; }, onStartup: { addListener: listener => { listeners.startup = listener; } } },
     alarms: { get: async name => alarmEntries.get(name), create: async (name, config) => alarmEntries.set(name, config),
       clear: async name => alarmEntries.delete(name), onAlarm: { addListener: listener => { listeners.alarm = listener; } } },
     deliveryApi: { normalizeDestination, create({ resolveDestination, hasPermission, fetchRequest, authorizeDispatch, canPump }) {
       return {
-        enqueue: async input => {
+        enqueue: async ({ expiresAt, ...input }) => {
           if (queueError) return { ok: false, code: queueError };
           eventInputs.push(structuredClone(input));
           const { event, destinations: [target] } = input;
           if (!deliveries.has(event.id)) deliveries.set(event.id, { id: event.id, destinationId: target.id,
-            destinationVersion: target.version, scope: target.scope, createdAt: now, status: 'pending' });
+            destinationVersion: target.version, scope: target.scope, createdAt: now, expiresAt: expiresAt ?? now + sendTtl, status: 'pending' });
           return { ok: true };
         },
         pump: async () => {
@@ -95,19 +107,21 @@ function fixture() {
               const outcome = await authorizeDispatch(target, new AbortController().signal, async signal => {
                 await fetchRequest(target.url, { signal });
                 return { status: 'accepted' };
-              }, row.scope);
+              }, row.scope, row.expiresAt);
               row.status = outcome.status;
             } catch (_) { row.status = 'failed'; }
           }
         },
-        list: async () => [...deliveries.values()], nextDue: async () => [...deliveries.values()].some(row => row.status === 'pending') ? now : null,
+        list: async ({ includeDeadline = false } = {}) => [...deliveries.values()]
+          .map(({ expiresAt, ...row }) => includeDeadline ? { ...row, expiresAt } : row),
+        nextDue: async () => [...deliveries.values()].some(row => row.status === 'pending') ? now : null,
         retry: async id => {
           const row = deliveries.get(id);
-          if (row?.status !== 'failed') return { ok: false };
+          if (!row || !['failed', 'unknown'].includes(row.status) || row.expiresAt <= now) return { ok: false };
           row.status = 'pending';
           return { ok: true };
         },
-        clear: async () => { deliveries.clear(); return { ok: true }; },
+        clear: async () => { if (clearError) return { ok: false }; deliveries.clear(); return { ok: true }; },
       };
     } },
   };
@@ -115,11 +129,15 @@ function fixture() {
   const call = (type, payload, sender = options) => app.handle({ type: 'chat:' + type, ...payload }, sender);
   const status = () => call('status');
   const prepare = (extra = {}) => call('prepare-share', { groupKey, ...extra }, game);
-  return { data, eventInputs, deliveries, network, checks, alarmEntries, origins, listeners, call, status, prepare, writes,
-    clock: () => now, persist: (candidate, startedAt, sender = matchSender) => app.persistHistory([candidate], candidate, startedAt, sender),
+  const publish = (record, notify = true) => { completions.set(record.id, record); if (notify) listeners.completion(); };
+  return { data, eventInputs, deliveries, network, checks, alarmEntries, origins, listeners, call, status, prepare, writes, completions, publish,
+    clock: () => now,
     ready: () => app.ready(), restart: () => { app = create(deps); }, opened: () => opened,
     setRecords: value => { records = value; }, advance: millis => { now += millis; }, rejectQueue: value => { queueError = value; },
-    rejectReceipt: value => { receiptError = value; }, beforeDispatch: hook => { beforeDispatch = hook; }, sendHook: hook => { sendHook = hook; } };
+    rejectReceipt: value => { receiptError = value; }, beforeDispatch: hook => { beforeDispatch = hook; }, sendHook: hook => { sendHook = hook; },
+    afterSnapshot: hook => { afterSnapshot = hook; }, afterMarker: hook => { afterMarker = hook; },
+    afterAck: hook => { afterAck = hook; }, afterDiscard: hook => { afterDiscard = hook; },
+    rejectAck: value => { ackError = value; }, rejectClear: value => { clearError = value; }, rejectClearPhase: value => { phaseError = value; } };
 }
 
 async function enable(fixture, target = {}) {
@@ -140,29 +158,13 @@ async function bindMatch(subject, target) {
   return subject.data[settingsKey].subscription.id;
 }
 
-function completedMatch(startedAt, kind = 'Hule') {
-  const startScores = [25000, 25000, 25000, 25000];
-  const snapshot = { ...terminal, startScores, turnProgress: { status: 'known' }, selfHand: ['private-hand'],
-    result: { kind, gameEnded: true, scoresKnown: true, scores: [36000, 28000, 22000, 14000], ranking: ['private-account'] } };
-  return { ...match, startedAt, rounds: [
-    { snapshot: { ...snapshot, round: { wind: 0, index: 0 }, result: { ...snapshot.result, kind: 'Hule', gameEnded: false } } },
-    { snapshot },
-  ] };
-}
-
-test('project requires persisted matching round evidence and the full live terminal marker', () => {
-  assert.deepEqual(project([decision, decision], [match], groupKey), preview);
-  assert.equal(project([decision], [], groupKey), null);
-  assert.equal(project([decision], [{ ...match, closed: false }], groupKey), null);
-  assert.equal(project([decision], [{ ...match, rounds: [{ snapshot: { ...terminal, result: { ...terminal.result, gameEnded: false } } }] }], groupKey), null);
-  assert.equal(project([decision], [{ ...match, rounds: [{ snapshot: { ...terminal, result: { kind: 'Interrupted', gameEnded: true } } }] }], groupKey), null);
-  const replayId = 'replay-' + 'a'.repeat(64);
-  const replay = { id: replayId, source: 'replay', rounds: [{ snapshot: { ...terminal, source: 'replay', result: { kind: 'NoTile' } } }] };
-  const imported = { ...decision, snapshot: { ...decision.snapshot, source: 'replay' }, context: { identity: { matchId: replayId } } };
-  assert.deepEqual(project([imported], [replay], JSON.stringify(['match', replayId])), preview);
-  assert.equal(project([imported], [replay], JSON.stringify(['match', 'replay:ephemeral:1'])), null);
-  assert.equal(project([decision], [{ ...match, rounds: [{ snapshot: { ...terminal, honba: 1 } }] }], groupKey), null);
-});
+const matchData = { playerCount: 4, roundCount: 2, endReason: 'win', finalScores: [36000, 28000, 22000, 14000] };
+const sendTtl = 24 * 60 * 60 * 1000;
+const completeType = 'app.majsoul.match.completed.v1';
+const completion = (subject, overrides = {}) => ({ version: 1, id: 'completion-1', observedStartAt: subject.clock(),
+  committedAt: subject.clock(), sourceRef: { tabId: matchSender.tab.id, documentId: matchSender.documentId }, data: matchData, ...overrides });
+const envelope = (subject, record) => ({ specversion: '1.0', id: record.id, source: subject.data[settingsKey].source,
+  type: completeType, time: new Date(record.committedAt).toISOString(), datacontenttype: 'application/json', data: matchData });
 
 test('trusted options selects the target; game sees no preview, and confirmation is idempotent', async () => {
   const subject = fixture();
@@ -267,11 +269,11 @@ test('permission checked both at save and confirm; revoke or disable blocks a pe
 
 test('automatic match push is off by default and a game source offer requires trusted settings confirmation', async () => {
   const subject = fixture();
-  const candidate = completedMatch(subject.clock());
   assert.equal((await subject.call('offer-match-source', {}, gameSource)).code, 'disabled');
   assert.equal(subject.opened(), 0);
-  await subject.persist(candidate, candidate.startedAt);
-  assert.deepEqual(subject.data[historyKey], [candidate]);
+  subject.publish(completion(subject));
+  await subject.ready();
+  assert.equal(subject.completions.size, 0);
   const target = await enable(subject);
   assert.equal((await subject.call('offer-match-source', {}, options)).code, 'forbidden');
   assert.equal((await subject.call('offer-match-source', {}, game)).code, 'unavailable');
@@ -288,8 +290,7 @@ test('automatic match push is off by default and a game source offer requires tr
   assert.equal((await subject.call('subscribe-match', input)).code, 'permission');
   subject.origins.add(originPattern);
   subject.advance(1);
-  const unconfirmed = completedMatch(subject.clock());
-  await subject.persist(unconfirmed, unconfirmed.startedAt);
+  subject.publish(completion(subject));
   await subject.ready();
   assert.deepEqual(subject.eventInputs, []);
   assert.deepEqual(subject.network, []);
@@ -298,109 +299,254 @@ test('automatic match push is off by default and a game source offer requires tr
   assert.equal((await subject.call('subscribe-match', input)).code, 'changed');
 });
 
-test('match push accepts only a post-binding complete live match from the bound tab and document', async () => {
+test('match push consumes only fresh committed events from the bound tab and document', async () => {
   const subject = fixture();
   const target = await enable(subject);
   const boundAt = subject.clock();
   const scope = await bindMatch(subject, target);
   subject.advance(2);
-  const candidate = completedMatch(boundAt + 1);
-  const last = candidate.rounds[1].snapshot;
-  const withLast = snapshot => ({ ...candidate, rounds: [candidate.rounds[0], { snapshot }] });
-  for (const [label, attempt, startedAt, sender] of [
-    ['wrong tab', candidate, candidate.startedAt, { ...matchSender, tab: { id: 18 } }],
-    ['wrong document', candidate, candidate.startedAt, { ...matchSender, documentId: 'new-document' }],
-    ['missing document', candidate, candidate.startedAt, { tab: matchSender.tab }],
-    ['before binding', completedMatch(boundAt - 1), boundAt - 1],
-    ['at binding', completedMatch(boundAt), boundAt],
-    ['future opening', completedMatch(boundAt + 3), boundAt + 3],
-    ['no continuous opening', candidate, undefined],
-    ['different opening', candidate, boundAt + 2],
-    ['replay', { ...candidate, id: 'replay-' + 'a'.repeat(64), source: 'replay' }, candidate.startedAt],
-    ['not closed', { ...candidate, closed: false }, candidate.startedAt],
-    ['missing round history', { ...candidate, droppedRounds: 1 }, candidate.startedAt],
-    ['only small-round settlement', withLast({ ...last, result: { ...last.result, gameEnded: false } }), candidate.startedAt],
-    ['interruption', withLast({ ...last, result: { ...last.result, kind: 'Interrupted' } }), candidate.startedAt],
-    ['unknown turn progress', withLast({ ...last, turnProgress: { status: 'unknown' } }), candidate.startedAt],
+  const candidate = completion(subject, { observedStartAt: boundAt + 1 });
+  for (const [label, overrides] of [
+    ['wrong tab', { sourceRef: { ...candidate.sourceRef, tabId: 18 } }],
+    ['wrong document', { sourceRef: { ...candidate.sourceRef, documentId: 'new-document' } }],
+    ['missing document', { sourceRef: { tabId: 17 } }],
+    ['before binding', { observedStartAt: boundAt - 1 }],
+    ['at binding', { observedStartAt: boundAt }],
+    ['opening after commit', { observedStartAt: boundAt + 3 }],
+    ['unrecognized version', { version: 2 }],
   ]) {
-    await subject.persist(attempt, startedAt, sender);
+    subject.publish({ ...candidate, ...overrides });
     await subject.ready();
-    assert.deepEqual(subject.data[historyKey], [attempt], label);
+    assert.equal(subject.completions.size, 0, label);
     assert.deepEqual(subject.eventInputs, [], label);
   }
 
-  await subject.persist(candidate, candidate.startedAt);
+  subject.publish({ ...candidate, data: { ...candidate.data, internal: 'private-account' } });
   await subject.ready();
-  assert.equal(subject.eventInputs.length, 1);
-  const [queued] = subject.eventInputs;
-  assert.deepEqual(queued.destinations, [{ id: target.id, version: target.version, scope }]);
-  assert.ok(queued.event.id);
-  assert.deepEqual(queued.event, { specversion: '1.0', id: queued.event.id,
-    source: subject.data[settingsKey].source, type: 'app.majsoul.match.completed.v1', time: new Date(subject.clock()).toISOString(),
-    datacontenttype: 'application/json', data: { playerCount: 4, roundCount: 2, endReason: 'win', finalScores: [36000, 28000, 22000, 14000] } });
-  const atomicWrite = subject.writes.find(write => write[historyKey] && write[settingsKey]?.matchPending?.length);
-  assert.deepEqual(atomicWrite?.[historyKey], [candidate]);
-  assert.deepEqual(atomicWrite[settingsKey].matchPending[0].event, queued.event);
+  assert.deepEqual(subject.eventInputs, [{ event: envelope(subject, candidate), destinations: [{ id: target.id, version: target.version, scope }] }]);
+  assert.equal(subject.completions.size, 0);
+  assert.ok(subject.writes.every(write => !Object.hasOwn(write, historyKey) && !write[settingsKey].matchPending?.length));
   assert.deepEqual(subject.network, [url]);
 
   subject.advance(1);
-  const draw = { ...completedMatch(subject.clock(), 'LiuJu'), id: 'live-draw' };
-  await subject.persist(draw, draw.startedAt);
+  const draw = completion(subject, { id: 'completion-draw', data: { playerCount: 3, roundCount: 2, endReason: 'abortive_draw' } });
+  subject.publish(draw);
   await subject.ready();
-  assert.deepEqual(subject.eventInputs[1]?.event.data, { playerCount: 4, roundCount: 2, endReason: 'abortive_draw' });
+  assert.deepEqual(subject.eventInputs[1]?.event.data, draw.data);
 });
 
-test('a match queue failure preserves history and resumes the same event and destination after restart', async () => {
+test('a match queue failure and an interrupted acknowledgement recover with the same event and no duplicate delivery', async () => {
   const subject = fixture();
   const target = await enable(subject);
   const scope = await bindMatch(subject, target);
   subject.advance(1);
-  const candidate = completedMatch(subject.clock());
+  const candidate = completion(subject);
   subject.rejectQueue('storage_unavailable');
-  await subject.persist(candidate, candidate.startedAt);
+  subject.publish(candidate);
   await subject.ready();
-  assert.deepEqual(subject.data[historyKey], [candidate]);
   assert.equal((await subject.status()).matchPush.pending, 1);
-  const [pending] = subject.data[settingsKey].matchPending;
-  assert.deepEqual(pending.target, { id: target.id, version: target.version, scope });
   assert.deepEqual(subject.network, []);
   assert.equal(subject.deliveries.size, 0);
 
   subject.rejectQueue(null);
+  subject.rejectAck(true);
+  subject.advance(100);
   subject.restart();
   await subject.ready();
+  assert.equal(subject.completions.size, 1);
+  assert.equal(subject.deliveries.size, 1);
+  subject.rejectAck(false);
+  subject.advance(100);
+  subject.restart();
   await subject.ready();
-  assert.deepEqual(subject.eventInputs, [{ event: pending.event, destinations: [pending.target] }]);
+  const expected = { event: envelope(subject, candidate), destinations: [{ id: target.id, version: target.version, scope }] };
+  assert.deepEqual(subject.eventInputs, [expected, expected]);
+  assert.equal(subject.deliveries.get(candidate.id).expiresAt, candidate.committedAt + sendTtl);
+  assert.equal(subject.completions.size, 0);
   assert.equal((await subject.status()).matchPush.pending, 0);
   assert.deepEqual(subject.network, [url]);
 });
 
-for (const operation of ['unsubscribe', 'edit target', 'disable']) {
+for (const operation of ['unsubscribe', 'edit target', 'disable', 'rebind', 'revoke']) {
   test(`match push drops the failed-queue backlog on ${operation} without re-routing it`, async () => {
     const subject = fixture();
     const target = await enable(subject);
     await bindMatch(subject, target);
     subject.advance(1);
-    const candidate = completedMatch(subject.clock());
+    const candidate = completion(subject);
     subject.rejectQueue('queue_full');
-    await subject.persist(candidate, candidate.startedAt);
+    subject.publish(candidate);
     await subject.ready();
     assert.equal((await subject.status()).matchPush.pending, 1);
-    const changed = operation === 'unsubscribe' ? await subject.call('unsubscribe-match') : operation === 'edit target'
-      ? await subject.call('save-target', { target: { ...target, name: 'Replacement', url: 'https://hooks.example.invalid/other', secret } })
-      : await subject.call('configure', { enabled: false });
-    assert.equal(changed.ok, true);
+    if (operation === 'rebind') await bindMatch(subject, target);
+    else if (operation === 'revoke') {
+      subject.origins.delete(originPattern);
+      subject.listeners.removed({ origins: [originPattern] });
+      subject.origins.add(originPattern);
+    } else {
+      const changed = operation === 'unsubscribe' ? await subject.call('unsubscribe-match') : operation === 'edit target'
+        ? await subject.call('save-target', { target: { ...target, name: 'Replacement', url: 'https://hooks.example.invalid/other', secret } })
+        : await subject.call('configure', { enabled: false });
+      assert.equal(changed.ok, true);
+    }
+    await subject.ready();
     subject.rejectQueue(null);
     subject.restart();
     await subject.ready();
-    assert.deepEqual((await subject.status()).matchPush, { offerId: null, destinationId: null, pending: 0, missed: 0 });
-    assert.deepEqual(subject.data[historyKey], [candidate]);
-    subject.advance(1);
-    const later = { ...completedMatch(subject.clock()), id: 'live-later' };
-    await subject.persist(later, later.startedAt);
-    await subject.ready();
-    assert.deepEqual(subject.data[historyKey], [later]);
+    assert.deepEqual((await subject.status()).matchPush, { offerId: null, destinationId: operation === 'rebind' ? target.id : null, pending: 0, missed: 0 });
+    assert.equal(subject.completions.size, 0);
     assert.deepEqual(subject.eventInputs, []);
     assert.deepEqual(subject.network, []);
   });
 }
+
+test('legacy migration consumes the original body, expiry and route without converting or sending stale entries', async () => {
+  const subject = fixture();
+  const target = await enable(subject);
+  const scope = await bindMatch(subject, target);
+  await subject.ready();
+  const record = completion(subject, { id: 'legacy-event' });
+  const event = envelope(subject, record);
+  const route = { id: target.id, version: target.version, scope };
+  subject.data[settingsKey].matchPending = [
+    { event, target: route, expiresAt: subject.clock() + sendTtl },
+    { event: { ...event, id: 'stale-version' }, target: { ...route, version: 2 }, expiresAt: subject.clock() + sendTtl },
+    { event: { ...event, id: 'expired' }, target: route, expiresAt: subject.clock() },
+  ];
+  subject.restart();
+  subject.rejectQueue('storage_unavailable');
+  await subject.ready();
+  assert.equal(subject.data[settingsKey].matchPending.length, 1);
+  subject.rejectQueue(null);
+  subject.listeners.alarm({ name: 'chat-delivery-watch' });
+  await subject.ready();
+  assert.deepEqual(subject.eventInputs, [{ event, destinations: [route] }]);
+  assert.equal(subject.data[settingsKey].matchPending.length, 0);
+  assert.equal(subject.completions.size, 0);
+  assert.deepEqual(subject.network, [url]);
+});
+
+test('completion notification during a drain schedules another read; expired entries are not queued', async () => {
+  const subject = fixture();
+  const target = await enable(subject);
+  await bindMatch(subject, target);
+  await subject.ready();
+  subject.advance(1);
+  subject.publish(completion(subject, { id: 'expired' }), false);
+  subject.advance(sendTtl);
+  const fresh = completion(subject);
+  subject.afterSnapshot(() => { subject.afterSnapshot(null); subject.publish(fresh); });
+  await subject.ready();
+  assert.equal(subject.completions.size, 0);
+  assert.deepEqual(subject.eventInputs.map(input => input.event.id), [fresh.id]);
+});
+
+test('startup recovers a committed event, but a dispatch delayed past its deadline cannot send', async () => {
+  const subject = fixture();
+  const target = await enable(subject);
+  await bindMatch(subject, target);
+  await subject.ready();
+  subject.advance(1);
+  const record = completion(subject);
+  subject.publish(record, false);
+  subject.advance(sendTtl - 1);
+  subject.beforeDispatch(() => { subject.advance(1); });
+  subject.restart();
+  subject.listeners.startup();
+  await subject.ready();
+  assert.equal(subject.completions.size, 0);
+  assert.equal(subject.deliveries.get(record.id).status, 'expired');
+  assert.deepEqual(subject.network, []);
+});
+
+test('status and retry honor the stored deadline without exposing deadline or subscription scope', async () => {
+  const subject = fixture();
+  const target = await enable(subject);
+  await bindMatch(subject, target);
+  await subject.ready();
+  subject.advance(1);
+  const record = completion(subject);
+  subject.publish(record, false);
+  subject.advance(sendTtl - 1);
+  await subject.ready();
+  await subject.call('test', { id: target.id });
+  await subject.ready();
+  const manual = [...subject.deliveries.values()].find(row => row.id !== record.id);
+  const automatic = subject.deliveries.get(record.id);
+  automatic.status = 'unknown';
+  manual.status = 'failed';
+  const statusRows = async () => (await subject.status()).deliveries;
+  assert.ok((await statusRows()).every(row => row.retryable));
+  subject.advance(1);
+  const rows = await statusRows();
+  const expired = rows.find(row => row.id === record.id);
+  assert.equal(expired.retryable, false);
+  assert.equal(expired.status, 'unknown');
+  assert.equal(expired.createdAt, automatic.createdAt);
+  assert.ok(rows.every(row => !Object.hasOwn(row, 'expiresAt') && !Object.hasOwn(row, 'scope')));
+  assert.equal(rows.find(row => row.id === manual.id).retryable, true);
+  assert.equal((await subject.call('retry', { id: record.id })).code, 'unavailable');
+});
+
+for (const failure of ['none', 'ack', 'phase write', 'IDB clear']) {
+  test(`clear preserves completions after the snapshot and never resends old rows (failure: ${failure})`, async () => {
+    const subject = fixture();
+    const target = await enable(subject);
+    await bindMatch(subject, target);
+    subject.advance(1);
+    subject.rejectAck(true);
+    subject.publish(completion(subject, { id: 'old-queued' }));
+    await subject.ready();
+    const inputsBeforeClear = subject.eventInputs.length;
+    subject.network.length = 0;
+    subject.deliveries.get('old-queued').status = 'pending';
+    subject.rejectAck(false);
+    subject.publish(completion(subject, { id: 'old-not-queued' }), false);
+    const append = id => subject.publish(completion(subject, { id }));
+    subject.afterSnapshot(() => { subject.afterSnapshot(null); append('after-snapshot'); });
+    subject.afterMarker(ids => { assert.deepEqual(ids, ['old-queued', 'old-not-queued']); append('after-marker'); });
+    subject.afterAck(id => {
+      assert.equal(id, 'old-queued');
+      subject.afterAck(null);
+      append('after-ack');
+      if (failure === 'ack') subject.rejectAck(true);
+    });
+    if (failure === 'IDB clear') subject.rejectClear(true);
+    if (failure === 'phase write') subject.rejectClearPhase(true);
+    assert.equal((await subject.call('clear')).ok, failure === 'none');
+    await subject.ready();
+    if (failure !== 'none') {
+      assert.deepEqual(subject.network, []);
+      assert.ok(['inbox', 'queue'].includes(subject.data[settingsKey].clearPending));
+      subject.rejectAck(false);
+      subject.rejectClear(false);
+      subject.rejectClearPhase(false);
+      subject.restart();
+      await subject.ready();
+    }
+    assert.equal(subject.completions.size, 0);
+    assert.deepEqual([...subject.deliveries.keys()], ['after-snapshot', 'after-marker', 'after-ack']);
+    assert.deepEqual(subject.eventInputs.slice(inputsBeforeClear).map(input => input.event.id), ['after-snapshot', 'after-marker', 'after-ack']);
+    assert.deepEqual(subject.network, [url, url, url]);
+  });
+}
+
+test('an unreadable snapshot falls back to the discard boundary and preserves commits after it', async () => {
+  const subject = fixture();
+  const target = await enable(subject);
+  await bindMatch(subject, target);
+  await subject.ready();
+  subject.advance(1);
+  subject.publish(completion(subject, { id: 'old' }), false);
+  subject.afterSnapshot(() => { subject.afterSnapshot(null); throw new Error('inbox unreadable'); });
+  subject.afterMarker(ids => {
+    assert.equal(ids, null);
+    subject.publish(completion(subject, { id: 'before-discard' }));
+  });
+  subject.afterDiscard(() => subject.publish(completion(subject, { id: 'after-discard' })));
+  assert.equal((await subject.call('clear')).ok, true);
+  await subject.ready();
+  assert.equal(subject.completions.size, 0);
+  assert.deepEqual(subject.eventInputs.map(input => input.event.id), ['after-discard']);
+  assert.deepEqual(subject.network, [url]);
+});

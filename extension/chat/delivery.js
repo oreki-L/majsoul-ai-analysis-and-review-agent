@@ -261,7 +261,7 @@
       return maintain(stores, await requestResult(stores.deliveries.getAll()), now);
     }
 
-    async function enqueue({ event, destinations } = {}) {
+    async function enqueue({ event, destinations, expiresAt } = {}) {
       let body;
       try { body = eventBody(event); } catch { return failed('invalid_event'); }
       if (!body) return failed('invalid_event');
@@ -283,13 +283,15 @@
         if (existing && existing.body !== body) return failed('event_conflict');
         const byTarget = new Map(rows.filter(row => row.eventKey === eventKey).map(row => [row.destinationId, row]));
         const additions = [...refs].filter(([id]) => !byTarget.has(id));
+        const deadline = envelope.type === COMPLETE && Number.isFinite(expiresAt) ? Math.min(expiresAt, now + SEND_TTL) : now + SEND_TTL;
+        if (additions.length && deadline <= now) return failed('delivery_expired');
         if (rows.length + additions.length > CAPACITY) return failed('queue_full');
         if (!existing) stores.events.add({ key: eventKey, body });
         for (const [destinationId, { version: destinationVersion, scope }] of additions) {
           const row = {
             id: root.crypto.randomUUID(), eventKey, destinationId, destinationVersion, scope, type: envelope.type,
             status: 'pending', attempts: 0, attemptBase: 0, createdAt: now, updatedAt: now,
-            expiresAt: now + SEND_TTL, dueAt: now, errorCode: null,
+            expiresAt: deadline, dueAt: now, errorCode: null,
           };
           stores.deliveries.add(row);
           byTarget.set(destinationId, row);
@@ -359,7 +361,7 @@
             } finally {
               response?.body?.cancel().catch(() => {});
             }
-          }, row.scope);
+          }, row.scope, row.expiresAt);
         })()]);
         return outcome && { ...outcome, unattempted: !dispatched };
       } catch {
@@ -402,9 +404,10 @@
       return pumping;
     }
 
-    async function list() {
+    async function list({ includeDeadline = false } = {}) {
       return transaction(async stores => (await currentRows(stores, clock()))
-        .sort((left, right) => right.createdAt - left.createdAt).map(publicDelivery));
+        .sort((left, right) => right.createdAt - left.createdAt)
+        .map(row => includeDeadline ? { ...publicDelivery(row), expiresAt: row.expiresAt } : publicDelivery(row)));
     }
 
     async function clear() {

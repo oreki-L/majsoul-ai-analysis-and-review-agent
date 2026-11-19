@@ -65,6 +65,7 @@
 | [项目架构](../ARCHITECTURE.md) | 模块职责与采集、Chat、引擎数据流 |
 | [Agent 与 harness](development/AGENT.md) | 获取器、任务计划、有界执行与离线复盘 |
 | [可执行的模块边界](development/DECOUPLING.md) | 两种 profile、组合入口与依赖／资源闭包 |
+| [聊天模块解耦方案](development/CHAT_DECOUPLING_PLAN.md) | 历史写入、终局事件、摘要读口与可选分包 |
 | [Pi 浏览器运行时](development/pi-runtime.md) | 固定上游、MV3 适配、bundle 构建与升级 |
 | [发布与打包](development/PUBLISHING.md) | 干净提交快照、安装包、源码包与发布核对 |
 | [安全与数据处理](../SECURITY.md) | 凭据、授权、存储与漏洞报告 |

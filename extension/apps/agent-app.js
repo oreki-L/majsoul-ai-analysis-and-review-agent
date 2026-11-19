@@ -1,9 +1,8 @@
 (function (root) {
   'use strict';
   const scriptUrl = typeof document !== 'undefined' ? document.currentScript?.src : '';
-  function start() {
+  function start({ observeMatchEnd = false, panelHooks: addon } = {}) {
     if (document.getElementById('mj-agent-host') || document.getElementById('mj-observer-host')) return null;
-    const observeMatchEnd = root.majsoulAddon?.observeMatchEnd === true;
     const ports = root.MJCollectorBrowser.create({ window: root.window, scriptUrl: scriptUrl, observeMatchEnd });
     const controller = root.MJCollectorController.create({ ...ports, observeMatchEnd });
     const hints = root.MJHandHints.create({ onCalibrationChange(state) {
@@ -11,7 +10,7 @@
       if (!state.editing) document.getElementById('mj-agent-host')?.shadowRoot?.querySelector('#analysis-calibrate')?.focus({ preventScroll: true });
     } });
     let memoryAdvice = null;
-    const panelHooks = { ...root.majsoulAddon, onHints: value => {
+    const panelHooks = { reviewActions: addon?.reviewActions, settingsActions: addon?.settingsActions, onHints: value => {
       memoryAdvice = value?.decision ? JSON.stringify({ action: value.decision.action, tile: value.decision.tile,
         reasons: (value.decision.reasons || []).filter(reason => typeof reason === 'string').slice(0, 3).map(reason => reason.slice(0, 160)) }) : null;
       hints.update(value);
@@ -124,6 +123,7 @@
   }
   root.MJAgentApp = { start };
   if (typeof document !== 'undefined') {
-    if (document.documentElement) start(); else document.addEventListener('DOMContentLoaded', start, { once: true });
+    const mount = () => start(root.majsoulAgentProfile);
+    if (document.documentElement) mount(); else document.addEventListener('DOMContentLoaded', mount, { once: true });
   }
 })(typeof globalThis !== 'undefined' ? globalThis : this);

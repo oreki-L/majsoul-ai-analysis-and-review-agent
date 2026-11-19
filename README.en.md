@@ -6,7 +6,7 @@ A browser extension for the Mahjong Soul web client: compare tile efficiency and
 
 **Start with little setup: local tile-efficiency analysis works as soon as the extension is loaded; AI explanations need your endpoint, model ID and API key; optional local engines have an extract-and-double-click runtime package.**
 
-[**Download v0.16.12**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.12) · [Quick start](#quick-start) · [Highlights](#why-choose-majsoul-agent) · [Local models](#using-local-models) · [FAQ](#faq) · [Documentation](docs/README.md)
+[**Download v0.16.13**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.13) · [Quick start](#quick-start) · [Highlights](#why-choose-majsoul-agent) · [Local models](#using-local-models) · [FAQ](#faq) · [Documentation](docs/README.md)
 
 [简体中文](README.md) | **English** | [日本語](README.ja.md)
 
@@ -49,19 +49,19 @@ Answers use **the hand and public table at that decision, the original recommend
 
 ## Downloads
 
-Current release: **v0.16.12**. Start with the standard Agent, which does not include the chat module.
+Current release: **v0.16.13**. Start with the standard Agent, which does not include the chat module.
 
-This release updates to prompt v8 / fact card v7, including same-shanten efficiency rankings and wind roles. Forty cases passed offline replay; real LLM regression and blind review have not been run. The results above are historical v6 / v5 results. See the [validation record](docs/validation/MORTAL_TEACHING_V8_VALIDATION.md).
+This release separates chat delivery from match history storage. A real full match and a real Feishu group have not yet been tested end to end. Forty cases passed offline replay with prompt v8 / fact card v7; real LLM regression and blind review have not been run. The results above are historical v6 / v5 results. See the [validation record](docs/validation/MORTAL_TEACHING_V8_VALIDATION.md).
 
 | Package | Who it is for |
 | --- | --- |
-| [**Standard Agent extension**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.12/majsoul-ai-analysis-and-review-agent-0.16.12.zip) | Recommended: local calculations, model analysis, follow-up questions, history and settings |
-| [Optional Agent with Chat](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.12/majsoul-agent-chat-0.16.12.zip) | Alternative build for Feishu group bots and signed HTTPS webhooks. Sending is off by default. [Guide](docs/guides/CHAT_INTEGRATIONS.md) |
+| [**Standard Agent extension**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.13/majsoul-ai-analysis-and-review-agent-0.16.13.zip) | Recommended: local calculations, model analysis, follow-up questions, history and settings |
+| [Optional Agent with Chat](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.13/majsoul-agent-chat-0.16.13.zip) | Alternative build with manual summaries and full-match notifications for Feishu group bots and signed HTTPS webhooks. Sending is off by default. [Guide](docs/guides/CHAT_INTEGRATIONS.md) |
 | [Optional local model runtime · Windows x64](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.10/majsoul-model-manager-windows-x64-0.16.10.zip) | Download when you want local Mortal / Akagi; includes the Node runtime needed by the manager |
-| [Standalone Collector](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.12/majsoul-collector-0.16.12.zip) | Collection, display and export without AI analysis |
-| [Source package](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.12/majsoul-ai-analysis-and-review-agent-source-0.16.12.zip) | Development, builds and offline review |
+| [Standalone Collector](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.13/majsoul-collector-0.16.13.zip) | Collection, display and export without AI analysis |
+| [Source package](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.13/majsoul-ai-analysis-and-review-agent-source-0.16.13.zip) | Development, builds and offline review |
 
-[All release files and SHA-256 checksums](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.12). Extension packages contain no model weights. Enable only one extension build per browser profile. The unchanged local model runtime remains available from `v0.16.10` as linked above.
+[All release files and SHA-256 checksums](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.13). Extension packages contain no model weights. Enable only one extension build per browser profile. The unchanged local model runtime remains available from `v0.16.10` as linked above.
 
 ## Quick start
 
