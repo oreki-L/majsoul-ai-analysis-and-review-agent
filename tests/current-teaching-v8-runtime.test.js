@@ -19,7 +19,7 @@ function harness(mode){
   }
   return mock.fetch(url,options);
  };
- const h=createProductHarness({versions:{prompt:8,facts:7},engineConfig:{model:'Yuchen1457-mortal-v4-582500',engineProfile:'yuchen-582500',endpoint:'http://127.0.0.1:17342/analyze',apiKey:'mock-engine'},llmConfig:{model:'deepseek-flash',endpoint:'https://api.deepseek.com/chat/completions',apiKey:'mock-llm'},fetchModel});
+ const h=createProductHarness({versions:{prompt:9,facts:8},engineConfig:{model:'Yuchen1457-mortal-v4-582500',engineProfile:'yuchen-582500',endpoint:'http://127.0.0.1:17342/analyze',apiKey:'mock-engine'},llmConfig:{model:'deepseek-flash',endpoint:'https://api.deepseek.com/chat/completions',apiKey:'mock-llm'},fetchModel});
  return {h,node,requests,count:()=>llm};
 }
 test('current workspace reaches production Worker/Pi and preserves tool continuation and final action',async ()=>{
@@ -39,13 +39,13 @@ test('forbidden action field stays a delivery failure and is never accepted as a
  const {h,node,count}=harness('forbidden'),r=await h.worker.analyze(node.message,'test');
  assert.equal(r.explanation.status,'failed');assert.equal(count(),1);assert.equal(r.result.decision.tile,'9p');
 });
-test('current v8 prompt and v7 facts reach production without a candidate suffix',async ()=>{
+test('current v9 prompt and v8 facts send selected waits and confirmed yaku through Worker/Pi',async ()=>{
  const {h,node}=harness('tools'),r=await h.worker.analyze(node.message,'test');
  const Explanation=require('../extension/contracts/engine-explanation.js'),trace=h.traces[0];
- assert.equal(trace.promptVersion,8);assert.ok(trace.systemPrompt.startsWith(Explanation.prompt));
+ assert.equal(trace.promptVersion,9);assert.ok(trace.systemPrompt.startsWith(Explanation.prompt));
  assert.ok(!trace.systemPrompt.includes('S1')&&!trace.systemPrompt.includes('S2')&&!trace.systemPrompt.includes('S3'));
  const text=trace.messages.at(-1).content,payload=JSON.parse(text.slice(text.indexOf('{')));
- assert.equal(payload.facts.format,'mortal-teaching-fact-card-v7');
+ assert.equal(payload.facts.format,'mortal-teaching-fact-card-v8');
  assert.deepEqual(payload.facts.handTileAvailability.columns,['牌','已见','未见上界']);
  assert.equal(payload.facts.explanationFocus.position,node.position);
  assert.equal(payload.facts.actionTransition.status,'available');
@@ -56,7 +56,9 @@ test('current v8 prompt and v7 facts reach production without a candidate suffix
  assert.ok(payload.facts.situation.players.every(p=>Array.isArray(p.melds)));
  assert.match(trace.systemPrompt,/现有依据不足以确定该取舍/);
  assert.match(trace.systemPrompt,/只有对应集合确实仅一张/);
- assert.equal(r.explanation.promptVersion,8);
+ assert.deepEqual(payload.facts.explanationFocus.discard.tenpai.shapeWaits,[['南(2z)',3]]);
+ assert.ok(payload.facts.explanationFocus.discard.tenpai.knownYakuByDiscard.some(row=>row.discard==='9筒(9p)'&&row.waits.some(([tile,yaku])=>tile==='南(2z)'&&yaku.includes('三色同顺'))));
+ assert.equal(r.explanation.promptVersion,9);
  for(const c of payload.facts.risk.candidates)for(const o of c.opponents){assert.ok(['confirmed','unknown'].includes(o.safety.status));assert.ok(Array.isArray(o.safety.evidence));}
 });
 test('neutral blind history preserves prior action and actual teaching excerpt without policy prose',()=>{

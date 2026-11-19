@@ -12,17 +12,21 @@
     return c;
   }
   // Complete-hand oracle does not treat an impossible fifth copy as a waiting tile.
-  function winning(c, melds, handType = 'all') {
-    if (!melds && handType === 'all') {
+  function winning(c, melds, handType = 'all', visitRegular) {
+    if (!visitRegular && !melds && handType === 'all') {
       if (c.filter(n => n === 2).length === 7) return true;
       const terminals = [0, 8, 9, 17, 18, 26, 27, 28, 29, 30, 31, 32, 33];
       if (terminals.every(i => c[i] > 0) && terminals.some(i => c[i] === 2)) return true;
     }
+    const decomposition = visitRegular ? [] : null;
     function groups() {
-      const i = c.findIndex(Boolean); if (i < 0) return true;
-      if (c[i] >= 3) { c[i] -= 3; const ok = groups(); c[i] += 3; if (ok) return true; }
+      const i = c.findIndex(Boolean); if (i < 0) return visitRegular ? visitRegular(decomposition) : true;
+      if (c[i] >= 3) {
+        c[i] -= 3; decomposition?.push({ triplet: i }); const ok = groups(); decomposition?.pop(); c[i] += 3; if (ok) return true;
+      }
       if (i < 27 && i % 9 < 7 && c[i + 1] && c[i + 2]) {
-        c[i]--; c[i + 1]--; c[i + 2]--; const ok = groups(); c[i]++; c[i + 1]++; c[i + 2]++; if (ok) return true;
+        c[i]--; c[i + 1]--; c[i + 2]--; decomposition?.push({ sequence: i });
+        const ok = groups(); decomposition?.pop(); c[i]++; c[i + 1]++; c[i + 2]++; if (ok) return true;
       }
       return false;
     }
@@ -89,6 +93,21 @@
     if (!c || ![3, 4].includes(m.tiles.length)) return false;
     const ids = m.tiles.map(index).sort((a, b) => a - b);
     return ids.every(i => i === ids[0]) || (count !== 3 && ids.length === 3 && ids[0] < 27 && Math.floor(ids[0] / 9) === Math.floor(ids[2] / 9) && ids[1] === ids[0] + 1 && ids[2] === ids[0] + 2);
+  }
+  // Positive witnesses only. Groups must coexist in one complete decomposition.
+  function confirmedCompletionYaku(completeHand, melds, winds) {
+    if (!Array.isArray(melds) || melds.length > 4 || melds.some(m => !validMeld(m, 4))) return [];
+    const c = countsOf(completeHand, 4), exposed = countsOf(melds.flatMap(m => m.tiles), 4);
+    if (!c || !exposed || c.some((n, i) => n + exposed[i] > 4) || completeHand.length + melds.length * 3 !== 14) return [];
+    const fixed = melds.map(m => m.tiles.every(t => index(t) === index(m.tiles[0])) ? { triplet: index(m.tiles[0]) } : { sequence: Math.min(...m.tiles.map(index)) });
+    const windTiles = new Set(winds.filter(t => /^[1-4]z$/.test(t)).map(index)), yaku = new Set();
+    winning(c, melds.length, 'regular', groups => {
+      const all = [...fixed, ...groups], sequences = new Set(all.map(g => g.sequence));
+      for (let i = 0; i < 7; i++) if (sequences.has(i) && sequences.has(i + 9) && sequences.has(i + 18)) yaku.add('三色同顺');
+      for (const { triplet } of all) if (triplet >= 31 || windTiles.has(triplet)) yaku.add('役牌');
+      return false;
+    });
+    return [...yaku].sort();
   }
   // Structural values for independent development-time differential checks.
   // Ordinary tenpai uses the same own-four-copy correction as shanten().
@@ -182,6 +201,6 @@
     if (analysisCache.size >= 8) analysisCache.delete(analysisCache.keys().next().value);
     analysisCache.set(analysisKey, JSON.stringify(result)); return result;
   }
-  const api = { canonical, shanten, shantenByType, visibleCounts, analyze };
+  const api = { canonical, shanten, shantenByType, visibleCounts, analyze, confirmedCompletionYaku };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.MJMahjongAnalysis = api;
 })(globalThis);

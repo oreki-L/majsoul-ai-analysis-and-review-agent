@@ -195,7 +195,32 @@ function actionTransition(f) {
     meldsChangedByDiscard:false,
     meaning:'摸切／手切只读discardMethod；改善向听须change=improved，unchanged只能说维持，不能把已完成摸牌带来的变化归给弃牌。局部牌形与孤张不等于引擎动机。' };
 }
-function focusFor(f, expectedTiles) {
+const tileLabel = code => `${Snapshot.label(code)}(${code})`;
+function tenpaiEvidence(s, f, hand, melds) {
+  const selected = f.selectedAction.afterDiscard?.efficiency;
+  if (f.localAnalysis.status !== 'available' || selected?.shanten !== 0 || !selected.effectiveTiles?.length) return null;
+  const visibility = f.localAnalysis.visibleTiles?.partial === false ? 'complete' : 'partial';
+  const shapeWaits = selected.effectiveTiles.map(w => [tileLabel(w.tile), w.unseenUpperBound]);
+  const knownYakuByDiscard = [];
+  if (s.playerCount === 4 && hand && f.hand.melds?.every(m => m.status === 'known')) {
+    const winds = [f.round.prevailingWind.code, f.round.selfWind.code];
+    for (const row of f.localAnalysis.candidates.filter(c => c.shanten === 0)) {
+      const concealed = hand.slice();
+      const index = concealed.indexOf(row.tile);
+      if (index < 0) continue;
+      concealed.splice(index, 1);
+      const waits = row.effectiveTiles.flatMap(w => {
+        if (w.unseenUpperBound === 0) return [];
+        const yaku = Analysis.confirmedCompletionYaku([...concealed, w.tile], melds, winds);
+        return yaku.length ? [[tileLabel(w.tile), yaku]] : [];
+      });
+      if (waits.length) knownYakuByDiscard.push({ discard: tileLabel(row.tile), waits });
+    }
+  }
+  return { shapeWaits, visibility, knownYakuByDiscard,
+    meaning: 'shapeWaits=[所选弃牌后的全部形状听口,各自未见上界]；上界0是已知耗尽的形状听口。knownYakuByDiscard只列四麻中指定弃牌和补牌的三色同顺／役牌正证；未列不代表无役，不把可能来自不同拆分的役合并。未验证振听、条件役、得点及候选合法性。' };
+}
+function focusFor(f, expectedTiles, tenpai) {
   const name = t => t?.code ? t.name + '(' + t.code + ')' : null;
   const shape = x => x ? { sameTileGroups: x.sameTileGroups.map(g => [name(g.tile),g.count,g.shapeName]), sequences: x.possibleSequences } : null;
   const selected = f.selectedAction, after = selected.afterDiscard, tile = selected.discard?.code, canonical = tile ? Analysis.canonical(tile) : null;
@@ -208,6 +233,7 @@ function focusFor(f, expectedTiles) {
     discard: tile ? { tile: name(selected.discard), status: selected.discardStatus, method: selected.discardMethod,
       ownSameTile: [f.hand.canonicalCounts?.[canonical] ?? null, after?.sameTileInOwnConcealedHand.canonical ?? null],
       localLinks: { before: links(f.hand.shape), after: links(after?.shape) }, efficiency: after?.efficiency ?? null,
+      tenpai,
       tileFacts: selected.discardStatus === 'available' ? discardTileFacts(f, selected.discard) : null,
       efficiencyComparison: selected.discardStatus === 'available' ? efficiencyComparison(f.localAnalysis, tile, expectedTiles) : null,
       safetyByOpponent: risk?.opponents.map(o => ({ seat: o.seat, relativeName: o.relativeName, ...o.safety,
@@ -255,7 +281,7 @@ function buildFactCard(snapshot, engine = {}, analysis, context = {}) {
   const events = authorizedTimeline(s, context.events);
   const visible = efficiency.visibleTiles;
   const card = {
-    format: 'mortal-teaching-fact-card-v7',
+    format: 'mortal-teaching-fact-card-v8',
     binding: { position: s.lastStep ?? null, source: s.source ?? 'unknown', selfSeat: self },
     tileLegend: [...ALL, '0m', '0p', '0s'].map(describe),
     round: { prevailingWind: describe(wind === null ? null : (wind + 1) + 'z'), roundIndex: dealer, handNumber: dealer === null ? null : dealer + 1, dealerSeat: dealer, selfSeat: self, selfWind: describe(selfWind), honba: game?.honba ?? null },
@@ -276,12 +302,12 @@ function buildFactCard(snapshot, engine = {}, analysis, context = {}) {
         return ({ ...o, safety: { status: evidence.length ? 'confirmed' : 'unknown', evidence, scope: '仅限本座位在当前冻结时点不能荣和该牌；不推断其他牌或未来。' }, relativeName: seats[o.seat]?.relativeName ?? 'unknown', wind: seats[o.seat]?.wind ?? describe(null), genbutsuMeaning: 'true仅依据该对手本人牌河；false表示本工具未找到本人弃牌证据，不否定立直后他家打出并通过等其他已核实安全证据。', genbutsuRiverIndices: matches }); }) })) },
     yakuhai: { identities, completedGroups: groups, scoringVerified: false, concealedGroupMeaning: 'concealedHand 的 tripletPresent 仅表示手中至少三张同种役牌；可拆作其他牌形，不保证最终和牌分组或已成役。' },
     countScopes: { ownConcealed: 'hand与afterDiscard的counts仅是自家暗手；赤五在exactCounts中单列，在canonicalCounts中与普通五合并。', visible: 'localAnalysis.visibleTiles是本次已授权可见范围；partial或invalid时不能声称全场见尽。', unseen: 'effectiveTiles.unseenUpperBound是4减已见的上界；包含未知对手手牌、王牌和牌山，不能当实际牌山枚数。' },
-    limitations: ['向听0仅代表形状听牌，不代表有役可和；完整役、振听和得分未知。', '安全证据只绑定对应座位和当前时点；unknown不是不安全，筋、壁不保证安全。', '不推算引擎Q值、分数、胜率或内部思考；效率候选不是引擎合法动作集合。']
+    limitations: ['向听0仅代表形状听牌。部分已确认的役种单列；完整役种、振听和得分未知。', '安全证据只绑定对应座位和当前时点；unknown不是不安全，筋、壁不保证安全。', '不推算引擎Q值、分数、胜率或内部思考；效率候选不是引擎合法动作集合。']
   };
   card.handTileAvailability = compactCounts(s, card);
   card.actionTransition = actionTransition(card);
   const expectedTiles = hand && own && new Set(hand.filter(t => own.riichi !== true || t === s.selfDrawnTile));
-  card.explanationFocus = focusFor(card, expectedTiles);
+  card.explanationFocus = focusFor(card, expectedTiles, tenpaiEvidence(s, card, hand, melds));
   return card;
 }
 const api = { buildFactCard };

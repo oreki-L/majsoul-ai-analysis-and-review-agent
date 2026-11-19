@@ -104,3 +104,26 @@ test('wind roles distinguish seat, round, both and guest winds',()=>{
  s.game.round.index=0;
  assert.equal(buildFactCard(s,action('1z')).explanationFocus.discard.tileFacts.windRole,'自风兼场风');
 });
+
+test('tenpai evidence binds shape waits and a known yaku to the exact discard', () => {
+ const s=base('135m789s22z');
+ s.game.players[0].melds=[{type:0,tiles:['1p','2p','3p'],froms:[3,0,0]},{type:0,tiles:['1s','2s','3s'],froms:[3,0,0]}];
+ const selected=buildFactCard(s,action('5m')).explanationFocus.discard.tenpai;
+ assert.deepEqual(selected.shapeWaits.map(([tile])=>tile),['2万(2m)']);
+ assert.deepEqual(selected.knownYakuByDiscard,[{discard:'5万(5m)',waits:[['2万(2m)',['三色同顺']]]}]);
+ const alternative=buildFactCard(s,action('1m')).explanationFocus.discard.tenpai;
+ assert.deepEqual(alternative.shapeWaits.map(([tile])=>tile),['4万(4m)']);
+ assert.deepEqual(alternative.knownYakuByDiscard,selected.knownYakuByDiscard);
+ s.game.players[0].melds[1].type=99;
+ const unknown=buildFactCard(s,action('5m')).explanationFocus.discard.tenpai;
+ assert.deepEqual(unknown.shapeWaits,selected.shapeWaits);
+ assert.deepEqual(unknown.knownYakuByDiscard,[]);
+});
+
+test('a fully visible wait remains a shape wait but contributes no yaku-positive available copy', () => {
+ const s=base();
+ s.rivers[1].discards=['2z','2z','2z'].map(tile=>({tile,called:false}));
+ const tenpai=buildFactCard(s,action()).explanationFocus.discard.tenpai;
+ assert.deepEqual(tenpai.shapeWaits,[['南(2z)',0]]);
+ assert.equal(tenpai.knownYakuByDiscard.some(r=>r.discard==='9筒(9p)'),false);
+});
