@@ -231,14 +231,16 @@
           ...(engineDecision ? { validateFinal: E.parse, formatRepairMessage: E.repairPrompt } : {}),
           transport: request => transport(request, prepared), signal: context.signal,
           budget: { maxTurns: turnBudget, maxToolCalls: 4, maxTokens: maxTokens || 131072, timeoutMs: timeoutMs || 25000 } });
-        return { prepared, content: execution.text };
+        return { prepared, content: execution.text, xf: !!xf };
       },
-      'result.validate': ({ prepared, content }) => ({ result: engineDecision ? null : A.parseResult(content, prepared), ...(engineDecision ? { explanation: E.parse(content) } : {}), prepared })
+      'result.validate': ({ prepared, content, xf }) => ({
+        ...(engineDecision ? { result: null, explanation: E.parse(content) }
+          : xf ? A.parseXfResult(content, prepared) : { result: A.parseResult(content, prepared) }), prepared })
     };
     const { output, trace } = await H.run({ steps, tools, input, signal, timeoutMs, onEvent });
     const prepared = localOnly ? output : output.prepared;
     return { task, result: localOnly ? null : output.result, ...(output.explanation ? { explanation: output.explanation } : {}), localAnalysis: prepared.data.localAnalysis, trace,
-      ...(execution && sessionContext?.baseline ? { sessionTurn: { request: sessionRequest, answer: execution.text } } : {}),
+      ...(execution && sessionContext?.baseline ? { sessionTurn: { request: sessionRequest, answer: output.repairedText ?? execution.text } } : {}),
       ...(execution ? { runtime: { name: 'pi', turns: execution.turns, toolCalls: execution.toolCalls } } : {}) };
   }
   const api = { run };
