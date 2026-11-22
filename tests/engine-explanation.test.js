@@ -6,15 +6,17 @@ const Agent = require('../extension/agent.js');
 const { fixture } = require('../agent/eval.cjs');
 
 test('production prompt carries scoped fact semantics and preserves optional comparisons', () => {
-  assert.equal(E.PROMPT_VERSION, 9);
+  assert.equal(E.PROMPT_VERSION, 16);
   for (const requirement of [/facts\.explanationFocus/, /handTileAvailability按牌种/, /只有complete且已见4/,
     /全见不否定已有组合/, /单张也不等于孤张/, /先核对实体是否重叠/,
     /核对summary、reasons、limitations/, /从candidateEfficiency按括号内的精确牌码定位同一行/,
-    /未见进张上界只在同向听档比较/, /river是该玩家本人牌河/, /riichi-passed是已核实/, /不代表危险/,
+    /未见进张上界只在同向听档比较/, /本人弃过该牌与立直后通过是不同依据/, /只有该玩家确有riichi-passed/, /unknown不等于危险/,
+    /summary和reasons都以facts.actionTransition.shantenWording为准/, /只有completionSupply为“所有补牌均已见尽”/,
+    /tenpai.fixedYakuhaiSources/, /discard.removedKindWording/, /safetyByOpponent各自的wording/,
     /由你根据教学价值决定是否比较备选/, /历史建议与教学只用于承接/]) assert.match(E.prompt, requirement);
   assert.doesNotMatch(E.prompt, /自动分析的历史教学正文已移除|只保留历史动作和时点|至少比较一个实质备选/);
   assert.deepEqual(E.parse('{"summary":"打出这张牌。","reasons":[],"limitations":[]}'), {
-    summary: '打出这张牌。', reasons: [], limitations: [], promptVersion: 9
+    summary: '打出这张牌。', reasons: [], limitations: [], promptVersion: 16
   });
 });
 
@@ -147,6 +149,11 @@ test('required arrays cannot silently default and action overrides cannot be rep
   assert.throws(() => E.parse('{"summary":"理由","reasons":[]}'), e => e.canRepairOutput === true);
   assert.throws(() => E.parse('{"summary":"理由","reasons":[],"limitations":null}'), e => e.canRepairOutput === true);
   assert.throws(() => E.parse('{"summary":"理由","reasons":[],"limitations":[],"action":"dahai"}'), e => !e.canRepairOutput);
+  const valid = { summary: '理由', reasons: [], limitations: [] };
+  assert.throws(() => E.parse(JSON.stringify({ ...valid, reasons_note: null })), e => e.canRepairOutput === true);
+  for (const extra of [{ reasons_note: null, action: 'dahai' }, { reasons_note: { tile: '1m' } }, { other_note: null }]) {
+    assert.throws(() => E.parse(JSON.stringify({ ...valid, ...extra })), e => !e.canRepairOutput);
+  }
 });
 
 test('hybrid facts respect task-specific calculation availability', async () => {

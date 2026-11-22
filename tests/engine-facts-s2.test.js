@@ -34,6 +34,14 @@ test('riichi-passed requires declaration plus later action; evidence binds only 
  assert.deepEqual(o.safety.evidence,[{type:'riichi-passed',riichiPosition:10,discardPosition:14,discardedBy:2,passedAtPosition:15}]);
  assert.equal(opponent(c,'9s',3).safety.status,'unknown');assert.deepEqual(c.explanationFocus.situation.riichiSeats,[1]);
  assert.equal(c.explanationFocus.discard.safetyByOpponent.find(o=>o.seat===1).status,'confirmed');
+ assert.deepEqual(c.explanationFocus.discard.safetyByOpponent.find(o=>o.seat===1).wording,['下家立直后已有他家打出同种牌并通过，9索在当前时点对下家安全']);
+});
+test('river wording keeps the actual relative seat and does not imply a post-riichi pass',()=>{
+ const s=base('123m123p123s55z789s');s.selfSeat=1;
+ s.rivers[2].discards=[{tile:'7p'},{tile:'9s'}];
+ const get=()=>buildFactCard(s,engine()).explanationFocus.discard.safetyByOpponent;
+ assert.deepEqual(get().find(o=>o.seat===2).wording,['下家本人牌河第2张弃过9索，9索对下家是现物']);
+ assert.deepEqual(get().find(o=>o.seat===3).wording,[]);
 });
 test('pending discard, future evidence, source mismatch, failed declaration and terminal event cannot establish passed safety',()=>{
  for(const mode of ['pending','future','source','not-riichi','terminal','wrong-river','missing-declaration','conflicting','new-round']){
@@ -110,6 +118,29 @@ test('middle-tile visibility excludes every sequence and honors require a separa
  assert.equal(opponent(buildFactCard(h,engine('5z')),'5z',1).safety.status,'unknown');
  h.rivers[3].discards=Array.from({length:4},()=>({tile:'7z',called:false}));
  assert.equal(opponent(buildFactCard(h,engine('5z')),'5z',1).safety.status,'confirmed');
+});
+
+test('selected honor uses a separate kokushi blocker only when direct river evidence is absent',()=>{
+ const s=base('123m123p123s155z89s');
+ s.rivers[2].discards=Array.from({length:3},()=>({tile:'1z',called:false}));
+ const get=()=>{
+  const card=buildFactCard(s,engine('1z'));
+  return {card,discard:card.explanationFocus.discard,focus:card.explanationFocus.discard.safetyByOpponent.find(o=>o.seat===1)};
+ };
+ let {discard,focus}=get();
+ assert.deepEqual(discard.tileFacts.visibility,{status:'complete',seen:4,unseenUpperBound:0});
+ assert.match(discard.kokushiSafetyNote,/包含自家手中的这张.*不能单独排除/);
+ assert.equal(focus.status,'unknown');
+ assert.deepEqual(focus.wording,[]);
+ s.rivers[3].discards=Array.from({length:4},()=>({tile:'6z',called:false}));
+ ({focus}=get());
+ assert.equal(focus.evidence[0].kokushi.excludedByFullyVisible,'6z');
+ assert.deepEqual(focus.wording,['当前可见牌已排除下家荣和东的等待形状；其中排除国士单骑的依据是另一种必需牌「发」四枚可见']);
+ s.rivers[1].discards=[s.rivers[2].discards.pop()];
+ const direct=get();
+ assert.deepEqual(direct.focus.evidence.map(e=>e.type),['river']);
+ assert.deepEqual(direct.focus.wording,['下家本人牌河第1张弃过东，东对下家是现物']);
+ assert.deepEqual(opponent(direct.card,'1z',1).safety.evidence.map(e=>e.type),['river','visible-exclusion']);
 });
 
 test('current context decodes south two, honba and per-seat next discard without using event position',()=>{

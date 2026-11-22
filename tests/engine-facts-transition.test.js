@@ -31,6 +31,22 @@ test('local completion names distinguish 12/89 edges, 35 gaps and 45 two-sided s
  assert.equal(find('8p','9p').shapeName,'边张');assert.deepEqual(codes(find('8p','9p').waits.map(w=>w.tile)),['7p']);
  assert.equal(find('3p','5p').shapeName,'嵌张');assert.equal(find('4s','5s').shapeName,'两面');
 });
+test('a two-sided local link is exhausted only when both completion kinds are fully seen',()=>{
+ const s=base('123m123p6678s1112z');
+ const fill=tile=>Array.from({length:4-s.selfHand.filter(t=>t===tile).length},()=>({tile,called:false}));
+ s.rivers[1].discards=[...fill('8s'),...fill('9s')];
+ const get=()=>buildFactCard(s,action('7s')).explanationFocus.discard.localLinks;
+ const sample=links=>links.before.filter(p=>p.shapeName==='两面').map(p=>[p.tiles.join(','),p.waits.map(w=>[w.tile.code,w.unseenUpperBound]),p.completionSupply]);
+ const positive='至少一种补牌的未见上界大于0', dead='所有补牌均已见尽';
+ assert.deepEqual(sample(get()),[['6s,7s',[['5s',4],['8s',0]],positive],['7s,8s',[['6s',2],['9s',0]],positive]]);
+ assert.deepEqual(get().after,[]);
+ s.rivers[2].discards=fill('5s');
+ assert.deepEqual(sample(get()),[['6s,7s',[['5s',0],['8s',0]],dead],['7s,8s',[['6s',2],['9s',0]],positive]]);
+ s.rivers.pop();
+ assert.ok(sample(get()).every(([, , supply])=>supply===null));
+ s.rivers[2].discards.push({tile:'5s',called:false});
+ assert.ok(sample(get()).every(([, waits,supply])=>supply===null && waits.every(([,limit])=>limit===null)));
+});
 test('all players receive explicit existing open and concealed meld labels without equating concealed kan to triplet',()=>{
  const s=base();s.game.players[0].melds=[{type:1,tiles:['8m','8m','8m'],froms:[0,0,1]}];
  s.game.players[1].melds=[{type:0,tiles:['4p','0p','6p'],froms:[0,1,1]}];
@@ -53,6 +69,10 @@ test('discard transition separates draw identity from hand-cut and maintains exi
  assert.equal(c.actionTransition.status,'available');assert.equal(c.actionTransition.discardMethod,'hand-tile');
  assert.equal(c.actionTransition.drawnTile.code,'2z');assert.equal(c.actionTransition.discardedTile.code,'9p');
  assert.deepEqual(c.actionTransition.shanten,{before:0,after:0,change:'unchanged'});
+ assert.equal(c.actionTransition.shantenWording,'弃牌后维持0向听（形状听牌）');
+ const different=buildFactCard(s,action('1p')).actionTransition;
+ assert.deepEqual(different.shanten,{before:0,after:1,change:'worsened'});
+ assert.equal(different.shantenWording,'从弃前0向听（形状听牌）变为弃后1向听');
  assert.equal(c.actionTransition.ownTileCount.before,1);assert.equal(c.actionTransition.ownTileCount.after,0);
  assert.equal(c.actionTransition.meldsChangedByDiscard,false);assert.match(c.actionTransition.scope,/已含摸牌/);
  const drawn=buildFactCard({...s,selfDrawnTile:'9p'},action('9p',true));assert.equal(drawn.actionTransition.discardMethod,'drawn-tile');
@@ -61,10 +81,24 @@ test('red discard transition uses same-kind own count while preserving exact sel
  const s=base('05m123p123s111z22z');s.selfDrawnTile='0m';const c=buildFactCard(s,action('0m',true));
  assert.equal(c.actionTransition.ownTileCount.before,2);assert.equal(c.actionTransition.ownTileCount.after,1);
  assert.equal(c.selectedAction.afterDiscard.exactCounts['0m'],undefined);assert.equal(c.selectedAction.afterDiscard.exactCounts['5m'],1);
+ assert.equal(c.explanationFocus.discard.removedKindWording,null);
+});
+
+test('discarded red five cannot form an after-discard group and fixed dragon yaku comes from the meld',()=>{
+ const s=base('0m3055p345s');
+ s.game.players[0].melds=[{type:1,tiles:['7z','7z','7z'],froms:[0,0,1]},{type:1,tiles:['8p','8p','8p'],froms:[0,0,1]}];
+ const d=buildFactCard(s,action('0m',true)).explanationFocus.discard;
+ assert.match(d.removedKindWording,/弃后暗手已无5万/);
+ assert.deepEqual(d.tenpai.shapeWaits.map(([tile])=>tile),['3筒(3p)','4筒(4p)']);
+ assert.deepEqual(d.tenpai.fixedYakuhaiSources,['明刻「中」提供役牌（三元牌），与补牌或雀头无关']);
+ s.game.players[0].melds[0]={type:3,tiles:['7z','7z','7z','7z'],froms:[]};
+ assert.match(buildFactCard(s,action('0m',true)).explanationFocus.discard.tenpai.fixedYakuhaiSources[0],/^暗杠「中」/);
+ assert.equal(buildFactCard(base('123m123p123s55z789p'),action('9p')).explanationFocus.discard.tenpai.fixedYakuhaiSources.length,0);
 });
 test('transition never guesses unavailable efficiency, unspecified discard method, missing reach followup or a post-call hand',()=>{
  const s=base(),unavailable=buildFactCard(s,{action:{type:'dahai',pai:'9p'}},{efficiency:{status:'unavailable',candidates:[]},danger:{candidates:[]}});
  assert.deepEqual(unavailable.actionTransition.shanten,{before:null,after:null,change:'unknown'});assert.equal(unavailable.actionTransition.discardMethod,'unknown');
+ assert.equal(unavailable.actionTransition.shantenWording,null);
  for(const e of [{action:{type:'reach'}},{action:{type:'dahai',pai:'0p'}}]){
   const c=buildFactCard(s,e);assert.equal(c.actionTransition.status,'unavailable');assert.equal(c.actionTransition.shanten,undefined);
  }

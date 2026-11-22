@@ -5,6 +5,7 @@ const Analysis = typeof module !== 'undefined' && module.exports ? require('./ma
 const Snapshot = typeof module !== 'undefined' && module.exports ? require('./contracts/snapshot.js') : root.MJSnapshotContract;
 const ALL = Array.from({ length: 34 }, (_, i) => i < 27 ? (i % 9 + 1) + 'mps'[Math.floor(i / 9)] : (i - 26) + 'z');
 const validTile = t => typeof t === 'string' && /^(?:[1-9][mps]|0[mps]|[1-7]z)$/.test(t);
+const isOrphan = code => /^(?:[19][mps]|[1-7]z)$/.test(code);
 const describe = code => ({ code: code ?? null, name: validTile(code) ? Snapshot.label(code) : '未知', canonical: validTile(code) ? Analysis.canonical(code) : null, red: validTile(code) ? /^0[mps]$/.test(code) : null });
 const counts = tiles => tiles === null ? null : Object.fromEntries([...new Set(tiles)].map(t => [t, tiles.filter(x => x === t).length]));
 const canonicalCounts = tiles => tiles === null ? null : counts(tiles.map(Analysis.canonical));
@@ -104,8 +105,8 @@ function visibleExclusion(s, visible, tile) {
     const sequence = [start, start+1, start+2].map(n => n + suit), block = sequence.find(t => t !== code && c[t] === 4);
     if (!block) return null; blockers.push({ sequence, fullyVisible: block });
   }
-  const orphan = suit === 'z' || [1,9].includes(rank);
-  const orphanBlock = orphan ? ALL.find(t => t !== code && (t.endsWith('z') || /^[19][mps]$/.test(t)) && c[t] === 4) : null;
+  const orphan = isOrphan(code);
+  const orphanBlock = orphan ? ALL.find(t => t !== code && isOrphan(t) && c[t] === 4) : null;
   if (orphan && !orphanBlock) return null; // Keep kokushi single wait possible.
   return { type: 'visible-exclusion', tileFullyVisible: code, sequenceBlockers: blockers, kokushi: orphan ? { excludedByFullyVisible: orphanBlock } : 'tile-not-terminal-or-honor', meaning: '已见四枚排除同种对子/刻子等待，逐个顺子形和国士另行排除；仅限当前授权四麻计数。' };
 }
@@ -147,9 +148,11 @@ function efficiencyComparison(efficiency, tile, expectedTiles) {
     const highest = Math.max(...peers.map(r => r.totalUnseenUpperBound));
     const othersAtHighest = peers.filter(r => r.tile !== tile && r.totalUnseenUpperBound === highest);
     const tiedAtHighest = selected.totalUnseenUpperBound === highest && othersAtHighest.length > 0;
+    const conclusion = peers.length === 1 ? '该向听档只有这一项' : selected.totalUnseenUpperBound < highest ? '非最高' : tiedAtHighest ? '并列最高' : '唯一最高';
     sameShantenUnseen = {
-      conclusion: peers.length === 1 ? '该向听档只有这一项' : selected.totalUnseenUpperBound < highest ? '非最高' : tiedAtHighest ? '并列最高' : '唯一最高',
+      conclusion,
       highest,
+      wording: `切${Snapshot.label(tile)}后为${selected.shanten}向听，未见进张上界${selected.totalUnseenUpperBound}枚；${peers.length === 1 ? conclusion : `在${selected.shanten}向听档${conclusion}`}`,
       ...(tiedAtHighest ? { tiedWithOtherDiscards: othersAtHighest.map(r => `${Snapshot.label(r.tile)}(${r.tile})`) } : {})
     };
   }
@@ -168,6 +171,7 @@ function discardTileFacts(f, tile) {
   return {
     windRole, isSeatWind, isRoundWind,
     isDragon: /^[5-7]z$/.test(canonical), isRedFive: red,
+    redDoraIdentity: red ? '赤五实体；和牌时赤宝牌与指示牌宝牌分开计算' : null,
     isDoraFromIndicator: indicators?.some(x => x.dora.code === canonical) ? true :
       f.dora.rules === 'four-player' && indicators?.length && indicators.every(x => x.dora.code !== null) ? false : null,
     visibility: { status: f.handTileAvailability.status, seen: row?.[1] ?? null, unseenUpperBound: row?.[2] ?? null }
@@ -187,10 +191,14 @@ function actionTransition(f) {
   if (selected.discardStatus !== 'available' || !after) return { status:selected.discardStatus === 'not-applicable' ? 'not-applicable' : 'unavailable', reason:selected.reason ?? '本次没有可确认的配套弃牌，不模拟鸣牌、杠或缺失后续动作。' };
   const tile = selected.discard, beforeShanten = f.localAnalysis.status === 'available' && Number.isInteger(f.localAnalysis.shanten) ? f.localAnalysis.shanten : null;
   const afterShanten = f.localAnalysis.status === 'available' && Number.isInteger(after.efficiency?.shanten) ? after.efficiency.shanten : null;
+  const change = beforeShanten === null || afterShanten === null ? 'unknown' : afterShanten < beforeShanten ? 'improved' : afterShanten > beforeShanten ? 'worsened' : 'unchanged';
+  const shantenLabel = n => n === -1 ? '和牌形状' : n === 0 ? '0向听（形状听牌）' : `${n}向听`;
+  const shantenWording = change === 'unknown' ? null : change === 'unchanged' ? `弃牌后维持${shantenLabel(afterShanten)}` :
+    `从弃前${shantenLabel(beforeShanten)}变为弃后${shantenLabel(afterShanten)}`;
   return { status:'available', scope:'仅比较当前冻结暗手（已含摸牌或已完成鸣牌）与执行本次弃牌之后，不代表摸牌前或上一巡。',
     discardedTile:tile, drawnTile:f.hand.drawnTile, discardMethod:selected.discardMethod,
     ownTileCount: { before:f.hand.shape ? f.hand.canonicalCounts?.[tile.canonical] ?? null : null, after:after.shape ? after.sameTileInOwnConcealedHand.canonical : null, scope:'自家暗手同种牌，含赤五；不是牌河或全场已见数量。' },
-    shanten: { before:beforeShanten, after:afterShanten, change:beforeShanten === null || afterShanten === null ? 'unknown' : afterShanten < beforeShanten ? 'improved' : afterShanten > beforeShanten ? 'worsened' : 'unchanged' },
+    shanten: { before:beforeShanten, after:afterShanten, change }, shantenWording,
     isolatedTiles: { before:f.hand.shape?.isolatedTiles ?? null, after:after.shape?.isolatedTiles ?? null },
     meldsChangedByDiscard:false,
     meaning:'摸切／手切只读discardMethod；改善向听须change=improved，unchanged只能说维持，不能把已完成摸牌带来的变化归给弃牌。局部牌形与孤张不等于引擎动机。' };
@@ -201,6 +209,12 @@ function tenpaiEvidence(s, f, hand, melds) {
   if (f.localAnalysis.status !== 'available' || selected?.shanten !== 0 || !selected.effectiveTiles?.length) return null;
   const visibility = f.localAnalysis.visibleTiles?.partial === false ? 'complete' : 'partial';
   const shapeWaits = selected.effectiveTiles.map(w => [tileLabel(w.tile), w.unseenUpperBound]);
+  const fixedYakuhaiSources = f.yakuhai.completedGroups.flatMap(g => {
+    if (g.area !== 'meld') return [];
+    const { label } = f.hand.melds[g.meldIndex];
+    const { roles } = f.yakuhai.identities.find(t => t.code === g.tile.code);
+    return [`${label}「${g.tile.name}」提供役牌（${roles.join('、')}），与补牌或雀头无关`];
+  });
   const knownYakuByDiscard = [];
   if (s.playerCount === 4 && hand && f.hand.melds?.every(m => m.status === 'known')) {
     const winds = [f.round.prevailingWind.code, f.round.selfWind.code];
@@ -217,15 +231,53 @@ function tenpaiEvidence(s, f, hand, melds) {
       if (waits.length) knownYakuByDiscard.push({ discard: tileLabel(row.tile), waits });
     }
   }
-  return { shapeWaits, visibility, knownYakuByDiscard,
-    meaning: 'shapeWaits=[所选弃牌后的全部形状听口,各自未见上界]；上界0是已知耗尽的形状听口。knownYakuByDiscard只列四麻中指定弃牌和补牌的三色同顺／役牌正证；未列不代表无役，不把可能来自不同拆分的役合并。未验证振听、条件役、得点及候选合法性。' };
+  const concealed = f.selectedAction.afterDiscard.concealedTiles;
+  const pairs = Object.entries(f.selectedAction.afterDiscard.canonicalCounts);
+  // With three fixed groups, two remaining pairs can only finish by turning one into a triplet.
+  const verifiedWaitType = f.hand.melds?.length === 3 && f.hand.melds.every(m => m.status === 'known') &&
+    concealed.length === 4 && pairs.length === 2 && pairs.every(([code, count]) =>
+      count === 2 && selected.effectiveTiles.some(w => w.tile === code)) && shapeWaits.length === 2 ? '双碰' : null;
+  return { shapeWaits, verifiedWaitType, visibility, fixedYakuhaiSources, knownYakuByDiscard,
+    meaning: 'shapeWaits=[所选弃牌后的全部形状听口,各自未见上界]；上界0是已知耗尽的形状听口。fixedYakuhaiSources仅列已核实的固定组合。knownYakuByDiscard只列四麻中指定弃牌和补牌的三色同顺／役牌正证；未列不代表无役，不把可能来自不同拆分的役合并。未验证振听、条件役、得点及候选合法性。' };
+}
+function safetyFocus(opponent, tile) {
+  const { seat, relativeName: player, safety, riverAvailable, sujiReferences } = opponent;
+  const primary = ['river', 'riichi-passed', 'visible-exclusion'].map(type => safety.evidence.find(e => e.type === type)).find(Boolean);
+  const name = Snapshot.label(tile);
+  const sources = { river: '对手本人弃过该牌', 'riichi-passed': '已核实立直后通过', 'visible-exclusion': '可见牌排除等待' };
+  let wording = null;
+  if (player && player !== 'unknown' && primary) {
+    if (primary.type === 'river') wording = `${player}本人牌河第${primary.discardNumbers.join('、')}张弃过${Snapshot.label(Analysis.canonical(tile))}，${name}对${player}是现物`;
+    else if (primary.type === 'riichi-passed') wording = `${player}立直后已有他家打出同种牌并通过，${name}在当前时点对${player}安全`;
+    else {
+      const blocker = primary.kokushi?.excludedByFullyVisible;
+      wording = `当前可见牌已排除${player}荣和${name}的等待形状` +
+        (blocker ? `；其中排除国士单骑的依据是另一种必需牌「${Snapshot.label(blocker)}」四枚可见` : '');
+    }
+  }
+  return { seat, relativeName: player, ...safety, evidence: primary ? [primary] : [],
+    confirmedSources: primary ? [sources[primary.type]] : [], wording: wording ? [wording] : [],
+    sujiReferences: riverAvailable ? sujiReferences?.map(describe) ?? null : null };
 }
 function focusFor(f, expectedTiles, tenpai) {
   const name = t => t?.code ? t.name + '(' + t.code + ')' : null;
   const shape = x => x ? { sameTileGroups: x.sameTileGroups.map(g => [name(g.tile),g.count,g.shapeName]), sequences: x.possibleSequences } : null;
   const selected = f.selectedAction, after = selected.afterDiscard, tile = selected.discard?.code, canonical = tile ? Analysis.canonical(tile) : null;
-  const links = x => !x || !canonical ? null : x.incompleteSequenceCompletions.filter(p => p.tiles.includes(canonical));
+  const links = x => !x || !canonical ? null : x.incompleteSequenceCompletions.filter(p => p.tiles.includes(canonical)).map(p => ({
+    ...p,
+    completionSupply: p.status !== 'complete' ? null : p.waits.every(w => w.unseenUpperBound === 0) ? '所有补牌均已见尽' : '至少一种补牌的未见上界大于0'
+  }));
   const risk = f.risk.candidates?.find(c => c.tile === tile);
+  const afterShanten = after?.efficiency?.shanten;
+  const waitState = tenpai ? '形状听牌' : afterShanten > 0 ? '未听牌' : '未知';
+  const isolated = list => list == null ? null : list.some(t => t.canonical === canonical);
+  const discardKindGone = after?.shape && after.sameTileInOwnConcealedHand.canonical === 0;
+  const tileFacts = selected.discardStatus === 'available' ? discardTileFacts(f, selected.discard) : null;
+  const kokushiSafetyNote = isOrphan(canonical) && tileFacts?.visibility.status === 'complete' && tileFacts.visibility.seen === 4 ?
+    '待打幺九牌的可见数包含自家手中的这张；该牌四枚可见仍不能单独排除对手缺这张的国士单骑。' : null;
+  const safetyByOpponent = risk?.opponents.map(o => safetyFocus(o, tile)) ?? [];
+  const safetyEvidenceGapWording = safetyByOpponent.length > 0 && safetyByOpponent.every(o => o.status === 'unknown') ?
+    `当前资料未确认${selected.discard.name}对任一对手的安全依据` : null;
   return { position: f.binding.position, currentContext: f.currentContext, candidateEfficiencySource: 'facts.candidateEfficiency', actionTransitionSource: 'facts.actionTransition', meldsSource: 'facts.situation.players[].melds', round: { prevailingWind: name(f.round.prevailingWind), selfWind: name(f.round.selfWind), dealerSeat: f.round.dealerSeat },
     situation: f.situation, ownMeldBlocksTanyao: f.hand.melds?.some(m => m.status === 'known' && m.tiles.some(t => /^(?:[19][mps]|[1-7]z)$/.test(t.canonical))) ? true :
       f.hand.melds?.every(m => m.status === 'known') ? false : null,
@@ -233,11 +285,13 @@ function focusFor(f, expectedTiles, tenpai) {
     discard: tile ? { tile: name(selected.discard), status: selected.discardStatus, method: selected.discardMethod,
       ownSameTile: [f.hand.canonicalCounts?.[canonical] ?? null, after?.sameTileInOwnConcealedHand.canonical ?? null],
       localLinks: { before: links(f.hand.shape), after: links(after?.shape) }, efficiency: after?.efficiency ?? null,
-      tenpai,
-      tileFacts: selected.discardStatus === 'available' ? discardTileFacts(f, selected.discard) : null,
+      waitState, tenpai,
+      removedKindWording: discardKindGone ? `弃后暗手已无${Snapshot.label(canonical)}（同种赤牌也计入），不能用它组成弃后的对子、搭子或面子` : null,
+      selectedKindIsolated: { before: isolated(f.hand.shape?.isolatedTiles), after: isolated(after?.shape?.isolatedTiles) },
+      tileFacts,
       efficiencyComparison: selected.discardStatus === 'available' ? efficiencyComparison(f.localAnalysis, tile, expectedTiles) : null,
-      safetyByOpponent: risk?.opponents.map(o => ({ seat: o.seat, relativeName: o.relativeName, ...o.safety,
-        sujiReferences: o.riverAvailable ? o.sujiReferences?.map(describe) ?? null : null })) ?? [],
+      safetyByOpponent, safetyEvidenceGapWording,
+      kokushiSafetyNote,
       safetyScope: 'confirmed仅绑定对应对手和当前时点；unknown不是不安全。' } : null,
     scope: '仅索引当前动作；局部组合可能重叠，补牌不是总体进张；null为未知或不适用。' };
 }
@@ -281,7 +335,7 @@ function buildFactCard(snapshot, engine = {}, analysis, context = {}) {
   const events = authorizedTimeline(s, context.events);
   const visible = efficiency.visibleTiles;
   const card = {
-    format: 'mortal-teaching-fact-card-v8',
+    format: 'mortal-teaching-fact-card-v13',
     binding: { position: s.lastStep ?? null, source: s.source ?? 'unknown', selfSeat: self },
     tileLegend: [...ALL, '0m', '0p', '0s'].map(describe),
     round: { prevailingWind: describe(wind === null ? null : (wind + 1) + 'z'), roundIndex: dealer, handNumber: dealer === null ? null : dealer + 1, dealerSeat: dealer, selfSeat: self, selfWind: describe(selfWind), honba: game?.honba ?? null },
