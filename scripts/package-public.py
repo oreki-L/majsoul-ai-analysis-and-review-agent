@@ -83,7 +83,7 @@ def write_zip(destination, entries):
 def verify():
     subprocess.run(['node', str(ROOT / 'scripts/check.mjs')], check=True)
     tests = sorted(str(path.relative_to(ROOT)) for path in (ROOT / 'tests').glob('*.test.js'))
-    result = subprocess.run(['node', '--test', *tests], cwd=ROOT, capture_output=True, text=True, encoding='utf-8')
+    result = subprocess.run(['node', '--test', '--test-concurrency=2', *tests], cwd=ROOT, capture_output=True, text=True, encoding='utf-8')
     if result.returncode:
         raise RuntimeError(result.stdout + result.stderr)
     print('\n'.join(result.stdout.splitlines()[-8:]).encode('ascii', errors='replace').decode('ascii'))
@@ -169,7 +169,7 @@ def main(output=None):
     version = manifest['version']
     if version != package['version'] or not re.fullmatch(r'\d+\.\d+\.\d+', version):
         raise ValueError('Invalid or inconsistent version')
-    if not re.search(r'\*\*' + re.escape(version) + r'(?:\s|\*\*)', (ROOT / 'README.md').read_text(encoding='utf-8')):
+    if not re.search(r'\*\*v?' + re.escape(version) + r'(?:\s|\*\*)', (ROOT / 'README.md').read_text(encoding='utf-8')):
         raise ValueError('README must describe the selected snapshot version')
     tiles = ROOT / 'extension/tiles'
     if len(list(tiles.glob('*.svg'))) != 37 or any(tiles.glob('*.png')):
@@ -185,8 +185,11 @@ def main(output=None):
     archives = [source]
     if agent_project:
         subprocess.run(['node', str(ROOT / 'scripts/build-extensions.mjs'), str(output)], check=True)
-        for profile in ['agent', 'collector']:
-            directory = output / ((project if profile == 'agent' else 'majsoul-collector') + '-' + version)
+        profiles = [project, 'majsoul-collector']
+        if (ROOT / 'extension/background-chat.js').is_file():
+            profiles.append('majsoul-agent-chat')
+        for profile in profiles:
+            directory = output / (profile + '-' + version)
             archive = Path(str(directory) + '.zip')
             write_zip(archive, [(path, path.relative_to(directory).as_posix()) for path in directory.rglob('*') if path.is_file()])
             archives.append(archive)

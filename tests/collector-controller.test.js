@@ -8,6 +8,108 @@ const make = options => C.create({ state: S, history: H, clock: () => 1700000000
 const send = (c, event) => c.receive({ type: 'event', payload: event });
 const end = c => send(c, { source: 'live', kind: 'NoTile', step: 1, scores: [25000,25000,25000,25000] });
 
+test('real in-page reconnect restores missed actions without inventing interrupted matches', async () => {
+  const fixture = require('./fixtures/live-reconnect-2026-11-06.json');
+  let sequence = 0, matchId = null, disconnects = 0;
+  const c = make({ id: () => `live-fixture-${++sequence}` });
+  for (const message of fixture.messages) {
+    c.receive(message);
+    const view = c.getView();
+    if (message.type === 'event' && message.payload.kind === 'NewRound') {
+      if (matchId === null) matchId = view.contextIdentity.matchId;
+      assert.equal(view.contextIdentity.matchId, matchId);
+    }
+    if (message.type === 'connection' && message.payload.state === 'closed' && [5,6].includes(message.payload.socketId)) {
+      disconnects++;
+      assert.equal(view.live.complete, false);
+      assert.equal(view.live.availableActions, null);
+    }
+  }
+  const view = c.getView(), s = view.live;
+  assert.equal(disconnects, 2);
+  assert.equal(s.selfSeat, 0); assert.equal(s.lastStep, 9);
+  assert.equal(s.complete, true); assert.deepEqual(s.warnings, []);
+  assert.equal(s.remaining, 65); assert.deepEqual(s.doras, ['2p']);
+  assert.deepEqual(s.selfHand.slice().sort(), ['9p','2s','4m','5p','5z','8p','2z','8p','3p','0p','8p','2p','5s','5m'].sort());
+  assert.deepEqual(s.players.map(p => p.discards.map(d => d.tile)), [['1m'],['6m'],['2z'],['9s']]);
+  assert.deepEqual(s.turnProgress.bySeat, [2,2,2,2]);
+  assert.deepEqual(s.availableActions, { seat: 0, lastStep: 9, types: [1] });
+  assert.deepEqual(view.historyMatches, []);
+  await c.flush();
+});
+
+test('restored MJStart with a different opening does not merge unrelated matches', async () => {
+  let sequence = 0;
+  const c = make({ id: () => `different-opening-${++sequence}` });
+  send(c, { kind: 'MJStart', source: 'live', step: 0 });
+  send(c, opening('live', { step: 1 }));
+  const original = c.getView().contextIdentity.matchId;
+  send(c, { kind: 'MJStart', source: 'live', step: 0, restored: true });
+  send(c, opening('live', { step: 1, restored: true, doras: ['1z'] }));
+  assert.notEqual(c.getView().contextIdentity.matchId, original);
+  assert.equal(c.getView().historyMatches.length, 1);
+  assert.equal(c.getView().historyMatches[0].rounds[0].snapshot.result.kind, 'Interrupted');
+  await c.flush();
+});
+
+function observeMatch() {
+  const writes = [];
+  const controller = make({ observeMatchEnd: true, storage: {
+    load: async () => [], save: async (match, _matches, matchStart) => { writes.push({ match, matchStart }); }
+  } });
+  const emit = event => send(controller, { source: 'live', socketId: 1, ...event });
+  return { controller, writes, emit };
+}
+
+for (const playerCount of [3, 4]) {
+  test(`complete ${playerCount}-player match supplies its start only at the first terminal write`, async () => {
+    const { controller, writes, emit } = observeMatch();
+    const scores = Array(playerCount).fill(playerCount === 3 ? 35000 : 25000);
+    await controller.ready;
+    if (playerCount === 3) emit({ kind: 'MJStart', step: 0 });
+    for (let round = 0; round < playerCount; round++) {
+      const step = playerCount === 3 ? round * 2 : 0;
+      emit(opening('live', { round, scores, step }));
+      const gameEnded = round === playerCount - 1;
+      const result = { kind: gameEnded && playerCount === 4 ? 'Hule' : 'NoTile', step: step + 1, scores, gameEnded };
+      emit(result);
+      await controller.flush();
+      assert.equal(writes.at(-1).match.rounds.length, round + 1);
+      assert.equal(writes.at(-1).match.closed, gameEnded);
+      assert.equal(writes.at(-1).matchStart, gameEnded ? writes[0].match.startedAt : undefined);
+      if (gameEnded) emit(result);
+    }
+    await controller.flush();
+    assert.deepEqual(writes.filter(write => write.matchStart !== undefined).map(write => write.match.rounds.length), [playerCount]);
+  });
+}
+
+test('restoration, disconnection and missing actions permanently disqualify the current match', async t => {
+  for (const scenario of ['restored opening', 'same-socket restore', 'disconnect', 'action gap', 'opening step gap', 'missing round']) {
+    await t.test(scenario, async () => {
+      const { controller, writes, emit } = observeMatch();
+      const scores = [25000,25000,25000,25000];
+      await controller.ready;
+      emit(opening('live', scenario === 'restored opening' ? { restored: true } : {}));
+      if (scenario === 'disconnect') controller.receive({ type: 'connection', payload: { socketId: 1, state: 'closed' } });
+      else if (scenario === 'same-socket restore') emit({ kind: 'DealTile', seat: 1, tile: '1m', step: 1, restored: true });
+      emit({ kind: 'NoTile', step: ['same-socket restore', 'action gap'].includes(scenario) ? 2 : 1, scores });
+      const nextRound = scenario === 'missing round' ? 2 : 1;
+      const openingStep = scenario === 'opening step gap' ? 3 : 0;
+      const socketId = scenario === 'disconnect' ? 2 : 1;
+      emit(opening('live', { round: nextRound, step: openingStep, socketId }));
+      emit({ kind: 'NoTile', step: openingStep + 1, scores, socketId });
+      emit(opening('live', { round: nextRound + 1, socketId }));
+      assert.equal(controller.getView().live.turnProgress.status, 'known');
+      emit({ kind: 'NoTile', step: 1, scores, gameEnded: true, socketId });
+      await controller.flush();
+      assert.equal(writes.at(-1).match.closed, true);
+      assert.deepEqual(writes.at(-1).match.rounds.map(round => round.key), [`0:0:0`, `0:${nextRound}:0`, `0:${nextRound + 1}:0`]);
+      assert.ok(writes.every(write => write.matchStart === undefined));
+    });
+  }
+});
+
 test('new socket recovery ignores old socket actions and late close', async () => {
   const c = make();
   send(c, opening('live', { socketId: 1 }));
@@ -164,4 +266,182 @@ test('maximum replay remains outside display views and notifications do not copy
     assert.equal(c.exportData().replayRecords.length, 25000); assert.equal(largeCopies, 1);
     release();
   } finally { JSON.stringify = stringify; }
+});
+
+test('real message blackhole rebuilds dropped actions against the upstream oracle', async () => {
+  const fixture = require('./fixtures/live-network-blackhole-2026-11-09.json');
+  const all = [...fixture.messages, ...fixture.oracleMessages].sort((a, b) => a.at.localeCompare(b.at));
+  const keyFor = event => JSON.stringify([event.wind, event.round, event.honba, event.scores, event.hand, event.doras]);
+  let oracleSequence = 0, openingKey = '';
+  const oracle = make({ id: () => 'oracle-' + ++oracleSequence });
+  const states = new Map(); await oracle.ready;
+  for (const message of all) {
+    const event = message.payload;
+    if (message.type === 'event' && event.kind === 'NewRound') openingKey = keyFor(event);
+    oracle.receive(message);
+    if (message.type !== 'event') continue;
+    const key = openingKey + ':' + event.step;
+    if (!states.has(key)) states.set(key, structuredClone(oracle.getView().live));
+  }
+  let sequence = 0, batch = null, compared = 0, matchId = null, recovered = false;
+  const c = make({ id: () => 'blackhole-' + ++sequence });
+  const batches = []; openingKey = ''; await c.ready;
+  assert.equal(fixture.oracleMessages.length, 97);
+  const outageStart = Date.parse(fixture.outage.start), outageEnd = outageStart + fixture.outage.durationMs;
+  assert.equal(fixture.messages.some(m => m.type === 'event' && Date.parse(m.at) >= outageStart && Date.parse(m.at) < outageEnd), false);
+  for (const message of fixture.messages) {
+    const event = message.payload;
+    if (message.type === 'event' && event.kind === 'NewRound') openingKey = keyFor(event);
+    c.receive(message);
+    if (message.type !== 'event') continue;
+    const view = c.getView();
+    if (event.kind === 'NewRound') {
+      if (matchId === null) matchId = view.contextIdentity.matchId;
+      assert.equal(view.contextIdentity.matchId, matchId);
+      if (event.restored) recovered = true;
+    }
+    if (event.restored) {
+      if (!batch || batch.socketId !== event.socketId || event.kind === 'NewRound') {
+        batch = { socketId: event.socketId, count: 0, lastStep: null }; batches.push(batch);
+      }
+      batch.count++; batch.lastStep = event.step;
+      assert.deepEqual(view.live, states.get(openingKey + ':' + event.step), 'restored state differs from upstream oracle at step ' + event.step);
+      compared++;
+    } else batch = null;
+    if (recovered && event.kind !== 'Seat') {
+      assert.equal(view.live.complete, true);
+      assert.deepEqual(view.live.warnings, []);
+    }
+  }
+  await c.flush(); await oracle.flush();
+  assert.deepEqual(batches, [{ socketId: 4, count: 85, lastStep: 84 }, { socketId: 8, count: 130, lastStep: 129 }]);
+  assert.equal(compared, 215);
+  const view = c.getView();
+  assert.deepEqual(view.live, oracle.getView().live);
+  assert.equal(view.live.selfSeat, 3);
+  assert.deepEqual(view.live.scores, [28000, 25000, 24000, 21000]);
+  assert.equal(view.historyMatches.length, 1);
+  assert.equal(view.historyMatches[0].closed, false);
+  assert.equal(view.historyMatches[0].rounds.length, 2);
+  assert.equal(view.historyWarning, '');
+});
+
+test('game-only blackhole detects a missing draw and repairs the same connection before play continues', async () => {
+  const fixture = require('./fixtures/live-game-blackhole-2026-11-09.json');
+  const all = [...fixture.messages, ...fixture.oracleMessages].sort((a, b) => a.at.localeCompare(b.at));
+  let oracleSequence = 0, sequence = 0;
+  const oracle = make({ id: () => 'upstream-' + ++oracleSequence });
+  const c = make({ id: () => 'delivered-' + ++sequence });
+  await Promise.all([oracle.ready, c.ready]);
+  const states = new Map();
+  for (const message of all) {
+    oracle.receive(message);
+    if (message.type === 'event' && !message.payload.restored) states.set(message.payload.step, structuredClone(oracle.getView().live));
+  }
+  assert.deepEqual(fixture.oracleMessages.map(m => [m.payload.kind, m.payload.step]), [['DealTile', 17]]);
+  let gapDetected = false, recovered = false, restored = 0;
+  for (const message of fixture.messages) {
+    c.receive(message);
+    if (message.type !== 'event') continue;
+    const event = message.payload, view = c.getView();
+    if (!event.restored && event.step === 18) {
+      assert.equal(view.live.complete, false); gapDetected = true;
+    }
+    if (event.restored) {
+      assert.equal(event.socketId, 4);
+      assert.deepEqual(view.live, states.get(event.step), 'recovered step differs from upstream: ' + event.step);
+      restored++; if (event.kind === 'NewRound') recovered = true;
+    }
+    if (recovered && event.kind !== 'MJStart') {
+      assert.equal(view.live.complete, true); assert.deepEqual(view.live.warnings, []);
+    }
+  }
+  await Promise.all([oracle.flush(), c.flush()]);
+  assert.equal(gapDetected, true); assert.equal(restored, 24);
+  assert.deepEqual(c.getView().live, oracle.getView().live);
+  assert.equal(c.getView().live.selfSeat, 0);
+  assert.equal(c.getView().live.lastStep, 31);
+  assert.equal(c.getView().historyMatches.length, 0);
+});
+
+test('health gates selected live state, ignores old sockets and requires complete recovery with a valid seat', async () => {
+  const c = make(); await c.ready;
+  send(c, { kind: 'Seat', source: 'live', seat: 1, socketId: 4 });
+  send(c, opening('live', { socketId: 4 }));
+  const ready = c.getView().health.revision;
+  c.receive({ type: 'health', payload: { socketId: 4, state: 'uncertain' } });
+  assert.equal(c.getView().live.complete, true);
+  assert.equal(c.getView().state.complete, false);
+  assert.match(c.getView().state.warnings.at(-1), /网络可能异常/);
+  c.receive({ type: 'health', payload: { socketId: 3, state: 'restored' } });
+  assert.equal(c.getView().health.state, 'uncertain');
+  c.receive({ type: 'health', payload: { socketId: 4, state: 'recovering' } });
+  send(c, opening('live', { socketId: 4, restored: true }));
+  assert.equal(c.getView().state.complete, false);
+  c.receive({ type: 'health', payload: { socketId: 4, state: 'restored' } });
+  assert.equal(c.getView().state.complete, true);
+  assert.ok(c.getView().health.revision > ready);
+  c.receive({ type: 'health', payload: { socketId: 4, state: 'recovering' } });
+  send(c, { kind: 'DealTile', source: 'live', seat: 1, tile: '1m', socketId: 4, step: 99, restored: true });
+  c.receive({ type: 'health', payload: { socketId: 4, state: 'restored' } });
+  assert.equal(c.getView().health.state, 'uncertain');
+  c.setMode('replay');
+  assert.deepEqual(c.getView().state, c.getView().replayState);
+  await c.flush();
+});
+
+test('recovery end cannot authorize an unknown seat, an impossible hand count or an empty opening', async () => {
+  for (const scenario of ['seat', 'hand', 'opening']) {
+    const c = make(); await c.ready;
+    if (scenario !== 'seat') send(c, { kind: 'Seat', source: 'live', seat: 1, socketId: 2 });
+    c.receive({ type: 'health', payload: { socketId: 2, state: 'recovering' } });
+    if (scenario !== 'opening') send(c, opening('live', { socketId: 2, restored: true,
+      operation: undefined, ...(scenario === 'hand' ? { hand: ['1m'] } : {}) }));
+    c.receive({ type: 'health', payload: { socketId: 2, state: 'restored' } });
+    assert.equal(c.getView().health.state, 'uncertain', scenario);
+    assert.equal(c.getView().state.complete, false);
+    await c.flush();
+  }
+});
+
+test('continuous live actions clear a timeout only after a valid strictly next action on its socket', async () => {
+  for (const scenario of ['next', 'duplicate', 'missing-step', 'gap', 'restored', 'recovering', 'newer-socket', 'bad-hand']) {
+    const c = make(); await c.ready;
+    send(c, { kind: 'Seat', source: 'live', seat: 0, socketId: 4 });
+    send(c, opening('live', { socketId: 4, ...(scenario === 'bad-hand' ? { hand: ['1m'] } : {}) }));
+    c.receive({ type: 'health', payload: { socketId: scenario === 'newer-socket' ? 5 : 4,
+      state: scenario === 'recovering' ? 'recovering' : 'uncertain' } });
+    send(c, { kind: 'DiscardTile', source: 'live', seat: 0, tile: '1m', socketId: 4,
+      ...(scenario === 'missing-step' ? {} : { step: scenario === 'duplicate' ? 0 : scenario === 'gap' ? 2 : 1 }),
+      ...(scenario === 'restored' ? { restored: true } : {}) });
+    assert.equal(c.getView().health.state, scenario === 'next' ? 'ready' : scenario === 'recovering' ? 'recovering' : 'uncertain', scenario);
+    assert.equal(c.getView().state.complete, scenario === 'next', scenario);
+    await c.flush();
+  }
+});
+
+test('installed extension transport pause resumes analysis on continuous actions without syncGame', async () => {
+  const fixture = require('./fixtures/live-transport-pause-2026-11-09.json');
+  const c = make(); await c.ready;
+  let paused = false, resumed = false;
+  for (const message of fixture.messages) {
+    c.receive(message);
+    const view = c.getView();
+    if (message.type === 'health' && message.payload.state === 'uncertain') {
+      paused = true;
+      assert.equal(view.live.complete, true);
+      assert.equal(view.state.complete, false);
+      assert.equal(view.live.lastStep, 5);
+    }
+    if (paused && message.type === 'event' && message.payload.step === 6) {
+      assert.equal(message.payload.restored, undefined);
+      assert.equal(view.health.state, 'ready');
+      assert.equal(view.state.complete, true);
+      resumed = true;
+    }
+  }
+  assert.equal(paused, true); assert.equal(resumed, true);
+  assert.deepEqual(c.getView().state, fixture.expectedState);
+  assert.equal(c.getView().live.selfSeat, 2);
+  await c.flush();
 });

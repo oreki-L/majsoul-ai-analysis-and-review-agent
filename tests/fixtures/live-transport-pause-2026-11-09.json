@@ -1,0 +1,740 @@
+{
+  "description": "Real Chrome for Testing with installed full extension; TLS CONNECT tunnel reads paused in both directions without closing sockets. Same game stream resumed without syncGame; no raw authentication packets or socket URLs.",
+  "capturedAt": "2026-11-09",
+  "messages": [
+    {
+      "type": "event",
+      "payload": {
+        "kind": "Seat",
+        "source": "live",
+        "seat": 2,
+        "socketId": 3
+      }
+    },
+    {
+      "type": "health",
+      "payload": {
+        "socketId": 3,
+        "state": "recovering"
+      }
+    },
+    {
+      "type": "event",
+      "payload": {
+        "kind": "MJStart",
+        "source": "live",
+        "step": 0,
+        "encoding": "masked",
+        "socketId": 3
+      }
+    },
+    {
+      "type": "event",
+      "payload": {
+        "kind": "NewRound",
+        "source": "live",
+        "wind": 0,
+        "round": 0,
+        "honba": 0,
+        "scores": [
+          25000,
+          25000,
+          25000,
+          25000
+        ],
+        "sticks": 0,
+        "remaining": 69,
+        "doras": [
+          "3m"
+        ],
+        "hand": [
+          "2p",
+          "6z",
+          "1z",
+          "1s",
+          "2p",
+          "6m",
+          "5s",
+          "9m",
+          "1s",
+          "7m",
+          "4p",
+          "9s",
+          "0s"
+        ],
+        "step": 1,
+        "encoding": "masked",
+        "socketId": 3
+      }
+    },
+    {
+      "type": "event",
+      "payload": {
+        "kind": "DiscardTile",
+        "source": "live",
+        "seat": 0,
+        "tile": "1m",
+        "riichi": false,
+        "tsumogiri": false,
+        "doras": [],
+        "scores": [],
+        "sticks": null,
+        "step": 2,
+        "encoding": "masked",
+        "socketId": 3
+      }
+    },
+    {
+      "type": "event",
+      "payload": {
+        "kind": "DealTile",
+        "source": "live",
+        "seat": 1,
+        "tile": "?",
+        "remaining": 68,
+        "doras": [],
+        "step": 3,
+        "encoding": "masked",
+        "socketId": 3
+      }
+    },
+    {
+      "type": "event",
+      "payload": {
+        "kind": "DiscardTile",
+        "source": "live",
+        "seat": 1,
+        "tile": "8m",
+        "riichi": false,
+        "tsumogiri": true,
+        "doras": [],
+        "scores": [],
+        "sticks": null,
+        "operation": {
+          "seat": 2,
+          "types": [
+            2
+          ]
+        },
+        "step": 4,
+        "encoding": "masked",
+        "socketId": 3
+      }
+    },
+    {
+      "type": "event",
+      "payload": {
+        "kind": "DealTile",
+        "source": "live",
+        "seat": 2,
+        "tile": "8p",
+        "remaining": 67,
+        "doras": [],
+        "operation": {
+          "seat": 2,
+          "types": [
+            1
+          ]
+        },
+        "step": 5,
+        "encoding": "masked",
+        "socketId": 3
+      }
+    },
+    {
+      "type": "health",
+      "payload": {
+        "socketId": 3,
+        "state": "uncertain"
+      }
+    },
+    {
+      "type": "event",
+      "payload": {
+        "kind": "DiscardTile",
+        "source": "live",
+        "seat": 2,
+        "tile": "6z",
+        "riichi": false,
+        "tsumogiri": false,
+        "doras": [],
+        "scores": [],
+        "sticks": null,
+        "step": 6,
+        "encoding": "masked",
+        "socketId": 3
+      }
+    },
+    {
+      "type": "event",
+      "payload": {
+        "kind": "DealTile",
+        "source": "live",
+        "seat": 3,
+        "tile": "?",
+        "remaining": 66,
+        "doras": [],
+        "step": 7,
+        "encoding": "masked",
+        "socketId": 3
+      }
+    },
+    {
+      "type": "event",
+      "payload": {
+        "kind": "DiscardTile",
+        "source": "live",
+        "seat": 3,
+        "tile": "3z",
+        "riichi": false,
+        "tsumogiri": false,
+        "doras": [],
+        "scores": [],
+        "sticks": null,
+        "step": 8,
+        "encoding": "masked",
+        "socketId": 3
+      }
+    },
+    {
+      "type": "event",
+      "payload": {
+        "kind": "DealTile",
+        "source": "live",
+        "seat": 0,
+        "tile": "?",
+        "remaining": 65,
+        "doras": [],
+        "step": 9,
+        "encoding": "masked",
+        "socketId": 3
+      }
+    },
+    {
+      "type": "event",
+      "payload": {
+        "kind": "DiscardTile",
+        "source": "live",
+        "seat": 0,
+        "tile": "3z",
+        "riichi": false,
+        "tsumogiri": false,
+        "doras": [],
+        "scores": [],
+        "sticks": null,
+        "step": 10,
+        "encoding": "masked",
+        "socketId": 3
+      }
+    },
+    {
+      "type": "event",
+      "payload": {
+        "kind": "DealTile",
+        "source": "live",
+        "seat": 1,
+        "tile": "?",
+        "remaining": 64,
+        "doras": [],
+        "step": 11,
+        "encoding": "masked",
+        "socketId": 3
+      }
+    },
+    {
+      "type": "event",
+      "payload": {
+        "kind": "DiscardTile",
+        "source": "live",
+        "seat": 1,
+        "tile": "3p",
+        "riichi": false,
+        "tsumogiri": true,
+        "doras": [],
+        "scores": [],
+        "sticks": null,
+        "operation": {
+          "seat": 2,
+          "types": [
+            2
+          ]
+        },
+        "step": 12,
+        "encoding": "masked",
+        "socketId": 3
+      }
+    },
+    {
+      "type": "event",
+      "payload": {
+        "kind": "DealTile",
+        "source": "live",
+        "seat": 2,
+        "tile": "4z",
+        "remaining": 63,
+        "doras": [],
+        "operation": {
+          "seat": 2,
+          "types": [
+            1
+          ]
+        },
+        "step": 13,
+        "encoding": "masked",
+        "socketId": 3
+      }
+    },
+    {
+      "type": "event",
+      "payload": {
+        "kind": "DiscardTile",
+        "source": "live",
+        "seat": 2,
+        "tile": "4z",
+        "riichi": false,
+        "tsumogiri": true,
+        "doras": [],
+        "scores": [],
+        "sticks": null,
+        "step": 14,
+        "encoding": "masked",
+        "socketId": 3
+      }
+    },
+    {
+      "type": "event",
+      "payload": {
+        "kind": "DealTile",
+        "source": "live",
+        "seat": 3,
+        "tile": "?",
+        "remaining": 62,
+        "doras": [],
+        "step": 15,
+        "encoding": "masked",
+        "socketId": 3
+      }
+    },
+    {
+      "type": "event",
+      "payload": {
+        "kind": "DiscardTile",
+        "source": "live",
+        "seat": 3,
+        "tile": "6z",
+        "riichi": false,
+        "tsumogiri": false,
+        "doras": [],
+        "scores": [],
+        "sticks": null,
+        "step": 16,
+        "encoding": "masked",
+        "socketId": 3
+      }
+    },
+    {
+      "type": "event",
+      "payload": {
+        "kind": "DealTile",
+        "source": "live",
+        "seat": 0,
+        "tile": "?",
+        "remaining": 61,
+        "doras": [],
+        "step": 17,
+        "encoding": "masked",
+        "socketId": 3
+      }
+    },
+    {
+      "type": "event",
+      "payload": {
+        "kind": "DiscardTile",
+        "source": "live",
+        "seat": 0,
+        "tile": "7z",
+        "riichi": false,
+        "tsumogiri": false,
+        "doras": [],
+        "scores": [],
+        "sticks": null,
+        "step": 18,
+        "encoding": "masked",
+        "socketId": 3
+      }
+    },
+    {
+      "type": "event",
+      "payload": {
+        "kind": "DealTile",
+        "source": "live",
+        "seat": 1,
+        "tile": "?",
+        "remaining": 60,
+        "doras": [],
+        "step": 19,
+        "encoding": "masked",
+        "socketId": 3
+      }
+    },
+    {
+      "type": "event",
+      "payload": {
+        "kind": "DiscardTile",
+        "source": "live",
+        "seat": 1,
+        "tile": "5z",
+        "riichi": false,
+        "tsumogiri": false,
+        "doras": [],
+        "scores": [],
+        "sticks": null,
+        "step": 20,
+        "encoding": "masked",
+        "socketId": 3
+      }
+    },
+    {
+      "type": "event",
+      "payload": {
+        "kind": "DealTile",
+        "source": "live",
+        "seat": 2,
+        "tile": "2z",
+        "remaining": 59,
+        "doras": [],
+        "operation": {
+          "seat": 2,
+          "types": [
+            1
+          ]
+        },
+        "step": 21,
+        "encoding": "masked",
+        "socketId": 3
+      }
+    },
+    {
+      "type": "event",
+      "payload": {
+        "kind": "DiscardTile",
+        "source": "live",
+        "seat": 2,
+        "tile": "2z",
+        "riichi": false,
+        "tsumogiri": true,
+        "doras": [],
+        "scores": [],
+        "sticks": null,
+        "step": 22,
+        "encoding": "masked",
+        "socketId": 3
+      }
+    },
+    {
+      "type": "event",
+      "payload": {
+        "kind": "DealTile",
+        "source": "live",
+        "seat": 3,
+        "tile": "?",
+        "remaining": 58,
+        "doras": [],
+        "step": 23,
+        "encoding": "masked",
+        "socketId": 3
+      }
+    },
+    {
+      "type": "event",
+      "payload": {
+        "kind": "DiscardTile",
+        "source": "live",
+        "seat": 3,
+        "tile": "4z",
+        "riichi": false,
+        "tsumogiri": false,
+        "doras": [],
+        "scores": [],
+        "sticks": null,
+        "step": 24,
+        "encoding": "masked",
+        "socketId": 3
+      }
+    },
+    {
+      "type": "event",
+      "payload": {
+        "kind": "DealTile",
+        "source": "live",
+        "seat": 0,
+        "tile": "?",
+        "remaining": 57,
+        "doras": [],
+        "step": 25,
+        "encoding": "masked",
+        "socketId": 3
+      }
+    },
+    {
+      "type": "event",
+      "payload": {
+        "kind": "DiscardTile",
+        "source": "live",
+        "seat": 0,
+        "tile": "1p",
+        "riichi": false,
+        "tsumogiri": false,
+        "doras": [],
+        "scores": [],
+        "sticks": null,
+        "step": 26,
+        "encoding": "masked",
+        "socketId": 3
+      }
+    },
+    {
+      "type": "event",
+      "payload": {
+        "kind": "DealTile",
+        "source": "live",
+        "seat": 1,
+        "tile": "?",
+        "remaining": 56,
+        "doras": [],
+        "step": 27,
+        "encoding": "masked",
+        "socketId": 3
+      }
+    },
+    {
+      "type": "event",
+      "payload": {
+        "kind": "DiscardTile",
+        "source": "live",
+        "seat": 1,
+        "tile": "6z",
+        "riichi": false,
+        "tsumogiri": false,
+        "doras": [],
+        "scores": [],
+        "sticks": null,
+        "step": 28,
+        "encoding": "masked",
+        "socketId": 3
+      }
+    },
+    {
+      "type": "event",
+      "payload": {
+        "kind": "DealTile",
+        "source": "live",
+        "seat": 2,
+        "tile": "1m",
+        "remaining": 55,
+        "doras": [],
+        "operation": {
+          "seat": 2,
+          "types": [
+            1
+          ]
+        },
+        "step": 29,
+        "encoding": "masked",
+        "socketId": 3
+      }
+    }
+  ],
+  "expectedState": {
+    "source": "live",
+    "selfSeat": 2,
+    "phase": "playing",
+    "round": {
+      "wind": 0,
+      "index": 0
+    },
+    "honba": 0,
+    "sticks": 0,
+    "remaining": 55,
+    "doras": [
+      "3m"
+    ],
+    "turn": 2,
+    "turnProgress": {
+      "status": "known",
+      "source": "events",
+      "bySeat": [
+        5,
+        5,
+        4,
+        4
+      ],
+      "reason": null
+    },
+    "availableActions": {
+      "seat": 2,
+      "lastStep": 29,
+      "types": [
+        1
+      ]
+    },
+    "lastRecordIndex": null,
+    "selfHand": [
+      "2p",
+      "1z",
+      "1s",
+      "2p",
+      "6m",
+      "5s",
+      "9m",
+      "1s",
+      "7m",
+      "4p",
+      "9s",
+      "0s",
+      "8p",
+      "1m"
+    ],
+    "drawnTiles": [
+      null,
+      null,
+      "1m",
+      null
+    ],
+    "scores": [
+      25000,
+      25000,
+      25000,
+      25000
+    ],
+    "startScores": [
+      25000,
+      25000,
+      25000,
+      25000
+    ],
+    "result": null,
+    "complete": true,
+    "lastStep": 29,
+    "seatTrackingIncomplete": false,
+    "players": [
+      {
+        "hand": [],
+        "discards": [
+          {
+            "tile": "1m",
+            "riichi": false,
+            "tsumogiri": false,
+            "called": false
+          },
+          {
+            "tile": "3z",
+            "riichi": false,
+            "tsumogiri": false,
+            "called": false
+          },
+          {
+            "tile": "7z",
+            "riichi": false,
+            "tsumogiri": false,
+            "called": false
+          },
+          {
+            "tile": "1p",
+            "riichi": false,
+            "tsumogiri": false,
+            "called": false
+          }
+        ],
+        "melds": [],
+        "riichi": false,
+        "norths": 0
+      },
+      {
+        "hand": [],
+        "discards": [
+          {
+            "tile": "8m",
+            "riichi": false,
+            "tsumogiri": true,
+            "called": false
+          },
+          {
+            "tile": "3p",
+            "riichi": false,
+            "tsumogiri": true,
+            "called": false
+          },
+          {
+            "tile": "5z",
+            "riichi": false,
+            "tsumogiri": false,
+            "called": false
+          },
+          {
+            "tile": "6z",
+            "riichi": false,
+            "tsumogiri": false,
+            "called": false
+          }
+        ],
+        "melds": [],
+        "riichi": false,
+        "norths": 0
+      },
+      {
+        "hand": [],
+        "discards": [
+          {
+            "tile": "6z",
+            "riichi": false,
+            "tsumogiri": false,
+            "called": false
+          },
+          {
+            "tile": "4z",
+            "riichi": false,
+            "tsumogiri": true,
+            "called": false
+          },
+          {
+            "tile": "2z",
+            "riichi": false,
+            "tsumogiri": true,
+            "called": false
+          }
+        ],
+        "melds": [],
+        "riichi": false,
+        "norths": 0
+      },
+      {
+        "hand": [],
+        "discards": [
+          {
+            "tile": "3z",
+            "riichi": false,
+            "tsumogiri": false,
+            "called": false
+          },
+          {
+            "tile": "6z",
+            "riichi": false,
+            "tsumogiri": false,
+            "called": false
+          },
+          {
+            "tile": "4z",
+            "riichi": false,
+            "tsumogiri": false,
+            "called": false
+          }
+        ],
+        "melds": [],
+        "riichi": false,
+        "norths": 0
+      }
+    ],
+    "warnings": []
+  }
+}

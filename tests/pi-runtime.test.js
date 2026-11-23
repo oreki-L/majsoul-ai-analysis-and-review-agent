@@ -92,3 +92,33 @@ test('DeepSeek tool reasoning is replayed within one run and excluded from final
   const subsequent = T.messages({ systemPrompt: '', messages: [{ role: 'assistant', content: answer, reasoning_content: sentinel }] });
   assert.equal(JSON.stringify(subsequent).includes(sentinel), false);
 });
+
+test('format repair corrects a missing required field once inside the same turn and token budget', async () => {
+  const E = require('../extension/contracts/engine-explanation.js'), requests = [];
+  const result = await runtime().run({ messages: user(), tools: [tool(async () => { throw Error('No tool during repair'); })],
+    validateFinal: E.parse, formatRepairMessage: E.repairPrompt, budget: { maxTurns: 3, maxTokens: 20 }, transport: async req => {
+      requests.push(req);
+      if (requests.length === 1) return { text: '{"summary":"说明","reasons":[]}', usage: { totalTokens: 5 } };
+      assert.equal(req.tools.length, 0); assert.equal(req.finalTurn, true); assert.equal(req.maxTokens, 15);
+      assert.equal(req.messages.at(-1).content, E.repairPrompt);
+      return { text: '{"summary":"说明","reasons":[],"limitations":[]}', usage: { totalTokens: 4 } };
+    } });
+  assert.equal(result.turns, 2); assert.equal(result.usage.totalTokens, 9);
+  assert.equal(result.messages.filter(m => m.role === 'user').length, 2);
+  assert.deepEqual(E.parse(result.text).limitations, []);
+});
+
+test('invalid repair, exhausted budget, action injection and truncation cannot create an accepted answer', async () => {
+  const E = require('../extension/contracts/engine-explanation.js');
+  for (const scenario of [
+    { text: '{"summary":"说明","reasons":[]}', turns: 3, expected: 2 },
+    { text: '{"summary":"说明","reasons":[]}', turns: 1, expected: 1 },
+    { text: '{"summary":"说明","reasons":[],"limitations":[],"tile":"1m"}', turns: 3, expected: 1 },
+    { text: '{"summary":"截断', stopReason: 'length', turns: 3, expected: 1 }
+  ]) {
+    let calls = 0;
+    await assert.rejects(runtime().run({ messages: user(), validateFinal: E.parse, formatRepairMessage: E.repairPrompt,
+      budget: { maxTurns: scenario.turns }, transport: async () => { calls++; return { text: scenario.text, stopReason: scenario.stopReason }; } }));
+    assert.equal(calls, scenario.expected);
+  }
+});

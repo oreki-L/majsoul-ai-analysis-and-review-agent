@@ -89,7 +89,7 @@ test('new match markers and round regression separate games while dealer repeats
   assert.equal(H.isNewMatch(match,s,opening({round:0})),true);
   assert.equal(H.isNewMatch(match,s,event('MJStart')),true);
   const reset=S.apply(s,event('MJStart',{step:0}));
-  assert.equal(reset.selfSeat,null); assert.equal(reset.result,null); assert.equal(reset.round,null);
+  assert.equal(reset.selfSeat,s.selfSeat); assert.equal(reset.result,null); assert.equal(reset.round,null);
 });
 
 test('replay import collects all rounds without changing the active replay cursor and repeated imports deduplicate', () => {
@@ -134,6 +134,241 @@ test('worker serializes history updates, isolates model credentials and authenti
   assert.equal(loaded.matches.length,2); assert.equal(JSON.stringify(loaded).includes('SECRET'),false);
   assert.equal(stored.modelConfig.apiKey,'SECRET');
   assert.equal(await send({type:'history:save',match:a},{...sender,url:'https://evil.example/'}),undefined);
+});
+
+const historyKey = 'roundHistoryV1', inboxKey = 'matchCompletionInboxV1';
+const day = 24 * 60 * 60 * 1000, start = 1700000000000;
+const trusted = { id: 'extension', frameId: 0, tab: { id: 7 }, documentId: 'game-doc', url: 'https://game.maj-soul.com/1/' };
+const workerSource = fs.readFileSync(require.resolve('../extension/history-storage.js'), 'utf8');
+const inboxSource = fs.readFileSync(require.resolve('../extension/match-completion-inbox.js'), 'utf8');
+const { randomUUID } = require('node:crypto');
+
+function worker({ stored = {}, clock = () => start + 100, chat = true, get, set, uuid = randomUUID } = {}) {
+  let listener;
+  const writes = [], reads = [];
+  const storage = {
+    async get(key) {
+      reads.push(key);
+      await get?.(key);
+      return { [key]: structuredClone(stored[key]) };
+    },
+    async set(values) {
+      writes.push(structuredClone(values));
+      if (await set?.(values, stored)) return;
+      Object.assign(stored, structuredClone(values));
+    }
+  };
+  const chrome = { runtime: { id: trusted.id, onMessage: { addListener(fn) { listener = fn; } } }, storage: { local: storage } };
+  const context = vm.createContext({ chrome, MJHistory: H, URL, Date: { now: clock }, crypto: { randomUUID: uuid } });
+  vm.runInContext(workerSource, context);
+  if (chat) vm.runInContext(inboxSource, context);
+  const inbox = chat && context.MJHistoryStorage.enableCompletionInbox(context.MJMatchCompletionInbox);
+  const send = (message, sender = trusted) => new Promise(resolve => { if (!listener(message, sender, resolve)) resolve(undefined); });
+  return { writes, reads, inbox, stored, send, save: (match, fields = {}, sender) =>
+    send({ type: 'history:save', match, matchStart: match.startedAt, ...fields }, sender) };
+}
+
+function terminal(id, { count = 4, kind = 'Hule', updatedAt = start + 50 } = {}) {
+  const scores = [33000,17000,25000,25000].slice(0, count);
+  let state = S.initial(), match = H.create('live', `live-${id}`, start);
+  for (let index = 0; index < count; index++) {
+    state = S.apply(state, opening({ round: index, scores: Array(count).fill(25000) }));
+    state = S.apply(state, event(kind, { step: 1, gameEnded: index === count - 1, scores, winners: [] }));
+    match = H.addRound(match, state, updatedAt);
+  }
+  return match;
+}
+
+test('worker owns one joint commit, with minimal immutable-on-replay event and nonblocking post-commit listeners', { timeout: 3000 }, async () => {
+  let release, setStarted;
+  const started = new Promise(resolve => { setStarted = resolve; });
+  const blocked = new Promise(resolve => { release = resolve; });
+  const subject = worker({ set: async values => { if (values[inboxKey]) { setStarted(); await blocked; } } });
+  let notices = 0;
+  const unsubscribe = subject.inbox.subscribe(() => {
+    notices++;
+    assert.equal(subject.stored[inboxKey].length, 1);
+    return new Promise(() => {});
+  });
+  subject.inbox.subscribe(() => { throw new Error('chat listener'); });
+  subject.inbox.subscribe(async () => { throw new Error('chat initialization'); });
+  const match = terminal('first');
+  const first = subject.save(match, { sourceRef: { tabId: 911, documentId: 'spoofed' } });
+  await started;
+  assert.equal(notices, 0);
+  const duplicate = subject.save(match);
+  release();
+  const replies = await Promise.all([first, duplicate]);
+  assert.ok(replies.every(reply => reply.ok));
+  assert.ok(replies.every(reply => !Object.hasOwn(reply.matches[0], 'completionEventId')));
+  assert.equal(notices, 1);
+  assert.equal(subject.writes.filter(write => write[inboxKey]).length, 1);
+  assert.deepEqual(Object.keys(subject.writes[0]).sort(), [inboxKey, historyKey]);
+  const [completed] = structuredClone(await subject.inbox.listCommitted());
+  assert.deepEqual(completed, { version: 1, id: subject.stored[inboxKey][0].event.id, observedStartAt: start, committedAt: start + 100,
+    sourceRef: { tabId: 7, documentId: 'game-doc' }, data: { playerCount: 4, roundCount: 4, endReason: 'win', finalScores: [33000,17000,25000,25000] } });
+  completed.data.finalScores[0] = 0;
+  assert.equal((await subject.inbox.listCommitted())[0].data.finalScores[0], 33000);
+  unsubscribe();
+  assert.ok((await subject.save(terminal('next'))).ok);
+  assert.equal(notices, 1);
+});
+
+test('standard worker and ineligible saves never access the inbox', async () => {
+  const standard = worker({ chat: false });
+  assert.ok((await standard.save(terminal('standard'))).ok);
+  assert.deepEqual(standard.reads, [historyKey]);
+  assert.deepEqual(Object.keys(standard.writes[0]), [historyKey]);
+  const subject = worker();
+  const match = terminal('untrusted');
+  for (const sender of [{ ...trusted, id: 'other-extension' }, { ...trusted, frameId: 1 }, { ...trusted, url: 'https://example.org' },
+    { ...trusted, origin: 'null' }]) {
+    assert.equal(await subject.save(match, {}, sender), undefined);
+  }
+  const noOpening = terminal('late');
+  noOpening.rounds.shift();
+  const gap = terminal('gap');
+  gap.rounds[1].snapshot.turnProgress.status = 'unknown';
+  const replay = { ...terminal('replay'), source: 'replay' };
+  const ordinary = terminal('ordinary');
+  ordinary.rounds.pop(); ordinary.closed = false;
+  const closedWithoutEvidence = terminal('old');
+  const cases = [subject.save(match, { documentId: 'game-doc' }, { ...trusted, documentId: undefined }),
+    subject.save(terminal('missing-tab'), { sourceRef: { tabId: 7, documentId: 'game-doc' } }, { ...trusted, tab: {} }),
+    subject.save(noOpening), subject.save(gap), subject.save(replay), subject.save(ordinary),
+    subject.save({ ...terminal('dropped'), droppedRounds: 1 }),
+    subject.save(terminal('wrong-start'), { matchStart: start - 1 }),
+    subject.save(closedWithoutEvidence, { matchStart: undefined })];
+  assert.ok((await Promise.all(cases)).every(reply => reply.ok));
+  assert.ok((await subject.save(closedWithoutEvidence)).ok);
+  assert.ok(subject.reads.every(key => key === historyKey));
+  assert.ok(subject.writes.every(write => Object.keys(write).length === 1 && write[historyKey]));
+});
+
+test('three-player draw and unreliable settlement scores follow the local fact contract', async () => {
+  const subject = worker();
+  const draw = terminal('sanma', { count: 3, kind: 'NoTile' });
+  const malformed = terminal('malformed');
+  malformed.rounds.at(-1).snapshot.result.scores[0] = null;
+  const unknown = terminal('unknown');
+  unknown.rounds.at(-1).snapshot.result.scoresKnown = false;
+  const abortive = terminal('abortive', { kind: 'LiuJu' });
+  assert.ok((await Promise.all([draw, malformed, unknown, abortive].map(match => subject.save(match)))).every(reply => reply.ok));
+  assert.deepEqual(structuredClone(await subject.inbox.listCommitted()).map(item => item.data), [
+    { playerCount: 3, roundCount: 3, endReason: 'exhaustive_draw', finalScores: [33000,17000,25000] },
+    { playerCount: 4, roundCount: 4, endReason: 'win' },
+    { playerCount: 4, roundCount: 4, endReason: 'win' },
+    { playerCount: 4, roundCount: 4, endReason: 'abortive_draw' }
+  ]);
+});
+
+test('projection, storage read and corrupt inbox errors do not prevent history; discard repairs corruption', async () => {
+  const cases = [
+    { options: { uuid: () => { throw new Error('projection'); } }, reason: 'projectionFailed' },
+    { options: { get: key => { if (key === inboxKey) throw new Error('inbox read'); } }, reason: 'unavailable' },
+    { options: { stored: { [inboxKey]: { corrupt: true } } }, reason: 'unavailable' }
+  ];
+  for (const { options, reason } of cases) {
+    const subject = worker(options);
+    assert.ok((await subject.save(terminal(reason))).ok);
+    assert.equal(subject.writes.length, 1);
+    assert.deepEqual(Object.keys(subject.writes[0]), [historyKey]);
+    assert.equal(subject.inbox.getStatus()[reason], 1);
+    assert.ok((await subject.send({ type: 'history:load' })).ok);
+  }
+  const subject = worker({ stored: { [inboxKey]: [null] } });
+  await assert.rejects(subject.inbox.listCommitted(), /Invalid match completion inbox/);
+  await subject.inbox.discardPending();
+  assert.equal((await subject.inbox.listCommitted()).length, 0);
+  assert.ok((await subject.save(terminal('after-discard'))).ok);
+  assert.equal((await subject.inbox.listCommitted()).length, 1);
+});
+
+test('a rejected joint attempt falls back to history only, even when it left either individual key behind', async () => {
+  for (const partialKey of [null, inboxKey, historyKey]) {
+    const subject = worker({ set(values, stored) {
+      if (!values[inboxKey] || !values[historyKey]) return;
+      if (partialKey) stored[partialKey] = structuredClone(values[partialKey]);
+      throw new Error('joint set rejected');
+    } });
+    let notices = 0;
+    subject.inbox.subscribe(() => { notices++; });
+    assert.ok((await subject.save(terminal('fallback'))).ok);
+    assert.equal(subject.inbox.getStatus().jointWriteFailed, 1);
+    assert.deepEqual(Object.keys(subject.writes[1]), [historyKey]);
+    assert.equal(notices, 0);
+    assert.equal(subject.stored[historyKey][0].completionEventId, undefined);
+    const restarted = worker({ stored: subject.stored });
+    assert.equal((await restarted.inbox.listCommitted()).length, 0);
+    const match = terminal('fallback');
+    assert.ok((await restarted.save({ ...match, closed: false, rounds: match.rounds.slice(0, -1) })).matches[0].closed);
+    assert.ok((await restarted.save(match)).ok);
+    assert.equal((await restarted.inbox.listCommitted()).length, 0);
+  }
+});
+
+test('worker reports history write failure and cannot claim an orphan on restart', async () => {
+  const subject = worker({ set(values, stored) {
+    if (values[inboxKey]) stored[inboxKey] = structuredClone(values[inboxKey]);
+    throw new Error('set rejected');
+  } });
+  assert.equal((await subject.save(terminal('uncommitted'))).ok, false);
+  assert.equal(subject.writes.length, 2);
+  assert.equal(subject.stored[historyKey], undefined);
+  const restarted = worker({ stored: subject.stored });
+  assert.equal((await restarted.inbox.listCommitted()).length, 0);
+  assert.ok((await restarted.save(terminal('after-failure'))).ok);
+  assert.equal((await restarted.inbox.listCommitted()).length, 1);
+});
+
+test('a new append verifies old entries against prior history, not the history about to be written', async () => {
+  const subject = worker({ set(values, stored) {
+    if (values[inboxKey]) stored[inboxKey] = structuredClone(values[inboxKey]);
+    throw new Error('set rejected');
+  } });
+  const match = terminal('orphan');
+  assert.equal((await subject.save(match)).ok, false);
+  const oldId = subject.stored[inboxKey][0].event.id;
+  const restarted = worker({ stored: subject.stored });
+  assert.ok((await restarted.save(match)).ok);
+  const verified = await restarted.inbox.listCommitted();
+  assert.equal(verified.length, 1);
+  assert.notEqual(verified[0].id, oldId);
+  assert.equal(restarted.stored[inboxKey].length, 1);
+});
+
+test('restarts preserve event identity and order until ack, with no resurrection from history', async () => {
+  const first = worker();
+  const match = terminal('restart-1');
+  assert.ok((await first.save(match)).ok);
+  assert.ok((await first.save(terminal('restart-2'))).ok);
+  const persisted = structuredClone(await first.inbox.listCommitted());
+  assert.equal(persisted.length, 2);
+  const second = worker({ stored: first.stored, clock: () => start + 500 });
+  assert.ok((await second.save({ ...match, closed: false, rounds: match.rounds.slice(0, -1) })).matches[0].closed);
+  assert.deepEqual(structuredClone(await second.inbox.listCommitted()), persisted);
+  await Promise.all([second.inbox.ack(persisted[0].id), second.save(match), second.inbox.ack('unknown')]);
+  const third = worker({ stored: second.stored });
+  assert.deepEqual(structuredClone(await third.inbox.listCommitted()), persisted.slice(1));
+  await third.inbox.discardPending();
+  assert.equal((await worker({ stored: third.stored }).inbox.listCommitted()).length, 0);
+});
+
+test('a full inbox skips the incoming event, with expiry from original commit time', async () => {
+  let now = start + 100;
+  const subject = worker({ clock: () => now });
+  for (let index = 0; index < 20; index++) assert.ok((await subject.save(terminal(`pending-${index}`))).ok);
+  const original = structuredClone(subject.stored[inboxKey]);
+  assert.equal(original.length, 20);
+  assert.ok((await subject.save(terminal('full', { updatedAt: start + 51 }))).ok);
+  assert.equal(subject.inbox.getStatus().full, 1);
+  assert.deepEqual(subject.stored[inboxKey], original);
+  assert.ok(subject.stored[historyKey].some(match => match.id === 'live-full'));
+  now += day;
+  assert.equal((await subject.inbox.listCommitted()).length, 0);
+  assert.deepEqual(subject.stored[inboxKey], []);
+  assert.ok((await subject.save(terminal('after-expiry', { updatedAt: start + 52 }))).ok);
+  assert.equal((await subject.inbox.listCommitted()).length, 1);
 });
 
 

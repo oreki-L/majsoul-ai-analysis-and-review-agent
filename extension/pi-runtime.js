@@ -8448,7 +8448,7 @@ ${JSON.stringify(toolCall.arguments, null, 2)}`;
     options.signal?.addEventListener("abort", abort, { once: true });
     if (options.signal?.aborted) abort();
     const timer = setTimeout(() => controller.abort(error("Pi time budget exceeded", "TIME_BUDGET")), limits.timeout);
-    let turns = 0, toolCalls = 0, usage = emptyUsage();
+    let turns = 0, toolCalls = 0, formatRepairs = 0, repairPending = false, repairMessages = [], usage = emptyUsage();
     const model = { id: "configured-model", name: "Configured model", api: "openai-completions", provider: "custom", ...options.model };
     const tools = (options.tools || []).map((tool) => ({
       ...tool,
@@ -8465,12 +8465,12 @@ ${JSON.stringify(toolCall.arguments, null, 2)}`;
       if (turns >= limits.turns) throw error("Pi turn budget exceeded", "TURN_BUDGET");
       if (usage.totalTokens >= limits.tokens) throw error("Pi token budget exceeded", "TOKEN_BUDGET");
       turns++;
-      const finalTurn = turns === limits.turns;
+      const finalTurn = turns === limits.turns || repairPending;
       const response = assistantMessage(await checked(options.transport({
         model: selectedModel,
         messages: context.messages,
         systemPrompt: getCurrentSystemPrompt(context.messages),
-        tools: finalTurn ? [] : getCurrentTools(context.messages),
+        tools: finalTurn || repairPending ? [] : getCurrentTools(context.messages),
         signal,
         maxTokens: limits.tokens - usage.totalTokens,
         finalTurn
@@ -8478,6 +8478,7 @@ ${JSON.stringify(toolCall.arguments, null, 2)}`;
       for (const key of ["input", "output", "cacheRead", "cacheWrite", "totalTokens"]) usage[key] += Number(response.usage[key]) || 0;
       const calls = response.content.filter((item) => item.type === "toolCall").length;
       if (finalTurn && calls) throw error("Pi final turn must return an answer", "TURN_BUDGET");
+      if (repairPending && calls) throw error("Format repair must return an answer", "OUTPUT_FORMAT");
       if (!tools.length && calls) throw error("This API does not support tool calls", "TOOLS_UNAVAILABLE");
       if (toolCalls + calls > limits.tools) throw error("Pi tool budget exceeded", "TOOL_BUDGET");
       if (usage.totalTokens > limits.tokens) throw error("Pi token budget exceeded", "TOKEN_BUDGET");
@@ -8491,7 +8492,29 @@ ${JSON.stringify(toolCall.arguments, null, 2)}`;
         model,
         convertToLlm: (items) => items,
         toolExecution: "sequential",
-        finishTurn: () => !tools.length ? { action: "end" } : void 0
+        getSteeringMessages: () => {
+          const pending = repairMessages;
+          repairMessages = [];
+          return pending;
+        },
+        finishTurn: ({ message }) => {
+          if (message.stopReason === "error" || message.stopReason === "aborted") return { action: "end" };
+          if (message.content.some((item) => item.type === "toolCall")) return;
+          if (options.validateFinal) {
+            if (message.stopReason === "length") throw error("Pi answer was truncated", "OUTPUT_TRUNCATED");
+            const text = message.content.filter((item) => item.type === "text").map((item) => item.text).join("");
+            try {
+              options.validateFinal(text);
+            } catch (failure) {
+              if (!failure.canRepairOutput || formatRepairs >= 1 || turns >= limits.turns || usage.totalTokens >= limits.tokens || !options.formatRepairMessage) throw failure;
+              formatRepairs++;
+              repairPending = true;
+              repairMessages = [{ role: "user", content: options.formatRepairMessage, timestamp: Date.now() }];
+              return { action: "continue" };
+            }
+          }
+          return !tools.length ? { action: "end" } : void 0;
+        }
       }, async (event) => {
         if (options.onEvent) await options.onEvent(event);
       }, signal, streamFn), signal);

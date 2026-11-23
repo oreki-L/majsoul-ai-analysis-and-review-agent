@@ -79,13 +79,14 @@
           explanationAttempt: typeof input.explanationAttempt === 'string' ? input.explanationAttempt.slice(0, 200) : null };
         records.push(record); return record;
       })),
-      claimExplanation: (id, attempt) => serial(() => mutate(() => {
+      claimExplanation: (id, attempt, promptVersion) => serial(() => mutate(() => {
         const record = find(id);
         if (!record.analysis.engine || !['mortal-explain','official-mortal-review'].includes(record.analysis.workflow)) throw new Error('该决策不是引擎解释工作流。');
         if (record.analysis.explanation?.status === 'pending') throw new Error('该决策的解释正在进行，请等待完成或取消，避免重复请求。');
         if (typeof attempt !== 'string' || !attempt || attempt.length > 200) throw new Error('解释请求标识无效。');
+        if (promptVersion !== undefined && (!Number.isInteger(promptVersion) || promptVersion < 1)) throw new Error('解释提示版本无效。');
         record.explanationAttempt = attempt;
-        record.analysis.explanation = { status: 'pending', promptVersion: 1 };
+        record.analysis.explanation = { status: 'pending', promptVersion: promptVersion ?? record.analysis.explanation?.promptVersion ?? 1 };
         record.revision++;
         return record;
       })),

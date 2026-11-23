@@ -6,7 +6,7 @@ A browser extension for the Mahjong Soul web client: compare tile efficiency and
 
 **Start with little setup: local tile-efficiency analysis works as soon as the extension is loaded; AI explanations need your endpoint, model ID and API key; optional local engines have an extract-and-double-click runtime package.**
 
-[**Download v0.16.2**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.2) · [Quick start](#quick-start) · [Highlights](#why-choose-majsoul-agent) · [Local models](#using-local-models) · [FAQ](#faq) · [Documentation](docs/README.md)
+[**Download v0.16.16**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.16) · [Quick start](#quick-start) · [Highlights](#why-choose-majsoul-agent) · [Local models](#using-local-models) · [FAQ](#faq) · [Documentation](docs/README.md)
 
 [简体中文](README.md) | **English** | [日本語](README.ja.md)
 
@@ -24,6 +24,12 @@ Switch themes with the button at the top right of the analysis card. These are o
 - **See the engine action before the explanation**: validated engine actions appear first, followed by LLM commentary that cannot rewrite the engine's first choice. Retry failed explanations separately; follow-up questions do not rerun the engine.
 - **Inspect the evidence**: local calculations provide shanten, effective tiles and per-opponent genbutsu / suji / wall evidence. LLM read-only tools can consult these facts, and you can expand the analysis evidence to check them.
 - **Track calls and costs**: analyze manually or opt into automatic hints, with starting-turn, interval and per-round limits for automatic calls. Engine time and LLM tokens / estimated costs are recorded separately and can be exported; unknown costs stay unknown.
+
+### Measured results and scope
+
+**Prompt v16 delivered answers for all 64 frozen positions; independent blind review passed 63/64, with a mean of 3.894/4 and one answer containing a major error.** The first response delivered 62/64; two more passed after one format repair that preserved the summary, reasons and limitations text.
+
+A real LLM answered previously observed frozen positions using cached Mortal actions. GPT-6.2 Sol / low reviewed anonymized answers, one reviewer per answer without an inter-rater reliability study. These positions informed development; the engine was not rerun and no live browser games were tested. Results do not establish playing strength or win rate. Some answers still infer defensive intent beyond the available evidence. See the [validation record](docs/validation/MORTAL_TEACHING_V16_VALIDATION.md).
 
 ### Understand a hand through follow-up questions
 
@@ -43,16 +49,19 @@ Answers use **the hand and public table at that decision, the original recommend
 
 ## Downloads
 
-Current release: **v0.16.2**. Start with the full Agent.
+Current release: **v0.16.16**. Start with the standard Agent, which does not include the chat module.
+
+Prompt v9 / fact card v8 supplies shape waits and unseen upper bounds for the selected discard, plus verified positive evidence of sanshoku doujun or yakuhai for exact discards and draws. Missing entries do not establish the absence of yaku; furiten and scoring are not verified. The earlier prompt v8 / fact card v7 delivered 40/40 answers in a targeted real-LLM test; independent blind review passed 38/40, averaging 3.675/4. These development cases have limited scope. The new version passed offline replay of 40 cases; its real-LLM test and blind review have not started, and replay is not a quality score. See the [validation record](docs/validation/MORTAL_TEACHING_V9_VALIDATION.md). Full-match chat delivery and real Feishu group integration remain untested.
 
 | Package | Who it is for |
 | --- | --- |
-| [**Full Agent extension**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.2/majsoul-ai-analysis-and-review-agent-0.16.2.zip) | Recommended entry point: local calculations, model analysis, follow-up questions, history and settings |
-| [Optional local model runtime · Windows x64](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.2/majsoul-model-manager-windows-x64-0.16.2.zip) | Download when you want local Mortal / Akagi; includes the Node runtime needed by the manager |
-| [Standalone Collector](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.2/majsoul-collector-0.16.2.zip) | Collection, display and export without AI analysis |
-| [Source package](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.2/majsoul-ai-analysis-and-review-agent-source-0.16.2.zip) | Development, builds and offline review |
+| [**Standard Agent extension**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.16/majsoul-ai-analysis-and-review-agent-0.16.16.zip) | Recommended: local calculations, model analysis, follow-up questions, history and settings |
+| [Optional Agent with Chat](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.16/majsoul-agent-chat-0.16.16.zip) | Alternative build with manual summaries and full-match notifications for Feishu group bots and signed HTTPS webhooks. Sending is off by default. [Guide](docs/guides/CHAT_INTEGRATIONS.md) |
+| [Optional local model runtime · Windows x64](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.10/majsoul-model-manager-windows-x64-0.16.10.zip) | Download when you want local Mortal / Akagi; includes the Node runtime needed by the manager |
+| [Standalone Collector](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.16/majsoul-collector-0.16.16.zip) | Collection, display and export without AI analysis |
+| [Source package](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.16/majsoul-ai-analysis-and-review-agent-source-0.16.16.zip) | Development, builds and offline review |
 
-[All release files and SHA-256 checksums](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.2). Extension packages contain no model weights. Agent and Collector have separate local storage; enable only one on the same game page.
+[All release files and SHA-256 checksums](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.16). Extension packages contain no model weights. Enable only one extension build per browser profile. The unchanged local model runtime remains available from `v0.16.10` as linked above.
 
 ## Quick start
 
@@ -158,7 +167,7 @@ Position-analysis inputs contain your hand, public table and collected history u
 
 The extension assists analysis and learning; it does not play automatically. Optional memory captures qualifying personal live games only after you enable it. Candidate observations can inform later explanations and can be confirmed as explicit preferences, edited or deleted. Disabling learning stops new collection; existing memories remain until deleted or cleared and cannot replace current-position facts. [Memory guide](docs/guides/USER_MEMORY.md)
 
-Validation covers fixed-weight real inference, synthetic positions and protocols, and mock-LLM integration. Akagi v3 passed online installation from an empty directory; full offline installation passed for both community v4 models, but the full online Hugging Face weight-download path has not passed. Full live web games, reconnection recovery, playing strength and paid-LLM teaching quality remain to be validated. Explanations do not reproduce the engine's internal reasoning or promise a win rate.
+Validation covers fixed-weight real inference, synthetic positions and protocols, and mock-LLM integration. Akagi v3 passed online installation from an empty directory; full offline installation passed for both community v4 models, but the full online Hugging Face weight-download path has not passed. Full live web games, reconnection recovery, playing strength and paid-LLM teaching quality beyond the frozen sample remain to be validated. Explanations do not reproduce the engine's internal reasoning or promise a win rate.
 
 [Validation overview](VALIDATION.md) · [v4 evidence](docs/validation/MORTAL_V4_VALIDATION.md) · [v3 evidence](docs/validation/AKAGI_V3_VALIDATION.md) · [Sessions and usage](docs/guides/AGENT_SESSIONS.md)
 

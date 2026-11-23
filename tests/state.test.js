@@ -3,6 +3,18 @@ const assert = require('node:assert/strict');
 const S = require('../extension/state.js'), P = require('../extension/protocol.js'), F = require('./fixtures.js');
 const round = () => ({ ...P.decodeEvent('ActionNewRound', F.liveRound(), 'live'), step: 0 });
 
+test('authenticated nondealer seat survives MJStart before an opening without operation hints', () => {
+  let s = S.apply(S.initial(), { kind: 'Seat', source: 'live', seat: 2 });
+  s = S.apply(s, { kind: 'MJStart', source: 'live', step: 0 });
+  s = S.apply(s, { ...round(), step: 1, operation: undefined });
+  s = S.apply(s, { kind: 'DiscardTile', source: 'live', seat: 0, tile: '5z', step: 2 });
+  s = S.apply(s, { kind: 'DealTile', source: 'live', seat: 1, tile: '?', remaining: 68, step: 3 });
+  assert.equal(s.selfSeat, 2);
+  assert.equal(s.complete, true);
+  assert.equal(s.seatTrackingIncomplete, false);
+  assert.deepEqual(s.warnings, []);
+});
+
 test('wire riichi confirmation, pon to added kan, red identity and delayed dora stay coherent', () => {
   let s = S.initial('live', 1);
   const opening = { ...round(), hand: ['0p','5p','5p','1m','2m','3m','1s','2s','3s','1z','1z','2z','2z'] };

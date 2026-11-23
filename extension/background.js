@@ -1,6 +1,6 @@
 'use strict';
 importScripts('contracts/snapshot.js', 'adapters/model-endpoint.js', 'adapters/engine-endpoint.js', 'adapters/mjai.js', 'mahjong-analysis.js', 'analysis.js');
-importScripts('harness.js', 'contracts/engine-explanation.js', 'xf-context.js', 'agent.js');
+importScripts('harness.js', 'contracts/engine-explanation.js', 'xf-context.js', 'engine-facts.js', 'agent.js');
 importScripts('pi-runtime.js', 'round-context.js', 'model-usage.js', 'model-session-transport.js', 'agent-run-store.js');
 importScripts('model-diagnostics.js');
 importScripts('contracts/engine-result.js', 'engine-agent.js');
@@ -24,7 +24,7 @@ async function clearAgentData(clearRuns = true) {
   modelDiagnostics.cancel();
   await analysisWorker.invalidate(clearRuns);
 }
-chrome.storage.local.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' });
+const trustedStorage = chrome.storage.local.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' });
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'local' && (changes.modelConfig || changes.llmProfilesV1 || changes.analysisProviders)) modelDiagnostics.cancel();
   if (area !== 'local' || !(changes.modelConfig || changes.analysisProviders || changes.llmProfilesV1)) return;

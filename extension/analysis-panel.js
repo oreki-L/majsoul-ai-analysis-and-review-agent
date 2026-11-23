@@ -274,6 +274,7 @@
     };
     const { groups, group, summary, references } = reviewPlan || {};
     if (!group) return;
+    if (available && summary) hooks.reviewActions?.($('review-refresh'), group.key, error => { reviewError = error; render(); });
     $('review-match').onchange = event => { reviewKey = groups[Number(event.target.value)]?.key || ''; reviewError = ''; reviewLimits = {}; render(); };
     summary.topics.forEach(topic => {
       if (topic.references.length > (reviewLimits[topic.id] || 5)) $('review-more-' + topic.id).onclick = () => { reviewLimits[topic.id] = (reviewLimits[topic.id] || 5) + 5; render(); };
@@ -326,7 +327,7 @@
       limitations: local.danger?.limitations || [] } };
   }
   async function runAnalysis(automatic = false) {
-    if (busy || discussionBusy || (automatic && !hasFeatures())) return;
+    if (busy || discussionBusy || !liveAnalysisReady() || (automatic && !hasFeatures())) return;
     const id = ++requestId;
     try {
       const data = snapshot(), external = automatic ? usesModel(data) : preferences.useModel;
@@ -341,7 +342,7 @@
       const capturedPosition = { round: data.game?.round, honba: data.game?.honba, lastStep: data.lastStep,
         turn: data.game?.turnProgress?.status === 'known' ? data.game.turnProgress.bySeat[data.selfSeat] : null,
         source: context?.mode, cursor: context?.cursor, selfSeat: data.selfSeat, hand: data.selfHand?.slice() || [] };
-      pendingCapture = { id, generation: lifecycle, captured, data, capturedContext, requestedTask, automatic, actualProvider, seatLabels, capturedPosition };
+      pendingCapture = { id, generation: lifecycle, live: context?.mode === 'live', healthRevision: context?.health?.revision || 0, captured, data, capturedContext, requestedTask, automatic, actualProvider, seatLabels, capturedPosition };
       pendingFingerprint = automatic ? captured : ''; pendingAutomatic = automatic; busy = true;
       if (automatic) failure = ''; else globalFailure = '';
       modelFailureExpanded[automatic ? 'automatic' : 'global'] = false;
@@ -370,9 +371,12 @@
     } catch (e) { if (id === requestId) { if (automatic) failure = e.message; else globalFailure = e.message; } }
     finally { if (id === requestId) { busy = false; pendingFingerprint = ''; repaint?.(); } }
   }
+  function liveAnalysisReady() {
+    try { return context?.mode !== 'live' || (context?.health?.state !== 'uncertain' && context?.health?.state !== 'recovering' && snapshot().complete === true); } catch (_) { return false; }
+  }
   function scheduleAnalysis(data) {
     if (autoTimer !== null) clearTimeout(autoTimer); autoTimer = null;
-    if (!preferencesLoaded || !preferences.automatic || busy || !hasFeatures() || context?.mode !== 'live' || current.phase !== 'playing' || !data) return;
+    if (!preferencesLoaded || !preferences.automatic || busy || !hasFeatures() || context?.mode !== 'live' || current.phase !== 'playing' || !data || !liveAnalysisReady()) return;
     const local = MJAnalysis.prepare(data, 'combined').data.localAnalysis.efficiency;
     if (!Number.isInteger(data.selfSeat) || data.game?.recentActor !== data.selfSeat || !local?.canDiscard) return;
     const key = fingerprint(); if (lastAutoKey === key) return;
@@ -388,6 +392,7 @@
   let modelFailures = {}, modelFailureExpanded = {};
   let focusTile = null, hooks = {}, detailsState = {}, current, context, repaint, requestId = 0, lifecycle = 0, statusRequestId = 0, connected = false;
   let focusExpanded = false, focusResizeObserver = null;
+  let interruptedRound = null;
   const send = message => chrome.runtime.sendMessage(message);
   const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   function failureHtml(message, scope) {
@@ -518,7 +523,7 @@
       window.removeEventListener('focus', refresh);
       if (busy) send({ type: 'model:cancel' }).catch(() => {});
     }
-    connected = false; enabled = false; busy = false; result = null; failure = ''; preview = false; provider = 'chat';
+    connected = false; enabled = false; busy = false; result = null; failure = ''; preview = false; provider = 'chat'; interruptedRound = null;
     globalResult = null; globalFailure = ''; pendingAutomatic = false; questionDraft = '';
     discussionRecords = []; currentDiscussionId = null; discussionLoaded = false; discussionBusy = null; discussionError = ''; discussionDrafts.clear(); historyOpen = false; selectedDecisionId = null;
     reviewOpen = false; reviewKey = ''; reviewError = '';
@@ -556,12 +561,18 @@
       }
       reviewWasEnded = analysisView.matchEnded === true;
     }
+    const networkRound = JSON.stringify([position?.contextIdentity?.matchId, analysisView.round, analysisView.honba]);
+    // Recovery rebuilds roundStartId and temporarily clears the round. Retain
+    // the guidance until a ready position can be compared with the interrupted round.
+    if (position?.mode !== 'live' || (position?.health?.state === 'ready' && interruptedRound !== null && interruptedRound !== networkRound)) interruptedRound = null;
+    if (position?.mode === 'live' && position?.health?.state === 'uncertain') interruptedRound = networkRound;
     current = analysisView; context = { ...position }; repaint = render;
     connect();
     const positionKey = fingerprint();
-    if (pendingFingerprint && pendingFingerprint !== positionKey) cancelWork();
+    if ((pendingFingerprint && pendingFingerprint !== positionKey) || (busy && (!liveAnalysisReady() ||
+      (pendingCapture?.live && pendingCapture.healthRevision !== (context?.health?.revision || 0))))) cancelWork();
     if (lastPosition !== positionKey) { lastPosition = positionKey; if (autoTimer !== null) clearTimeout(autoTimer); autoTimer = null; }
-    const stale = !!result && result.fingerprint !== fingerprint();
+    const stale = !!result && (result.fingerprint !== fingerprint() || !liveAnalysisReady());
     const live = context?.mode === 'live' && current.phase === 'playing';
     let selectedSnapshot = null;
     try { selectedSnapshot = snapshot(); } catch (_) {}
@@ -629,20 +640,23 @@
     const globalHtml = `<section class="analysis-global" aria-label="全局分析">
       <h3>全局分析</h3>
       ${provider === 'chat' && preferences.useModel ? `<label for="model-question">追问（可选）</label><textarea id="model-question" maxlength="4000" rows="2" placeholder="例如：为什么刚才建议打这张牌？">${escape(questionDraft)}</textarea>` : ''}
-      <div class="analysis-actions"><button id="model-run" ${busy || !!error || !preferencesLoaded ? 'disabled' : ''}>${replay ? '分析所选局面' : '分析当前局面'}</button>${globalBusy ? '<button id="model-cancel">取消</button>' : ''}</div>
+      <div class="analysis-actions"><button id="model-run" ${busy || !!error || !preferencesLoaded || !liveAnalysisReady() ? 'disabled' : ''}>${replay ? '分析所选局面' : '分析当前局面'}</button>${globalBusy ? '<button id="model-cancel">取消</button>' : ''}</div>
       ${globalResult && !savedGlobal ? `<p class="analysis-meta muted">${escape(savedPosition)} · ${escape(globalResult.model)}</p><div class="analysis-global-result">
         <div class="analysis-decision"><span>${decisionHeading(globalResult)}</span>${globalResult.result.decision.tile ? face(globalResult.result.decision.tile) : ''}${engineActionHtml(globalResult)}<p>${escape(globalResult.result.decision.reasons?.[0] || '请展开分析依据。')}</p></div>
         ${disclosure('global-details', '分析依据', `${resultHtml(globalResult)}${globalResult.position.hand.length ? `<div class="analysis-global-hand" aria-label="分析时手牌">${globalResult.position.hand.map(face).join('')}</div>` : ''}${localHtml(globalResult.localAnalysis, globalResult.positionPhase)}`)}</div>` : savedGlobal ? '' : '<p class="muted">尚未分析</p>'}
       ${failureHtml(globalFailure, 'global')}
       </section>`;
     const markup = `<section class="analysis" aria-label="模型分析">
+      ${context?.mode === 'live' && !liveAnalysisReady() ? `<p class="warn" role="status">${context?.health?.state === 'recovering' ? '正在同步局面，分析已暂停。' : '当前局面待确认，自动分析已暂停；已有建议仅供回看。'}</p>` : ''}
+      ${context?.mode === 'live' && ['uncertain', 'recovering'].includes(context?.health?.state) ? `<p class="analysis-meta">${context.health.state === 'recovering' ? '请等待游戏同步完成，分析将在局面核对通过后恢复。' : '请先等待游戏自动重连。若游戏持续提示连接失败，请使用游戏内重连或刷新页面；恢复后会重新核对局面。'}</p>` : ''}
+      ${context?.mode === 'live' && interruptedRound !== null && liveAnalysisReady() ? '<p class="analysis-meta" role="status">局面已重新确认。若游戏仍显示连接错误，请按游戏提示重连或刷新页面；插件无法关闭游戏弹窗。</p>' : ''}
       ${modeControls}${replayControls}${officialHtml()}${discussionHtml()}
       <div class="analysis-switches" role="group" aria-label="辅助功能">
       <label><input id="model-auto" type="checkbox" ${preferences.automatic ? 'checked' : ''}> 自动分析</label>
       <label><input id="model-use" type="checkbox" ${preferences.useModel ? 'checked' : ''}> 调用模型</label>
       ${[['danger', '危险牌提示'], ['efficiency', '手牌建议'], ['strategy', '攻守建议']].map(([key, label]) => `<label><input id="feature-${key}" type="checkbox" ${preferences[key] ? 'checked' : ''}> ${label}</label>`).join('')}
       <button id="model-preset">综合辅助</button></div>
-      <header class="analysis-heading"><strong>${escape(result?.position?.round ? `${['东','南','西','北'][result.position.round.wind]}${result.position.round.index + 1}局 · 事件 ${result.discussionRecord?.context?.position ?? result.position.cursor ?? '未知'}` : roundLabel)}${selfLabel ? ` · ${escape(selfLabel)}${replay ? '视角' : ''}` : ''}</strong><span class="analysis-state">${!preferences.useModel ? '仅本地分析' : preferences.automatic ? '自动分析' : '手动分析'}</span></header>
+      <header class="analysis-heading"><strong>${escape(result?.position?.round ? `${['东','南','西','北'][result.position.round.wind]}${result.position.round.index + 1}局 · 事件 ${result.discussionRecord?.context?.position ?? (result.position.source === 'replay' ? result.position.cursor : result.position.lastStep) ?? '未知'}` : roundLabel)}${selfLabel ? ` · ${escape(selfLabel)}${replay ? '视角' : ''}` : ''}</strong><span class="analysis-state">${!preferences.useModel ? '仅本地分析' : preferences.automatic ? '自动分析' : '手动分析'}</span></header>
       ${busy ? `<p class="${live ? 'warn' : 'muted'}" role="status" aria-live="polite">${discussionBusy ? '正在回答该决策的追问，可继续对局。' : live ? '正在分析，可继续对局。' : '正在分析中…'}</p>` : ''}
       ${(current.riichiLabels || []).length ? `<p class="analysis-riichi">${replay ? '已立直' : '立直警戒'} · ${(current.riichiLabels || []).map(escape).join(' · ')}</p>` : ''}
       <div class="analysis-main" role="status" aria-live="polite">
@@ -698,6 +712,7 @@
     $('analysis-collector').onclick = () => current?.onCollector?.();
     $('analysis-history').onclick = () => current?.onHistory?.();
     $('model-settings').onclick = event => { if (event.isTrusted) send({ type: 'model:settings' }).catch(() => { failure = '扩展连接失效，请刷新游戏。'; render(); }); };
+    if (available) hooks.settingsActions?.($('model-refresh'), error => { failure = error; render(); });
     $('model-refresh').onclick = refresh;
     for (const key of ['danger', 'efficiency', 'strategy']) $('feature-' + key).onchange = e => { if (e.isTrusted) changePreferences({ [key]: e.target.checked }); };
     $('model-auto').onchange = e => { if (e.isTrusted) changePreferences({ automatic: e.target.checked }); };

@@ -53,6 +53,7 @@
 | [社区 Mortal v4](guides/MORTAL_V4.md) | 两个社区 v4 的固定来源、范围与开发命令；通用管理操作以上一篇为准 |
 | [可选 mjai 本地引擎](guides/MJAI.md) | 自备引擎 HTTP／mjai 接入、动作与解释合同；保留固定 v2 旧命令路径 |
 | [可选 NAGA 导出](guides/NAGA-INTEGRATION.md) | 本地转换、规则确认及用户自行提交 |
+| [可选聊天模块](guides/CHAT_INTEGRATIONS.md) | 独立聊天版的渠道配置、手动赛后分享及整场结算订阅 |
 
 ## 开发与维护
 
@@ -64,6 +65,7 @@
 | [项目架构](../ARCHITECTURE.md) | 模块职责与采集、Chat、引擎数据流 |
 | [Agent 与 harness](development/AGENT.md) | 获取器、任务计划、有界执行与离线复盘 |
 | [可执行的模块边界](development/DECOUPLING.md) | 两种 profile、组合入口与依赖／资源闭包 |
+| [聊天模块解耦方案](development/CHAT_DECOUPLING_PLAN.md) | 历史写入、终局事件、摘要读口与可选分包 |
 | [Pi 浏览器运行时](development/pi-runtime.md) | 固定上游、MV3 适配、bundle 构建与升级 |
 | [发布与打包](development/PUBLISHING.md) | 干净提交快照、安装包、源码包与发布核对 |
 | [安全与数据处理](../SECURITY.md) | 凭据、授权、存储与漏洞报告 |
@@ -75,6 +77,7 @@
 | 文档 | 类型与范围 |
 | --- | --- |
 | [自主 benchmark](benchmark/BENCHMARK_AUTONOMOUS.md) | **使用说明**：新实验的启动、冻结、监督、恢复、预算与独立评审 |
+| [Mortal＋LLM 提示词比较方案](benchmark/MORTAL_LLM_PROMPT_EXPERIMENT_20261105.md) | **准备与mock已验、真实API未运行**：四套候选、独立评分、50元总预算、执行器与结果迭代 |
 | [benchmark 基础说明](benchmark/BENCHMARK.md) | **合同参考**：数据结构、人工示例及旧 `run/resume`；不替代新实验入口 |
 | [执行器改进计划与实施记录](benchmark/BENCHMARK_EXECUTION_IMPROVEMENT_PLAN.md) | **实施记录**：2026-10-30 至 31 的设计与完成状态 |
 | [X-F 公开汇总与移植验证](benchmark/XF_VALIDATION.md) | **历史结果**：同一牌谱四局 45 点的比较与局限；附[来源锁](xf-provenance.json) |

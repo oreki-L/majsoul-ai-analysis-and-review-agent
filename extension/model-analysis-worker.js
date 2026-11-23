@@ -69,7 +69,7 @@
             // Claim atomically across tab keys before taking catch/write ownership.
             // A rejected duplicate must not change the running owner's record.
             if (!message.discussionToken) {
-              engineRecord = await discussions.claimExplanation(savedDecision.id, newRevision());
+              engineRecord = await discussions.claimExplanation(savedDecision.id, newRevision(), root.MJEngineExplanation.PROMPT_VERSION);
               explanationAttempt = engineRecord.explanationAttempt;
               boundEngine = engineRecord.analysis;
             } else { boundEngine = savedDecision.analysis; engineRecord = savedDecision; }
@@ -117,7 +117,7 @@
               workflow: hybrid ? 'mortal-explain' : 'engine', engineModel: c.model, engineCalls, engineMs,
               engineIdentity: analysis.engine.identity || { model: c.model, runtime: 'user-local-mjai', checkpoint: 'unknown' } };
             if (!hybrid) return decision;
-            boundEngine = { ...decision, explanation: { status: 'pending', promptVersion: 1 } };
+            boundEngine = { ...decision, explanation: { status: 'pending', promptVersion: root.MJEngineExplanation.PROMPT_VERSION } };
             checkCancelled();
             const initialAttempt = newRevision();
             engineRecord = await discussions.save({ snapshot: message.snapshot, context: message.context || {}, type: task, analysis: boundEngine, explanationAttempt: initialAttempt });
@@ -153,7 +153,8 @@
                 roundStartId: identity.roundStartId, viewId: identity.viewId },
               position: info.position, events: info.events, eventWindowStart: info.eventWindowStart, historyComplete: info.historyComplete,
               lane, provider: llmUrl.href, model: c.model, task,
-              config: { revision, workflow: boundEngine?.workflow || 'llm', engineIdentity: boundEngine?.engineIdentity || null, memoryVersion: memory.version, mode: contextMode, promptVersion: boundEngine ? 6 : 7, maxTokens: c.maxTokens, selection: true } });
+              config: { revision, workflow: boundEngine?.workflow || 'llm', engineIdentity: boundEngine?.engineIdentity || null, memoryVersion: memory.version, mode: contextMode, promptVersion: boundEngine ? 6 : 7,
+                ...(boundEngine ? { engineExplanationVersion: root.MJEngineExplanation.PROMPT_VERSION } : {}), maxTokens: c.maxTokens, selection: true } });
             checkCancelled(); sessionContext = await roundContexts.getContext(session);
             if (lane === 'live' && memory.entries.length) sessionContext.userMemory = memory;
           }
@@ -236,7 +237,7 @@
         } finally { clearTimeout(timer); if (pending.get(key) === controller) pending.delete(key); memoryWorker.pump(); }
       })().catch(async error => {
         if (boundEngine && engineRecord && explanationAttempt && !message.discussionToken) {
-          const explanation = { status: error.name === 'AbortError' ? 'interrupted' : 'failed', error: modelError(error), promptVersion: 1,
+          const explanation = { status: error.name === 'AbortError' ? 'interrupted' : 'failed', error: modelError(error), promptVersion: root.MJEngineExplanation.PROMPT_VERSION,
             billing: accounting?.calls ? 'unknown-or-recorded' : 'not-started' };
           const record = await discussions.explain(engineRecord.id, explanation, accounting, explanationAttempt).catch(() => null);
           // A removed/cleared record cannot be revived by a late response.

@@ -2,6 +2,8 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
+const fs = require('node:fs/promises');
+const os = require('node:os');
 const { createMortalRunner, validateIdentity } = require('../agent/mortal-process.cjs');
 const { sampleRequest } = require('../agent/akagi-local.cjs');
 const source = require('../agent/mortal-source.json');
@@ -44,8 +46,28 @@ test('successful inference resets recovery budget so later independent crashes c
     await ready(r);assert.notEqual(r.pid,old);assert.equal(alive(old),false);
   }
 });
-test('continuous startup crashes stop at configured bounded retry count',async t=>{
-  const r=runner('boot-crash',{restartLimit:2});t.after(()=>r.close());
+test('continuous startup crashes stop after exactly the configured retries and all workers exit',async t=>{
+  const dir=await fs.mkdtemp(path.join(os.tmpdir(),'mj-mortal-retry-'));
+  const log=path.join(dir,'starts.txt');
+  const r=runner('boot-crash',{restartLimit:2,args:[path.join(__dirname,'fixtures/mortal-worker.cjs'),'boot-crash',log]});
+  t.after(async()=>{await r.close();await fs.rm(dir,{recursive:true,force:true});});
+  const launches=async()=>{try{return (await fs.readFile(log,'utf8')).trim().split('\n').filter(Boolean).map(Number);}catch(e){if(e.code==='ENOENT')return [];throw e;}};
   await assert.rejects(r.start(),{code:'WORKER_EXIT'});
-  await new Promise(resolve=>setTimeout(resolve,2000));assert.equal(r.pid,undefined);assert.equal(r.ready,false);
+  // Observe all three real launches and their cleanup, rather than assuming
+  // process startup/Windows taskkill complete within a fixed two-second sleep.
+  const deadline=Date.now()+15000;
+  let pids=[];
+  while(Date.now()<deadline){
+    pids=await launches();
+    assert.ok(pids.length<=3,'restart budget exceeded');
+    if(pids.length===3&&r.pid===undefined&&pids.every(pid=>!alive(pid)))break;
+    await new Promise(resolve=>setTimeout(resolve,25));
+  }
+  assert.equal(pids.length,3,'initial launch plus exactly two retries');
+  assert.equal(r.pid,undefined);assert.equal(r.ready,false);
+  assert.ok(pids.every(pid=>!alive(pid)),'all attempted workers must exit');
+  // A forbidden third retry would be scheduled after 250 * 2**2 ms.
+  await new Promise(resolve=>setTimeout(resolve,1250));
+  assert.deepEqual(await launches(),pids,'no further launch after the retry budget');
+  assert.equal(r.pid,undefined);assert.equal(r.ready,false);
 });

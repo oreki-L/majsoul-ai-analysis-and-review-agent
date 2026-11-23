@@ -15,7 +15,7 @@ function panel(options = {}) {
   const position = { mode: 'live' }; let collectorCalls = 0, historyCalls = 0, calibrateCalls = 0, roundStartCalls = 0;
   const content = { innerHTML: '', querySelectorAll() { return details; }, querySelector(id) { if (id === '.analysis') return section; if (!elements.has(id)) elements.set(id, {}); return elements.get(id); } };
   const container = { innerHTML: '', querySelector(id) { return id === '[data-analysis-content]' ? (this.innerHTML.includes('data-analysis-content') ? content : null) : content.querySelector(id); } };
-  const state = S.initial('live', 1); Object.assign(state, { round: { wind: 0, index: 0 }, scores: [25000,25000,25000,25000], phase: 'playing', selfHand: ['1m','2m','3m','4m','5m','6m','7m','8m','9m','1s','2s','3s','4z','4z'] });
+  const state = S.initial('live', 1); Object.assign(state, { complete: true, round: { wind: 0, index: 0 }, scores: [25000,25000,25000,25000], phase: 'playing', selfHand: ['1m','2m','3m','4m','5m','6m','7m','8m','9m','1s','2s','3s','4z','4z'] });
   if (options.turnProgress) state.turnProgress = structuredClone(options.turnProgress);
   const context = { MJAnalysis: A, MJSnapshotContract: Contract, URL, setTimeout: options.manualTimers ? (fn, delay) => { const id = ++timerId; timers.set(id, { fn, delay }); return id; } : setTimeout,
     clearTimeout: options.manualTimers ? id => timers.delete(id) : clearTimeout,
@@ -32,7 +32,7 @@ function panel(options = {}) {
     }, onMessage: { addListener: fn => { configChanged = fn; }, removeListener: fn => { if (configChanged === fn) configChanged = null; } } } } };
   if (options.offline) delete context.chrome;
   vm.runInNewContext(fs.readFileSync(require.resolve('../extension/analysis-panel.js'), 'utf8'), context);
-  const render = () => context.MJAnalysisPanel.mount(container, { snapshot: selection => C.snapshot(state, selection), analysisContext: options.analysisContext, engineRequest: options.engineRequest, importOfficialReport: options.importOfficialReport, seatLabels: state.players.map((_, seat) => S.seatWind(state, seat) + '家 · 座位 ' + seat), phase: state.phase, matchEnded: state.result?.gameEnded === true, round: state.round, selfSeat: state.selfSeat, hintsReady: options.hintsReady !== false, hintsCalibrated: !!options.hintsCalibrated, selfHand: state.selfHand, drawnTile: state.drawnTiles[state.selfSeat], riichiLabels: options.riichiLabels || [], recordCount: options.recordCount || 0,
+  const render = () => context.MJAnalysisPanel.mount(container, { snapshot: selection => C.snapshot(state, selection), analysisContext: options.analysisContext, engineRequest: options.engineRequest, importOfficialReport: options.importOfficialReport, seatLabels: state.players.map((_, seat) => S.seatWind(state, seat) + '家 · 座位 ' + seat), phase: state.phase, matchEnded: state.result?.gameEnded === true, round: state.round, honba: state.honba, selfSeat: state.selfSeat, hintsReady: options.hintsReady !== false, hintsCalibrated: !!options.hintsCalibrated, selfHand: state.selfHand, drawnTile: state.drawnTiles[state.selfSeat], riichiLabels: options.riichiLabels || [], recordCount: options.recordCount || 0,
     onMode: mode => { position.mode = mode; position.cursor = mode === 'replay' ? 1 : null; render(); },
     onCursor: cursor => { position.cursor = cursor; render(); }, onSelfSeat: seat => { state.selfSeat = seat; render(); }, onRoundStart: () => roundStartCalls++,
     onCollector: () => collectorCalls++, onHistory: () => historyCalls++, onCalibrateHints: () => calibrateCalls++ }, position, render, { onHints: value => hints.push(value) });
@@ -767,5 +767,74 @@ test('clearing or configuration invalidation fences an already parsing official 
   finish({ model: 'LATE_IMPORTED_REPORT', entries: [], coverage: {} }); await pending;
   assert.doesNotMatch(p.html(), /LATE_IMPORTED_REPORT/);
   assert.equal(p.messages.some(m => m.type === 'discussion:save'), false);
+  p.destroy();
+});
+
+test('network uncertainty cancels pending analysis, fences late results and resumes only after recovery', async () => {
+  const p = panel({ manualTimers: true, preferences: { automatic: true, useModel: true } });
+  await flush(); p.state.turn = 1; p.state.lastStep = 1; p.render(); p.fireTimer(); await flush();
+  assert.equal(p.messages.filter(m => m.type === 'model:analyze').length, 1);
+  p.position.health = { state: 'uncertain', revision: 1 }; p.render();
+  assert.equal(p.timers.size, 0);
+  assert.equal(p.hints.at(-1), null);
+  assert.match(p.html(), /当前局面待确认/);
+  assert.ok(p.messages.some(m => m.type === 'model:cancel'));
+  const late = modelResult(); late.result.decision.reasons = ['STALE_NETWORK_RESULT'];
+  p.resolve(late); await flush();
+  assert.doesNotMatch(p.html(), /STALE_NETWORK_RESULT/);
+  p.position.health = { state: 'recovering', revision: 2 }; p.render();
+  assert.equal(p.timers.size, 0); assert.match(p.html(), /正在同步局面/);
+  p.position.health = { state: 'ready', revision: 3 }; p.render();
+  p.fireTimer(); await flush();
+  assert.equal(p.messages.filter(m => m.type === 'model:analyze').length, 2);
+  p.destroy();
+});
+
+test('a completed synchronization invalidates an earlier manual request even at the same position', async () => {
+  const p = panel(); await flush();
+  p.position.health = { state: 'ready', revision: 0 }; p.render();
+  const pending = p.element('model-run').onclick({ isTrusted: true }); await flush();
+  p.position.health = { state: 'ready', revision: 2 }; p.render();
+  const late = modelResult(); late.result.decision.reasons = ['BEFORE_SYNC_MANUAL_RESULT'];
+  p.resolve(late); await pending;
+  assert.doesNotMatch(p.html(), /BEFORE_SYNC_MANUAL_RESULT/);
+  assert.ok(p.messages.some(m => m.type === 'model:cancel'));
+  p.destroy();
+});
+
+test('live local result heading uses its captured step including zero', async () => {
+  for (const step of [13, 0]) {
+    const p = panel({ manualTimers: true, preferences: { automatic: true, useModel: false } }); await flush();
+    p.state.turn = p.state.selfSeat; p.state.lastStep = step;
+    p.render(); p.fireTimer(); await flush();
+    assert.match(p.html(), new RegExp('analysis-heading[\\s\\S]*?事件 ' + step));
+    assert.doesNotMatch(p.html(), /事件 未知/);
+    p.destroy();
+  }
+});
+
+test('connection guidance distinguishes waiting, recovered collector and game-owned errors', async () => {
+  const p = panel(); await flush();
+  assert.doesNotMatch(p.html(), /局面已重新确认/);
+  p.position.contextIdentity = { matchId: 'match', roundStartId: 'before' };
+  p.position.health = { state: 'uncertain', revision: 1 }; p.render();
+  assert.match(p.html(), /请先等待游戏自动重连/);
+  assert.match(p.html(), /游戏内重连或刷新页面/);
+  const round = p.state.round;
+  p.state.round = null;
+  p.position.contextIdentity = { matchId: 'match', roundStartId: null };
+  p.position.health = { state: 'recovering', revision: 2 }; p.render();
+  assert.match(p.html(), /请等待游戏同步完成/);
+  assert.doesNotMatch(p.html(), /局面已重新确认/);
+  p.state.round = round;
+  p.position.contextIdentity = { matchId: 'match', roundStartId: 'rebuilt' };
+  p.position.health = { state: 'ready', revision: 3 }; p.render();
+  assert.match(p.html(), /局面已重新确认/);
+  assert.match(p.html(), /插件无法关闭游戏弹窗/);
+  p.state.round = { wind: 0, index: 1 }; p.render();
+  assert.doesNotMatch(p.html(), /局面已重新确认/);
+  p.position.health = { state: 'uncertain', revision: 4 }; p.render();
+  p.position.mode = 'replay'; p.render();
+  assert.doesNotMatch(p.html(), /请先等待游戏自动重连|插件无法关闭游戏弹窗/);
   p.destroy();
 });

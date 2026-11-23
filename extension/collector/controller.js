@@ -16,16 +16,36 @@
   const contextInstance = `${now()}-${Math.random().toString(36).slice(2)}`;
   let liveRoundStart = null, liveRoundSequence = 0;
   let liveSocketId = null;
+  let liveOpening = null, restoreBefore = null;
+  let observedStart = null;
+  let health = { state: 'ready', revision: 0 }, healthSocketId = null;
+  function setHealth(state) {
+    if (state !== 'ready') observedStart = null;
+    if (health.state !== state) health = { state, revision: health.revision + 1 };
+  }
+  function validLivePosition() {
+    const seat = live.selfSeat;
+    const handCount = Number.isInteger(seat) && live.players[seat]
+      ? live.selfHand.length + live.players[seat].melds.length * 3 : 0;
+    return live.round && live.complete && Number.isInteger(seat) && seat >= 0 && seat < live.scores.length &&
+      [13, 14].includes(handCount);
+  }
+  function checkedLive() {
+    if (health.state === 'ready') return live;
+    return { ...live, complete: false, warnings: [...live.warnings,
+      health.state === 'recovering' ? '正在同步局面，分析已暂停。' : '网络可能异常，当前局面待确认；分析已暂停。'] };
+  }
+  const openingKey = event => JSON.stringify([event.wind, event.round, event.honba, event.scores, event.hand, event.hands, event.doras]);
   function schedule() { for (const listener of listeners) listener(); }
   function viewedState() {
     return historyView ? historyMatches.find(m => m.id === historyView.match)?.rounds.find(r => r.key === historyView.round)?.snapshot : null;
   }
-  function saveHistory(match) {
+  function saveHistory(match, matchStart) {
     historyMatches = H.merge(historyMatches, match);
     if (!historyMatchId) historyMatchId = match.id;
-    if (!historyReady) { historyDirty.set(match.id, clone(match)); return; }
+    if (!historyReady) { historyDirty.set(match.id, { match: clone(match), matchStart: matchStart ?? historyDirty.get(match.id)?.matchStart }); return; }
     const saved = clone(match), matches = clone(historyMatches);
-    writeQueue = writeQueue.then(() => storage.save(saved, matches)).catch(() => {
+    writeQueue = writeQueue.then(() => storage.save(saved, matches, matchStart)).catch(() => {
       historyWarning = '本地记录保存失败；当前页面仍可查看，请导出备份。'; schedule();
     });
   }
@@ -39,20 +59,50 @@
       historyMatches = loaded;
     } catch (_) { historyWarning = '历史记录读取失败，当前采集不受影响。'; }
     historyReady = true;
-    for (const m of historyDirty.values()) saveHistory(m);
+    for (const { match, matchStart } of historyDirty.values()) saveHistory(match, matchStart);
     historyDirty.clear(); schedule();
   }
   function newLiveMatch() { return H.create('live', 'live-' + id(), now()); }
+  function followsRound(before, event, playerCount) {
+    if (before.phase !== 'ended' || before.result?.gameEnded || before.startScores.length !== playerCount ||
+        (event.step !== 0 && event.step !== before.lastStep + 1)) return false;
+    const previous = before.round.wind * playerCount + before.round.index;
+    const next = event.wind * playerCount + event.round;
+    return (next === previous && event.honba === before.honba + 1) ||
+      (next === previous + 1 && (event.honba === 0 || event.honba === before.honba + 1));
+  }
   function recordLive(before, event, after) {
     if (event.kind === 'MJStart') {
+      observedStart = null;
       liveRoundStart = null;
+      // A full sync can replay MJStart for the current match. Wait for its
+      // opening before deciding whether to archive the previous live round.
+      if (event.restored === true && liveMatch && !liveMatch.closed) {
+        restoreBefore = { state: before, opening: liveOpening };
+        return;
+      }
+      restoreBefore = null;
       if (liveMatch && before.round && before.phase !== 'ended') saveHistory(H.addRound(liveMatch, before, now(), true));
       liveMatch = newLiveMatch(); historyMatchId = liveMatch.id; return;
     }
     if (event.kind === 'NewRound') {
+      const opening = openingKey(event);
+      if (restoreBefore) {
+        const previous = restoreBefore;
+        restoreBefore = null;
+        if (previous.opening !== opening) {
+          if (previous.state.round && previous.state.phase !== 'ended') saveHistory(H.addRound(liveMatch, previous.state, now(), true));
+          liveMatch = newLiveMatch(); historyMatchId = liveMatch.id;
+        }
+      }
+      liveOpening = opening;
       // A fresh opening is a new identity even when the displayed round/honba repeats.
       liveRoundStart = `${contextInstance}:${++liveRoundSequence}`;
       const newMatch = H.isNewMatch(liveMatch, before, event);
+      const observedOpening = options.observeMatchEnd && (!before.round || before.result?.gameEnded === true) &&
+        event.wind === 0 && event.round === 0 && event.honba === 0 && event.step === 0 &&
+        !event.restored && Number.isInteger(event.socketId) && [3, 4].includes(after.scores.length);
+      if (newMatch || (observedStart !== null && !followsRound(before, event, after.scores.length))) observedStart = null;
       if (liveMatch && before.round && before.phase !== 'ended' &&
           (before.round.wind !== event.wind || before.round.index !== event.round || before.honba !== event.honba)) {
         liveMatch = H.addRound(liveMatch, before, now(), true);
@@ -60,10 +110,15 @@
       }
       if (newMatch) { liveMatch = newLiveMatch(); historyMatchId = liveMatch.id; }
       else if (liveMatch.rounds.length) { liveMatch = H.reconcile(liveMatch, event.scores); saveHistory(liveMatch); }
+      if (observedOpening && (newMatch || !before.round && liveMatch.rounds.length === 0)) observedStart = liveMatch.startedAt;
+      if (after.turnProgress.status !== 'known') observedStart = null;
     }
     if (after.round && after.result && ['Hule', 'NoTile', 'LiuJu'].includes(event.kind)) {
       if (!liveMatch) liveMatch = newLiveMatch();
-      liveMatch = H.addRound(liveMatch, after, now()); saveHistory(liveMatch);
+      const terminal = before.phase === 'playing' && after.result.gameEnded === true && !liveMatch.closed &&
+        after.phase === 'ended' && Number.isInteger(event.step) && event.step === after.lastStep;
+      liveMatch = H.addRound(liveMatch, after, now()); saveHistory(liveMatch, terminal ? observedStart ?? undefined : undefined);
+      if (terminal) observedStart = null;
     }
   }
   let replayHistorySequence = 0, replayTask = Promise.resolve();
@@ -89,13 +144,13 @@
       : mode === 'live' ? { matchId: liveMatch?.id || null, roundStartId: liveRoundStart, viewId: 'live' }
         : { matchId: `replay:${contextInstance}:${replayRevision}`, roundStartId: start >= 0 ? String(start) : null, viewId: 'replay' };
     const recentEvents = historical ? [] : mode === 'live' ? log.slice(-12).reverse() : records.slice(Math.max(0, cursor - 8), cursor).reverse();
-    return clone({ mode, live, replayState, recordCount: records.length, replayRevision, recentEvents, cursor, diagnostics, stats,
+    return clone({ mode, live, health, replayState, recordCount: records.length, replayRevision, recentEvents, cursor, diagnostics, stats,
       connections: [...connections], historyMatches, historyMatchId, historyView, historyWarning,
-      historyReady, historical, contextIdentity, state: historical || (mode === 'live' ? live : replayState) });
+      historyReady, historical, contextIdentity, state: historical || (mode === 'live' ? checkedLive() : replayState) });
   }
   function exportData() {
     return clone({ format: 'mj-observer-v1', exportedAt: new Date(now()).toISOString(), mode, stats,
-      state: viewedState() || (mode === 'live' ? live : replayState), historyView, historyMatches,
+      state: viewedState() || (mode === 'live' ? checkedLive() : replayState), historyView, historyMatches,
       replayCursor: cursor, events: log, replayRecords: records, diagnostics,
       note: '仅牌局字段；牌谱游标独立于游戏画面。桥接数据仅供核对，不能作为可信证明。' });
   }
@@ -107,11 +162,21 @@
         if (Number.isInteger(socketId)) {
           if (liveSocketId !== null && socketId < liveSocketId) return;
           if (liveSocketId !== null && socketId !== liveSocketId) {
+            observedStart = null;
             live = S.invalidateTurns(live, 'disconnected'); live.complete = false;
           }
           liveSocketId = socketId;
         }
-        const before = live; live = S.apply(live, m.payload); recordLive(before, m.payload, live);
+        if (m.payload.kind === 'NewRound' && !m.payload.restored) setHealth('ready');
+        if (m.payload.restored || !Number.isInteger(socketId)) observedStart = null;
+        const before = live; live = S.apply(live, m.payload);
+        if (!['Seat', 'MJStart', 'NewRound'].includes(m.payload.kind) && live.turnProgress.status !== 'known') observedStart = null;
+        recordLive(before, m.payload, live);
+        // The same live stream can resume without syncGame. A strictly next
+        // action proves continuity; replies, duplicates and unsequenced events do not.
+        if (health.state === 'uncertain' && socketId === healthSocketId && !m.payload.restored &&
+            Number.isInteger(before.lastStep) && m.payload.step === before.lastStep + 1 &&
+            live.lastStep === m.payload.step && validLivePosition()) setHealth('ready');
         log.push({ ...m.payload, ...(m.payload.seat === undefined ? {} : { seatWind: S.seatWind(live, m.payload.seat) }), observedAt: new Date(now()).toISOString() });
         if (log.length > 1000) log.shift();
       } else if (m.type === 'replay' && Array.isArray(m.payload?.records) && m.payload.records.length <= 25000) {
@@ -123,18 +188,28 @@
       else if (m.type === 'diagnostic') {
         diagnostics.push(m.payload); if (diagnostics.length > 60) diagnostics.shift();
         if (['动作解码', '消息读取', '牌局响应', '断线恢复'].includes(m.payload?.stage)) {
+          setHealth('uncertain');
           live = S.invalidateTurns(live, 'collection_error'); live.complete = false;
           if (!live.warnings.includes('采集发生错误，请检查采集状态并重新从开局采集')) live.warnings.push('采集发生错误，请检查采集状态并重新从开局采集');
         }
       }
+      else if (m.type === 'health') {
+        const { socketId, state } = m.payload || {};
+        if (!Number.isInteger(socketId) || (liveSocketId !== null && socketId < liveSocketId)) return;
+        if (state === 'uncertain' || state === 'recovering') { healthSocketId = socketId; setHealth(state); }
+        else if (state === 'restored') {
+          setHealth(validLivePosition() ? 'ready' : 'uncertain');
+        }
+      }
       else if (m.type === 'connection') {
         connections.set(m.payload.socketId, m.payload.state);
+        if (m.payload.state === 'closed' && m.payload.socketId === liveSocketId) observedStart = null;
         if (m.payload.state === 'closed' && live.phase === 'playing' &&
-            (liveSocketId === null || m.payload.socketId === liveSocketId)) { live = S.invalidateTurns(live, 'disconnected'); live.complete = false; }
+            (liveSocketId === null || m.payload.socketId === liveSocketId)) { setHealth('uncertain'); live = S.invalidateTurns(live, 'disconnected'); live.complete = false; }
       }
 
       schedule();
-    } catch (_) { live = S.invalidateTurns(live, 'invalid_event'); live.complete = false; diagnostics.push({ stage: '局面更新', message: '事件字段不符合预期，当前显示可能不完整。' }); schedule(); }
+    } catch (_) { observedStart = null; live = S.invalidateTurns(live, 'invalid_event'); live.complete = false; diagnostics.push({ stage: '局面更新', message: '事件字段不符合预期，当前显示可能不完整。' }); schedule(); }
   }
   function setCursor(value) { cursor = Math.max(0, Math.min(records.length, Math.trunc(Number(value) || 0))); recalculate(); schedule(); }
   function setSelfSeat(value) {

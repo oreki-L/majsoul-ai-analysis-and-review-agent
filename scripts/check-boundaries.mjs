@@ -11,9 +11,11 @@ export const providers = {
   MJPiRuntime: 'pi-runtime.js', MJRoundContext: 'round-context.js', MJModelUsage: 'model-usage.js',
   MJModelAnalysisWorker: 'model-analysis-worker.js', MJModelConfigStore: 'model-config-store.js', MJModelProfiles: 'model-profiles.js', MJModelDiagnostics: 'model-diagnostics.js', MJModelSessionTransport: 'model-session-transport.js', MJRunStore: 'agent-run-store.js', MJDecisionDiscussions: 'decision-discussions.js', MJPostgameReview: 'postgame-review.js', MJOfficialMortalReport: 'official-mortal-report.js',
   MJUserMemoryWorker: 'user-memory-worker.js', MJUserMemory: 'user-memory.js', MJUserMemoryAgent: 'user-memory-agent.js', MJUserMemoryCapture: 'user-memory-capture.js',
+  MJChatDelivery: 'chat/delivery.js', MJChatIntegrations: 'chat/integrations.js',
+  MJReviewSummary: 'review-summary.js', MJMatchCompletionInbox: 'match-completion-inbox.js', MJHistoryStorage: 'history-storage.js',
   MJMjaiAdapter: 'adapters/mjai.js', MJEngineEndpoint: 'adapters/engine-endpoint.js',
   MJNagaReplay: 'adapters/naga-replay.js', MJNagaPanel: 'naga-panel.js',
-  MJEngineExplanation: 'contracts/engine-explanation.js', MJEngineAgent: 'engine-agent.js', MJEngineResult: 'contracts/engine-result.js',
+  MJEngineFacts: 'engine-facts.js', MJEngineExplanation: 'contracts/engine-explanation.js', MJEngineAgent: 'engine-agent.js', MJEngineResult: 'contracts/engine-result.js',
   MJPanelTheme: 'panel-theme.js', MJAnalysisPanel: 'analysis-panel.js', MJFloatingPanel: 'floating-panel.js', MJHandHints: 'hand-hints.js', MJCollectorController: 'collector/controller.js',
   MJCollectorBrowser: 'collector/browser-adapter.js', MJCollectorPanel: 'overlay.js', MJCollectorApp: 'apps/collector-app.js', MJAgentApp: 'apps/agent-app.js'
 };
@@ -99,7 +101,7 @@ export function dependencies(file, source) {
   return [...result];
 }
 const browser = new Set(['document', 'window', 'chrome', 'localStorage', 'sessionStorage', 'indexedDB', 'caches', 'WebSocket', 'fetch', 'XMLHttpRequest', 'location', 'navigator']);
-export const agentOnlyModules = ['official-mortal-report.js', 'xf-context.js', 'model-analysis-worker.js', 'model-config-store.js', 'model-profiles.js', 'model-diagnostics.js', 'pi-runtime.js', 'round-context.js', 'model-usage.js', 'model-session-transport.js', 'agent-run-store.js', 'decision-discussions.js', 'postgame-review.js', 'user-memory.js', 'user-memory-agent.js', 'user-memory-capture.js', 'user-memory-worker.js'];
+export const agentOnlyModules = ['official-mortal-report.js', 'xf-context.js', 'model-analysis-worker.js', 'model-config-store.js', 'model-profiles.js', 'model-diagnostics.js', 'pi-runtime.js', 'round-context.js', 'model-usage.js', 'model-session-transport.js', 'agent-run-store.js', 'decision-discussions.js', 'postgame-review.js', 'review-summary.js', 'user-memory.js', 'user-memory-agent.js', 'user-memory-capture.js', 'user-memory-worker.js'];
 // Only this generated vendor artifact bypasses project-global resolution. It has
 // its own stricter capability check and is checked against a reproducible build.
 export function checkPiBundle(source) {
@@ -120,23 +122,30 @@ export function workerImports(source) {
   return files;
 }
 export function checkSourceBoundary(file, source) {
-  const deps = dependencies(file, source), ids = tokens(source).filter(t => t.type === 'id').map(t => t.value);
+  const deps = dependencies(file, source), ts = tokens(source), ids = ts.filter(t => t.type === 'id').map(t => t.value);
+  if (file !== 'background-chat.js' && deps.some(dep => ['background-chat.js', 'chat/delivery.js', 'chat/integrations.js', 'match-completion-inbox.js', 'review-summary.js'].includes(dep))) throw new Error(`${file}: optional chat worker services are host-only`);
+  if (file === 'chat/integrations.js' && ts.some(token => ['roundHistoryV1', 'matchCompletionInboxV1', 'historyCommitObserver'].includes(token.value))) throw new Error(`${file}: chat must use the injected history and inbox ports`);
+  if (file === 'chat/panel.js' && ts.some(token => token.value === 'observeMatchEnd')) throw new Error(`${file}: terminal observation belongs to profile assembly`);
+  if (file === 'apps/agent-app.js' && ts.some(token => token.value === 'majsoulAddon')) throw new Error(`${file}: panel hooks must be injected by the profile`);
   if (file.startsWith('collector/') && deps.some(dep => [...agentOnlyModules, 'analysis.js', 'analysis-panel.js', 'naga-panel.js', 'adapters/naga-replay.js', 'hand-hints.js', 'agent.js', 'engine-agent.js', 'harness.js', 'adapters/model-endpoint.js', 'adapters/mjai.js', 'adapters/engine-endpoint.js', 'contracts/engine-result.js', 'mahjong-analysis.js'].includes(dep))) throw new Error(`${file}: collector must not depend on analysis/model layers`);
   let allowed = null, pure = false;
   if (file.startsWith('contracts/')) { allowed = new Set(); pure = true; }
   else if (file === 'user-memory.js') { allowed = new Set(['contracts/snapshot.js']); pure = true; }
   else if (file === 'user-memory-agent.js') { allowed = new Set(['user-memory.js', 'harness.js']); pure = true; }
   else if (file === 'user-memory-capture.js') { allowed = new Set(); pure = true; }
-  else if (file === 'postgame-review.js') { allowed = new Set(); pure = true; }
+  else if (file === 'postgame-review.js' || file === 'match-completion-inbox.js') { allowed = new Set(); pure = true; }
+  else if (file === 'review-summary.js') { allowed = new Set(['postgame-review.js']); pure = true; }
+  else if (file.startsWith('chat/')) { allowed = new Set(); }
   else if (file === 'decision-discussions.js') { allowed = new Set(['contracts/snapshot.js']); pure = true; }
   else if (file === 'round-context.js') { allowed = new Set(['contracts/snapshot.js']); pure = true; }
-  else if (file === 'model-analysis-worker.js') { allowed = new Set(['contracts/snapshot.js', 'adapters/mjai.js', 'analysis.js', 'adapters/engine-endpoint.js', 'adapters/model-endpoint.js', 'engine-agent.js', 'model-usage.js', 'agent.js', 'model-session-transport.js']); pure = true; }
+  else if (file === 'model-analysis-worker.js') { allowed = new Set(['contracts/snapshot.js', 'contracts/engine-explanation.js', 'adapters/mjai.js', 'analysis.js', 'adapters/engine-endpoint.js', 'adapters/model-endpoint.js', 'engine-agent.js', 'model-usage.js', 'agent.js', 'model-session-transport.js']); pure = true; }
   else if (file === 'model-config-store.js') { allowed = new Set(['model-profiles.js']); pure = true; }
   else if (file === 'model-diagnostics.js') { allowed = new Set(['adapters/model-endpoint.js', 'model-session-transport.js']); pure = true; }
   else if (['model-profiles.js', 'model-usage.js', 'model-session-transport.js', 'agent-run-store.js'].includes(file)) { allowed = new Set(); pure = true; }
   else if (file === 'harness.js') { allowed = new Set(); pure = true; }
   else if (file === 'xf-context.js') { allowed = new Set(['contracts/snapshot.js', 'analysis.js']); pure = true; }
-  else if (file === 'agent.js') { allowed = new Set(['contracts/engine-explanation.js', 'xf-context.js', 'analysis.js', 'mahjong-analysis.js', 'harness.js', 'contracts/snapshot.js']); pure = true; }
+  else if (file === 'engine-facts.js') { allowed = new Set(['contracts/snapshot.js', 'mahjong-analysis.js']); pure = true; }
+  else if (file === 'agent.js') { allowed = new Set(['engine-facts.js', 'contracts/engine-explanation.js', 'xf-context.js', 'analysis.js', 'mahjong-analysis.js', 'harness.js', 'contracts/snapshot.js']); pure = true; }
   else if (file === 'engine-agent.js') { allowed = new Set(['harness.js', 'contracts/snapshot.js', 'contracts/engine-result.js', 'mahjong-analysis.js', 'adapters/mjai.js']); pure = true; }
   else if (file === 'adapters/mjai.js' || file === 'adapters/naga-replay.js') { allowed = new Set(); pure = true; }
   else if (file === 'analysis.js' || file === 'mahjong-analysis.js') { allowed = new Set(['contracts/snapshot.js', 'mahjong-analysis.js']); pure = true; }
@@ -155,7 +164,6 @@ export function checkSourceBoundary(file, source) {
   if (pure) {
     for (const id of ids) if (browser.has(id)) throw new Error(`${file}: browser capability ${id} is forbidden`);
     if (ids.some(id => ['eval', 'Function'].includes(id))) throw new Error(`${file}: dynamic code is forbidden`);
-    const ts = tokens(source);
     for (let i = 0; i < ts.length; i++) if (['root', 'globalThis'].includes(ts[i].value) && ts[i+1]?.value === '[') throw new Error(`${file}: computed global access is forbidden`);
   }
   return deps;

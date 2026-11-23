@@ -1,0 +1,48 @@
+<main id="channelSettings" hidden aria-labelledby="channelTitle">
+<div class="page-heading"><h1 id="channelTitle" tabindex="-1">聊天分享</h1></div>
+<p id="channelStatus" role="status" aria-live="polite"></p>
+<div class="actions compact" id="channelUnavailable" hidden><button id="channelReload" type="button">重新读取</button></div>
+<fieldset id="channelControls" class="channel-controls" disabled>
+<legend class="channel-sr-only">聊天分享设置</legend>
+<section class="form-section channel-section channel-preview" id="channelShare" hidden aria-labelledby="channelShareTitle">
+<h2 id="channelShareTitle">发送预览</h2><div class="section-content">
+<pre id="channelPreview"></pre>
+<label for="channelRecipient">发送到</label><select id="channelRecipient"></select>
+<p class="hint" id="channelShareHint"></p>
+<div class="actions compact"><button id="channelConfirm" type="button" class="primary-secondary" disabled>确认发送摘要</button><button id="channelDiscard" type="button">丢弃草稿</button></div>
+</div></section>
+<section class="form-section channel-section" aria-labelledby="channelSendTitle">
+<h2 id="channelSendTitle">发送开关</h2><div class="section-content">
+<label class="switch-line"><span>允许发送</span><input id="channelEnabled" type="checkbox"></label>
+<p class="hint">关闭后不再发起新投递，不能撤回已发出的消息。</p>
+</div></section>
+<section class="form-section channel-section" aria-labelledby="channelMatchTitle">
+<h2 id="channelMatchTitle">整场结算推送</h2><div class="section-content">
+<p id="channelMatchState" class="hint"></p>
+<div id="channelMatchOffer" hidden><label for="channelMatchRecipient">当前游戏标签页的推送目标</label><select id="channelMatchRecipient"></select>
+<div class="actions compact"><button id="channelMatchConfirm" type="button" disabled>开启整场推送</button></div></div>
+<div class="actions compact"><button id="channelMatchStop" type="button" hidden>关闭整场推送</button></div>
+</div></section>
+<section class="form-section channel-section" aria-labelledby="channelTargetTitle">
+<h2 id="channelTargetTitle">发送目标</h2><div class="section-content">
+<div id="channelTargets" class="channel-list"></div>
+<div class="actions compact"><button id="channelAdd" type="button">添加目标</button></div>
+<form id="channelTarget" class="channel-editor" hidden autocomplete="off">
+<h3 id="channelEditorTitle">添加目标</h3>
+<label for="channelKind">渠道</label><select id="channelKind"><option value="webhook">通用 HTTPS Webhook</option><option value="feishu">飞书群自定义机器人</option></select>
+<label for="channelName">目标名称</label><input id="channelName" maxlength="80" required placeholder="例如：复盘讨论群">
+<label for="channelUrl">Webhook 地址</label><input id="channelUrl" type="password" inputmode="url" maxlength="2048" autocomplete="new-password" spellcheck="false" aria-describedby="channelUrlHint">
+<p class="hint" id="channelUrlHint"></p>
+<label for="channelSecret">签名密钥</label><input id="channelSecret" type="password" maxlength="1024" autocomplete="new-password" aria-describedby="channelSecretHint">
+<p class="hint" id="channelSecretHint"></p>
+<div class="actions compact"><button type="submit">保存目标</button><button id="channelCancelEdit" type="button">取消编辑</button></div>
+</form>
+</div></section>
+<section class="form-section channel-section" aria-labelledby="channelDeliveryTitle">
+<h2 id="channelDeliveryTitle">投递记录</h2><div class="section-content">
+<p class="hint">“平台已受理”不代表已读。“结果不明”可能已送达，重发可能产生重复消息。</p>
+<div id="channelDeliveries" class="channel-list"></div>
+<div class="actions compact"><button id="channelRefresh" type="button">刷新状态</button><button id="channelClear" type="button">清除投递记录</button></div>
+</div></section>
+</fieldset>
+</main>

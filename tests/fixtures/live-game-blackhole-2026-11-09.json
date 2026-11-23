@@ -1,0 +1,1116 @@
+{
+  "provenance": {
+    "date": "2026-11-09",
+    "client": "visible Chrome; four-player friendly room, three bots, 300-second turns",
+    "method": "game messages only; forward skip operation, then suppress messages for 60 seconds; no injected close or reload during blackout/recovery",
+    "deliveryReconstruction": "Internal upstream socket is also observed by capture. The dropped DealTile(step=17) is excluded from messages and retained as oracleMessages; this is reconstructed post-drop input, not a direct installed-extension export.",
+    "scope": "selected normalized fields and timing only; no authentication frames or identifiers"
+  },
+  "outage": {
+    "start": "2026-11-08T16:59:44.523Z",
+    "durationMs": 60008,
+    "firstRestore": "2026-11-08T17:04:51.417Z"
+  },
+  "oracleMessages": [
+    {
+      "at": "2026-11-08T16:59:44.796Z",
+      "type": "event",
+      "payload": {
+        "kind": "DealTile",
+        "source": "live",
+        "seat": 0,
+        "tile": "1z",
+        "remaining": 61,
+        "doras": [],
+        "operation": {
+          "seat": 0,
+          "types": [
+            1
+          ]
+        },
+        "step": 17,
+        "encoding": "masked",
+        "socketId": 4
+      }
+    }
+  ],
+  "messages": [
+    {
+      "at": "2026-11-08T16:40:36.422Z",
+      "type": "connection",
+      "payload": {
+        "socketId": 1,
+        "state": "open"
+      }
+    },
+    {
+      "at": "2026-11-08T16:40:43.645Z",
+      "type": "connection",
+      "payload": {
+        "socketId": 2,
+        "state": "open"
+      }
+    },
+    {
+      "at": "2026-11-08T16:49:47.280Z",
+      "type": "connection",
+      "payload": {
+        "socketId": 3,
+        "state": "closed"
+      }
+    },
+    {
+      "at": "2026-11-08T16:49:54.994Z",
+      "type": "connection",
+      "payload": {
+        "socketId": 4,
+        "state": "open"
+      }
+    },
+    {
+      "at": "2026-11-08T16:49:57.684Z",
+      "type": "event",
+      "payload": {
+        "kind": "Seat",
+        "source": "live",
+        "seat": 0,
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T16:50:33.059Z",
+      "type": "event",
+      "payload": {
+        "kind": "MJStart",
+        "source": "live",
+        "step": 0,
+        "encoding": "masked",
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T16:50:37.801Z",
+      "type": "event",
+      "payload": {
+        "kind": "NewRound",
+        "source": "live",
+        "wind": 0,
+        "round": 0,
+        "honba": 0,
+        "scores": [
+          25000,
+          25000,
+          25000,
+          25000
+        ],
+        "sticks": 0,
+        "remaining": 69,
+        "doras": [
+          "1m"
+        ],
+        "hand": [
+          "7p",
+          "2m",
+          "6z",
+          "7s",
+          "6p",
+          "6m",
+          "6p",
+          "8m",
+          "6p",
+          "5m",
+          "7m",
+          "4p",
+          "8s",
+          "5m"
+        ],
+        "operation": {
+          "seat": 0,
+          "types": [
+            1
+          ]
+        },
+        "step": 1,
+        "encoding": "masked",
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T16:55:47.319Z",
+      "type": "event",
+      "payload": {
+        "kind": "DiscardTile",
+        "source": "live",
+        "seat": 0,
+        "tile": "6z",
+        "riichi": false,
+        "tsumogiri": false,
+        "doras": [],
+        "scores": [],
+        "sticks": null,
+        "step": 2,
+        "encoding": "masked",
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T16:55:47.820Z",
+      "type": "event",
+      "payload": {
+        "kind": "DealTile",
+        "source": "live",
+        "seat": 1,
+        "tile": "?",
+        "remaining": 68,
+        "doras": [],
+        "step": 3,
+        "encoding": "masked",
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T16:55:48.307Z",
+      "type": "event",
+      "payload": {
+        "kind": "DiscardTile",
+        "source": "live",
+        "seat": 1,
+        "tile": "6z",
+        "riichi": false,
+        "tsumogiri": false,
+        "doras": [],
+        "scores": [],
+        "sticks": null,
+        "step": 4,
+        "encoding": "masked",
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T16:55:48.840Z",
+      "type": "event",
+      "payload": {
+        "kind": "DealTile",
+        "source": "live",
+        "seat": 2,
+        "tile": "?",
+        "remaining": 67,
+        "doras": [],
+        "step": 5,
+        "encoding": "masked",
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T16:55:49.339Z",
+      "type": "event",
+      "payload": {
+        "kind": "DiscardTile",
+        "source": "live",
+        "seat": 2,
+        "tile": "8p",
+        "riichi": false,
+        "tsumogiri": false,
+        "doras": [],
+        "scores": [],
+        "sticks": null,
+        "step": 6,
+        "encoding": "masked",
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T16:55:49.828Z",
+      "type": "event",
+      "payload": {
+        "kind": "DealTile",
+        "source": "live",
+        "seat": 3,
+        "tile": "?",
+        "remaining": 66,
+        "doras": [],
+        "step": 7,
+        "encoding": "masked",
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T16:55:50.320Z",
+      "type": "event",
+      "payload": {
+        "kind": "DiscardTile",
+        "source": "live",
+        "seat": 3,
+        "tile": "3p",
+        "riichi": false,
+        "tsumogiri": false,
+        "doras": [],
+        "scores": [],
+        "sticks": null,
+        "step": 8,
+        "encoding": "masked",
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T16:55:50.839Z",
+      "type": "event",
+      "payload": {
+        "kind": "DealTile",
+        "source": "live",
+        "seat": 0,
+        "tile": "3z",
+        "remaining": 65,
+        "doras": [],
+        "operation": {
+          "seat": 0,
+          "types": [
+            1
+          ]
+        },
+        "step": 9,
+        "encoding": "masked",
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T16:56:11.704Z",
+      "type": "event",
+      "payload": {
+        "kind": "DiscardTile",
+        "source": "live",
+        "seat": 0,
+        "tile": "5m",
+        "riichi": false,
+        "tsumogiri": false,
+        "doras": [],
+        "scores": [],
+        "sticks": null,
+        "step": 10,
+        "encoding": "masked",
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T16:56:12.203Z",
+      "type": "event",
+      "payload": {
+        "kind": "DealTile",
+        "source": "live",
+        "seat": 1,
+        "tile": "?",
+        "remaining": 64,
+        "doras": [],
+        "step": 11,
+        "encoding": "masked",
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T16:56:12.706Z",
+      "type": "event",
+      "payload": {
+        "kind": "DiscardTile",
+        "source": "live",
+        "seat": 1,
+        "tile": "7z",
+        "riichi": false,
+        "tsumogiri": true,
+        "doras": [],
+        "scores": [],
+        "sticks": null,
+        "step": 12,
+        "encoding": "masked",
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T16:56:13.222Z",
+      "type": "event",
+      "payload": {
+        "kind": "DealTile",
+        "source": "live",
+        "seat": 2,
+        "tile": "?",
+        "remaining": 63,
+        "doras": [],
+        "step": 13,
+        "encoding": "masked",
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T16:56:13.713Z",
+      "type": "event",
+      "payload": {
+        "kind": "DiscardTile",
+        "source": "live",
+        "seat": 2,
+        "tile": "0p",
+        "riichi": false,
+        "tsumogiri": false,
+        "doras": [],
+        "scores": [],
+        "sticks": null,
+        "step": 14,
+        "encoding": "masked",
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T16:56:14.220Z",
+      "type": "event",
+      "payload": {
+        "kind": "DealTile",
+        "source": "live",
+        "seat": 3,
+        "tile": "?",
+        "remaining": 62,
+        "doras": [],
+        "step": 15,
+        "encoding": "masked",
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T16:56:14.718Z",
+      "type": "event",
+      "payload": {
+        "kind": "DiscardTile",
+        "source": "live",
+        "seat": 3,
+        "tile": "7m",
+        "riichi": false,
+        "tsumogiri": false,
+        "doras": [],
+        "scores": [],
+        "sticks": null,
+        "operation": {
+          "seat": 0,
+          "types": [
+            2
+          ]
+        },
+        "step": 16,
+        "encoding": "masked",
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T17:00:44.977Z",
+      "type": "connection",
+      "payload": {
+        "socketId": 2,
+        "state": "closed"
+      }
+    },
+    {
+      "at": "2026-11-08T17:00:48.684Z",
+      "type": "connection",
+      "payload": {
+        "socketId": 5,
+        "state": "open"
+      }
+    },
+    {
+      "at": "2026-11-08T17:04:47.813Z",
+      "type": "event",
+      "payload": {
+        "kind": "DiscardTile",
+        "source": "live",
+        "seat": 0,
+        "tile": "1z",
+        "riichi": false,
+        "tsumogiri": true,
+        "doras": [],
+        "scores": [],
+        "sticks": null,
+        "step": 18,
+        "encoding": "masked",
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T17:04:48.307Z",
+      "type": "event",
+      "payload": {
+        "kind": "DealTile",
+        "source": "live",
+        "seat": 1,
+        "tile": "?",
+        "remaining": 60,
+        "doras": [],
+        "step": 19,
+        "encoding": "masked",
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T17:04:48.813Z",
+      "type": "event",
+      "payload": {
+        "kind": "DiscardTile",
+        "source": "live",
+        "seat": 1,
+        "tile": "9m",
+        "riichi": false,
+        "tsumogiri": true,
+        "doras": [],
+        "scores": [],
+        "sticks": null,
+        "step": 20,
+        "encoding": "masked",
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T17:04:49.307Z",
+      "type": "event",
+      "payload": {
+        "kind": "DealTile",
+        "source": "live",
+        "seat": 2,
+        "tile": "?",
+        "remaining": 59,
+        "doras": [],
+        "step": 21,
+        "encoding": "masked",
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T17:04:49.814Z",
+      "type": "event",
+      "payload": {
+        "kind": "DiscardTile",
+        "source": "live",
+        "seat": 2,
+        "tile": "6m",
+        "riichi": false,
+        "tsumogiri": false,
+        "doras": [],
+        "scores": [],
+        "sticks": null,
+        "step": 22,
+        "encoding": "masked",
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T17:04:50.313Z",
+      "type": "event",
+      "payload": {
+        "kind": "DealTile",
+        "source": "live",
+        "seat": 3,
+        "tile": "?",
+        "remaining": 58,
+        "doras": [],
+        "step": 23,
+        "encoding": "masked",
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T17:04:51.417Z",
+      "type": "event",
+      "payload": {
+        "kind": "MJStart",
+        "source": "live",
+        "step": 0,
+        "encoding": "plain",
+        "restored": true,
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T17:04:51.418Z",
+      "type": "event",
+      "payload": {
+        "kind": "NewRound",
+        "source": "live",
+        "wind": 0,
+        "round": 0,
+        "honba": 0,
+        "scores": [
+          25000,
+          25000,
+          25000,
+          25000
+        ],
+        "sticks": 0,
+        "remaining": 69,
+        "doras": [
+          "1m"
+        ],
+        "hand": [
+          "7p",
+          "2m",
+          "6z",
+          "7s",
+          "6p",
+          "6m",
+          "6p",
+          "8m",
+          "6p",
+          "5m",
+          "7m",
+          "4p",
+          "8s",
+          "5m"
+        ],
+        "operation": {
+          "seat": 0,
+          "types": [
+            1
+          ]
+        },
+        "step": 1,
+        "encoding": "plain",
+        "restored": true,
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T17:04:51.422Z",
+      "type": "event",
+      "payload": {
+        "kind": "DiscardTile",
+        "source": "live",
+        "seat": 0,
+        "tile": "6z",
+        "riichi": false,
+        "tsumogiri": false,
+        "doras": [],
+        "scores": [],
+        "sticks": null,
+        "step": 2,
+        "encoding": "plain",
+        "restored": true,
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T17:04:51.422Z",
+      "type": "event",
+      "payload": {
+        "kind": "DealTile",
+        "source": "live",
+        "seat": 1,
+        "tile": "?",
+        "remaining": 68,
+        "doras": [],
+        "step": 3,
+        "encoding": "plain",
+        "restored": true,
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T17:04:51.422Z",
+      "type": "event",
+      "payload": {
+        "kind": "DiscardTile",
+        "source": "live",
+        "seat": 1,
+        "tile": "6z",
+        "riichi": false,
+        "tsumogiri": false,
+        "doras": [],
+        "scores": [],
+        "sticks": null,
+        "step": 4,
+        "encoding": "plain",
+        "restored": true,
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T17:04:51.422Z",
+      "type": "event",
+      "payload": {
+        "kind": "DealTile",
+        "source": "live",
+        "seat": 2,
+        "tile": "?",
+        "remaining": 67,
+        "doras": [],
+        "step": 5,
+        "encoding": "plain",
+        "restored": true,
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T17:04:51.422Z",
+      "type": "event",
+      "payload": {
+        "kind": "DiscardTile",
+        "source": "live",
+        "seat": 2,
+        "tile": "8p",
+        "riichi": false,
+        "tsumogiri": false,
+        "doras": [],
+        "scores": [],
+        "sticks": null,
+        "step": 6,
+        "encoding": "plain",
+        "restored": true,
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T17:04:51.422Z",
+      "type": "event",
+      "payload": {
+        "kind": "DealTile",
+        "source": "live",
+        "seat": 3,
+        "tile": "?",
+        "remaining": 66,
+        "doras": [],
+        "step": 7,
+        "encoding": "plain",
+        "restored": true,
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T17:04:51.423Z",
+      "type": "event",
+      "payload": {
+        "kind": "DiscardTile",
+        "source": "live",
+        "seat": 3,
+        "tile": "3p",
+        "riichi": false,
+        "tsumogiri": false,
+        "doras": [],
+        "scores": [],
+        "sticks": null,
+        "step": 8,
+        "encoding": "plain",
+        "restored": true,
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T17:04:51.423Z",
+      "type": "event",
+      "payload": {
+        "kind": "DealTile",
+        "source": "live",
+        "seat": 0,
+        "tile": "3z",
+        "remaining": 65,
+        "doras": [],
+        "operation": {
+          "seat": 0,
+          "types": [
+            1
+          ]
+        },
+        "step": 9,
+        "encoding": "plain",
+        "restored": true,
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T17:04:51.423Z",
+      "type": "event",
+      "payload": {
+        "kind": "DiscardTile",
+        "source": "live",
+        "seat": 0,
+        "tile": "5m",
+        "riichi": false,
+        "tsumogiri": false,
+        "doras": [],
+        "scores": [],
+        "sticks": null,
+        "step": 10,
+        "encoding": "plain",
+        "restored": true,
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T17:04:51.423Z",
+      "type": "event",
+      "payload": {
+        "kind": "DealTile",
+        "source": "live",
+        "seat": 1,
+        "tile": "?",
+        "remaining": 64,
+        "doras": [],
+        "step": 11,
+        "encoding": "plain",
+        "restored": true,
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T17:04:51.423Z",
+      "type": "event",
+      "payload": {
+        "kind": "DiscardTile",
+        "source": "live",
+        "seat": 1,
+        "tile": "7z",
+        "riichi": false,
+        "tsumogiri": true,
+        "doras": [],
+        "scores": [],
+        "sticks": null,
+        "step": 12,
+        "encoding": "plain",
+        "restored": true,
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T17:04:51.423Z",
+      "type": "event",
+      "payload": {
+        "kind": "DealTile",
+        "source": "live",
+        "seat": 2,
+        "tile": "?",
+        "remaining": 63,
+        "doras": [],
+        "step": 13,
+        "encoding": "plain",
+        "restored": true,
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T17:04:51.423Z",
+      "type": "event",
+      "payload": {
+        "kind": "DiscardTile",
+        "source": "live",
+        "seat": 2,
+        "tile": "0p",
+        "riichi": false,
+        "tsumogiri": false,
+        "doras": [],
+        "scores": [],
+        "sticks": null,
+        "step": 14,
+        "encoding": "plain",
+        "restored": true,
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T17:04:51.423Z",
+      "type": "event",
+      "payload": {
+        "kind": "DealTile",
+        "source": "live",
+        "seat": 3,
+        "tile": "?",
+        "remaining": 62,
+        "doras": [],
+        "step": 15,
+        "encoding": "plain",
+        "restored": true,
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T17:04:51.423Z",
+      "type": "event",
+      "payload": {
+        "kind": "DiscardTile",
+        "source": "live",
+        "seat": 3,
+        "tile": "7m",
+        "riichi": false,
+        "tsumogiri": false,
+        "doras": [],
+        "scores": [],
+        "sticks": null,
+        "operation": {
+          "seat": 0,
+          "types": [
+            2
+          ]
+        },
+        "step": 16,
+        "encoding": "plain",
+        "restored": true,
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T17:04:51.423Z",
+      "type": "event",
+      "payload": {
+        "kind": "DealTile",
+        "source": "live",
+        "seat": 0,
+        "tile": "1z",
+        "remaining": 61,
+        "doras": [],
+        "operation": {
+          "seat": 0,
+          "types": [
+            1
+          ]
+        },
+        "step": 17,
+        "encoding": "plain",
+        "restored": true,
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T17:04:51.423Z",
+      "type": "event",
+      "payload": {
+        "kind": "DiscardTile",
+        "source": "live",
+        "seat": 0,
+        "tile": "1z",
+        "riichi": false,
+        "tsumogiri": true,
+        "doras": [],
+        "scores": [],
+        "sticks": null,
+        "step": 18,
+        "encoding": "plain",
+        "restored": true,
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T17:04:51.424Z",
+      "type": "event",
+      "payload": {
+        "kind": "DealTile",
+        "source": "live",
+        "seat": 1,
+        "tile": "?",
+        "remaining": 60,
+        "doras": [],
+        "step": 19,
+        "encoding": "plain",
+        "restored": true,
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T17:04:51.424Z",
+      "type": "event",
+      "payload": {
+        "kind": "DiscardTile",
+        "source": "live",
+        "seat": 1,
+        "tile": "9m",
+        "riichi": false,
+        "tsumogiri": true,
+        "doras": [],
+        "scores": [],
+        "sticks": null,
+        "step": 20,
+        "encoding": "plain",
+        "restored": true,
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T17:04:51.424Z",
+      "type": "event",
+      "payload": {
+        "kind": "DealTile",
+        "source": "live",
+        "seat": 2,
+        "tile": "?",
+        "remaining": 59,
+        "doras": [],
+        "step": 21,
+        "encoding": "plain",
+        "restored": true,
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T17:04:51.424Z",
+      "type": "event",
+      "payload": {
+        "kind": "DiscardTile",
+        "source": "live",
+        "seat": 2,
+        "tile": "6m",
+        "riichi": false,
+        "tsumogiri": false,
+        "doras": [],
+        "scores": [],
+        "sticks": null,
+        "step": 22,
+        "encoding": "plain",
+        "restored": true,
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T17:04:51.424Z",
+      "type": "event",
+      "payload": {
+        "kind": "DealTile",
+        "source": "live",
+        "seat": 3,
+        "tile": "?",
+        "remaining": 58,
+        "doras": [],
+        "step": 23,
+        "encoding": "plain",
+        "restored": true,
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T17:04:51.424Z",
+      "type": "event",
+      "payload": {
+        "kind": "DiscardTile",
+        "source": "live",
+        "seat": 3,
+        "tile": "3m",
+        "riichi": false,
+        "tsumogiri": true,
+        "doras": [],
+        "scores": [],
+        "sticks": null,
+        "step": 24,
+        "encoding": "masked",
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T17:04:51.424Z",
+      "type": "event",
+      "payload": {
+        "kind": "DealTile",
+        "source": "live",
+        "seat": 0,
+        "tile": "7z",
+        "remaining": 57,
+        "doras": [],
+        "operation": {
+          "seat": 0,
+          "types": [
+            1
+          ]
+        },
+        "step": 25,
+        "encoding": "masked",
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T17:06:52.233Z",
+      "type": "event",
+      "payload": {
+        "kind": "DiscardTile",
+        "source": "live",
+        "seat": 0,
+        "tile": "6m",
+        "riichi": false,
+        "tsumogiri": false,
+        "doras": [],
+        "scores": [],
+        "sticks": null,
+        "step": 26,
+        "encoding": "masked",
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T17:06:52.745Z",
+      "type": "event",
+      "payload": {
+        "kind": "DealTile",
+        "source": "live",
+        "seat": 1,
+        "tile": "?",
+        "remaining": 56,
+        "doras": [],
+        "step": 27,
+        "encoding": "masked",
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T17:06:53.236Z",
+      "type": "event",
+      "payload": {
+        "kind": "DiscardTile",
+        "source": "live",
+        "seat": 1,
+        "tile": "7z",
+        "riichi": false,
+        "tsumogiri": false,
+        "doras": [],
+        "scores": [],
+        "sticks": null,
+        "step": 28,
+        "encoding": "masked",
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T17:06:54.182Z",
+      "type": "event",
+      "payload": {
+        "kind": "DealTile",
+        "source": "live",
+        "seat": 2,
+        "tile": "?",
+        "remaining": 55,
+        "doras": [],
+        "step": 29,
+        "encoding": "masked",
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T17:06:54.254Z",
+      "type": "event",
+      "payload": {
+        "kind": "DiscardTile",
+        "source": "live",
+        "seat": 2,
+        "tile": "1p",
+        "riichi": false,
+        "tsumogiri": false,
+        "doras": [],
+        "scores": [],
+        "sticks": null,
+        "step": 30,
+        "encoding": "masked",
+        "socketId": 4
+      }
+    },
+    {
+      "at": "2026-11-08T17:06:54.753Z",
+      "type": "event",
+      "payload": {
+        "kind": "DealTile",
+        "source": "live",
+        "seat": 3,
+        "tile": "?",
+        "remaining": 54,
+        "doras": [],
+        "step": 31,
+        "encoding": "masked",
+        "socketId": 4
+      }
+    }
+  ]
+}

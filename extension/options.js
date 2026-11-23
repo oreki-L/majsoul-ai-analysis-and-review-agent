@@ -58,7 +58,7 @@ function show(provider) {
   if ($('pageDescription')) $('pageDescription').textContent = engine ? '安装、启动并连接本地麻将模型。' : '连接已有的模型服务。';
   for (const [id, active] of [['navChat', !engine], ['navEngine', engine]]) {
     const tab = $(id);
-    if (tab) { if (active) tab.setAttribute('aria-current', 'page'); else tab.removeAttribute('aria-current'); }
+    if (tab) { if (active && !$('modelSettings')?.hidden) tab.setAttribute('aria-current', 'page'); else tab.removeAttribute('aria-current'); }
   }
   $('engineExplain').disabled = !engine; $('engineExplain').checked = c.workflow === 'mortal-explain';
   $('profilesPanel').hidden = engine;

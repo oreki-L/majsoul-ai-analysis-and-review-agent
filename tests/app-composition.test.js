@@ -106,3 +106,52 @@ test('presentation module loads with no DOM and never mounts automatically', () 
   const context = {}; vm.runInNewContext(read('overlay.js'), context);
   assert.equal(typeof context.MJCollectorPanel.create, 'function');
 });
+
+test('optional profile alone emits terminal evidence; panel hooks send only explicit chat actions', async () => {
+  const protocol = require('../extension/protocol.js'), { liveRound } = require('./fixtures.js');
+  for (const profile of ['standard', 'panel-only', 'chat']) {
+    const { window, handlers } = surface(), messages = [], buttons = [];
+    let controller, hooks;
+    const slots = { querySelector: () => ({}), appendChild() {} };
+    const context = { window, URL, crypto: require('node:crypto').webcrypto, __MJ_OBSERVER_STATE_V1__: S, MJHistory: H,
+      document: { documentElement: {}, getElementById: () => null },
+      chrome: { runtime: { id: 'test-extension', getURL: path => 'chrome-extension://test-extension/' + path,
+        sendMessage: async message => { messages.push(structuredClone(message)); return { ok: true, matches: [] }; } } },
+      MJCollectorSnapshot: { snapshot() {} },
+      MJCollectorPanel: { create(options) { controller = options.controller; return {}; } },
+      MJFloatingPanel: { create({ onRender }) { const render = () => onRender(slots, render); return { mount: render, render }; } },
+      MJHandHints: { create: () => ({ getCalibrationState: () => ({}) }) },
+      MJAnalysisPanel: { mount(_slot, _view, _options, _render, actions) { hooks = actions; } }, MJNagaPanel: { mount() {} } };
+    const scripts = ['collector/controller.js', 'collector/browser-adapter.js', 'user-memory-capture.js'];
+    if (profile !== 'standard') scripts.push('chat/panel.js');
+    if (profile === 'chat') scripts.push('chat/agent-profile.js');
+    for (const script of [...scripts, 'apps/agent-app.js']) vm.runInNewContext(read(script), context);
+    assert.equal(context.majsoulAddon?.observeMatchEnd, undefined);
+    await controller.ready;
+    let sequence = 0;
+    const emit = payload => handlers.get('message')({ source: window, origin: window.location.origin,
+      data: { channel: 'mj-observer-v1', epoch: 'epoch', sequence: ++sequence, type: 'event', payload } });
+    const scores = [25000, 25000, 25000, 25000];
+    for (let round = 0; round < 4; round++) {
+      emit({ ...protocol.decodeEvent('ActionNewRound', liveRound(), 'live'), round, socketId: 1, step: 0 });
+      emit({ kind: 'NoTile', source: 'live', socketId: 1, step: 1, scores, gameEnded: round === 3 });
+    }
+    await controller.flush();
+    const saves = messages.filter(message => message.type === 'history:save');
+    assert.equal(saves.at(-1).match.closed, true);
+    assert.equal(saves.some(message => Object.hasOwn(message, 'matchStart')), profile === 'chat');
+    assert.deepEqual(messages.filter(message => message.type.startsWith('chat:')), []);
+    if (profile !== 'chat') { assert.equal(hooks.reviewActions, undefined); assert.equal(hooks.settingsActions, undefined); continue; }
+    assert.deepEqual(saves.filter(message => Object.hasOwn(message, 'matchStart')), [saves.at(-1)]);
+    assert.equal(saves.at(-1).matchStart, saves.at(-1).match.startedAt);
+    const anchor = () => ({ ownerDocument: { createElement: () => ({ isConnected: true }) }, after: button => buttons.push(button) });
+    hooks.reviewActions(anchor(), 'review-key', assert.fail);
+    hooks.settingsActions(anchor(), assert.fail);
+    for (const button of buttons) await button.onclick({ isTrusted: false });
+    assert.deepEqual(messages.filter(message => message.type.startsWith('chat:')), []);
+    for (const button of buttons) await button.onclick({ isTrusted: true });
+    assert.deepEqual(messages.filter(message => message.type.startsWith('chat:')), [
+      { type: 'chat:prepare-share', groupKey: 'review-key' }, { type: 'chat:offer-match-source' }
+    ]);
+  }
+});

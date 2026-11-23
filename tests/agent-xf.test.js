@@ -15,17 +15,49 @@ function snapshot(position) {
   const s = fixture('123m123p123s111z20p'); s.source = 'live'; s.lastStep = position; s.selfDrawnTile = '0p'; s.game.remaining = 70 - position;
   return s;
 }
-async function capture(s, context, options = {}) {
+async function capture(s, context, { responseText, ...options } = {}) {
   let sent;
   const task = options.task || 'combined';
   const result = await Agent.run({ snapshot: s, task, contextPolicy: 'live-xf', sessionContext: context, ...options,
     transport: async () => { throw Error('No model network expected'); }, runtime: { run: async request => {
       sent = request;
-      return { text: JSON.stringify({ task, danger: [], efficiency: [], decision: { action: 'unknown', tile: null, reasons: ['仅模拟响应'] }, limitations: [] }), turns: 1, toolCalls: 0 };
+      return { text: responseText ?? JSON.stringify({ task, danger: [], efficiency: [], decision: { action: 'unknown', tile: null, reasons: ['仅模拟响应'] }, limitations: [] }), turns: 1, toolCalls: 0 };
     } } });
   return { sent, result };
 }
 const session = s => ({ id: 'synthetic-round', lane: 'live', baseline: { snapshot: snapshot(0), position: 0, origin: 'round-start' }, checkpoint: { position: s.lastStep }, capturedStates: [], events: [], timeline: [] });
+
+const misplaced = () => ({ task: 'combined', danger: [], efficiency: [],
+  decision: { action: 'unknown', tile: '0p', reasons: ['Keep the pair.'], limitations: ['Upper bound only.', 'Risk unknown.'] } });
+
+test('X-F restores misplaced limitations for result and history without requerying or normalizing a valid reply', async () => {
+  const s = snapshot(2), ctx = session(s), original = misplaced();
+  const { limitations, ...decision } = original.decision;
+  const expected = { ...original, decision, limitations };
+  const valid = JSON.stringify(expected, null, 2), bad = JSON.stringify(original);
+  const baseline = await capture(s, ctx, { responseText: valid });
+  const repaired = await capture(s, ctx, { responseText: bad });
+  assert.equal(baseline.result.sessionTurn.answer, valid);
+  assert.deepEqual(repaired.result.result, expected);
+  assert.deepEqual(JSON.parse(repaired.result.sessionTurn.answer), expected);
+  assert.equal(repaired.result.runtime.turns, 1);
+  assert.deepEqual(repaired.sent.messages, baseline.sent.messages);
+  assert.equal(repaired.sent.systemPrompt, baseline.sent.systemPrompt);
+  await assert.rejects(capture(s, ctx, { responseText: bad, question: 'Why?' }), /limitations/);
+  await assert.rejects(capture(s, { ...ctx, lane: 'manual-review' }, { responseText: bad }), /limitations/);
+});
+
+test('X-F still rejects conflicting fields, duplicate keys, and invalid decisions', async () => {
+  const s = snapshot(2), ctx = session(s), raw = misplaced();
+  const duplicate = JSON.stringify(raw).replace('"tile":"0p"', '"t\\u0069le":"1p","tile":"0p"');
+  const conflicting = JSON.stringify({ ...raw, limitations: ['Top-level note.'] });
+  const illegal = JSON.stringify({ ...raw, decision: { ...raw.decision, tile: '7z' } });
+  const unknownField = JSON.stringify({ ...raw, decision: { ...raw.decision, note: 'Extra field.' } });
+  const fenced = '```json\n' + JSON.stringify(raw) + '\n```';
+  for (const responseText of [duplicate, conflicting, illegal, unknownField, fenced]) {
+    await assert.rejects(capture(s, ctx, { responseText }), /limitations|未支持的字段/);
+  }
+});
 
 test('X-F hashes match SHA-256 canonical JSON in Node and browser globals', () => {
   const browser = { TextEncoder, structuredClone, MJSnapshotContract: C, MJAnalysis: A };

@@ -9,8 +9,8 @@ test('collector installs without model files, optional model hosts or settings; 
   const { buildExtensions } = await import('../scripts/build-extensions.mjs');
   const temporary = mkdtempSync(join(tmpdir(), 'majsoul-profiles-'));
   try {
-    const [agent, collector] = buildExtensions(temporary);
-    for (const directory of [agent, collector]) {
+    const [agent, collector, chat] = buildExtensions(temporary);
+    for (const directory of [agent, collector, chat]) {
       for (const file of ['LICENSE', 'THIRD_PARTY_NOTICES.md', 'licenses/SOURCES.md', 'licenses/pi-LICENSE.txt', 'licenses/typebox-LICENSE.txt']) {
         assert.ok(existsSync(join(directory, file)), file);
         assert.equal(readFileSync(join(directory, file), 'utf8'), readFileSync(join(__dirname, '..', file), 'utf8'));
@@ -23,6 +23,26 @@ test('collector installs without model files, optional model hosts or settings; 
     const manifest = JSON.parse(readFileSync(join(collector, 'manifest.json')));
     assert.equal('options_ui' in manifest, false); assert.equal('optional_host_permissions' in manifest, false);
     assert.deepEqual(manifest.permissions, ['storage']);
+    const standard = JSON.parse(readFileSync(join(agent, 'manifest.json')));
+    const optional = JSON.parse(readFileSync(join(chat, 'manifest.json')));
+    for (const directory of [agent, collector]) {
+      assert.equal(existsSync(join(directory, 'chat')), false);
+      assert.equal(existsSync(join(directory, 'background-chat.js')), false);
+      assert.equal(existsSync(join(directory, 'match-completion-inbox.js')), false);
+      assert.equal(existsSync(join(directory, 'review-summary.js')), false);
+    }
+    assert.deepEqual(standard.permissions, ['storage']);
+    assert.deepEqual(optional.permissions, ['storage', 'alarms']);
+    assert.deepEqual(optional.optional_host_permissions, standard.optional_host_permissions);
+    assert.deepEqual(optional.web_accessible_resources, standard.web_accessible_resources);
+    assert.equal(standard.background.service_worker, 'background.js');
+    assert.equal(optional.background.service_worker, 'background-chat.js');
+    assert.deepEqual(optional.content_scripts.find(group => group.world === 'ISOLATED').js.slice(-3),
+      ['chat/panel.js', 'chat/agent-profile.js', 'apps/agent-app.js']);
+    assert.deepEqual(readdirSync(join(chat, 'chat')), ['agent-profile.js', 'delivery.js', 'integrations.js', 'options.css', 'options.js', 'panel.js']);
+    for (const file of ['match-completion-inbox.js', 'review-summary.js']) assert.ok(existsSync(join(chat, file)), file);
+    assert.doesNotMatch(readFileSync(join(agent, 'options.html'), 'utf8'), /navChannels|chat\//);
+    assert.match(readFileSync(join(chat, 'options.html'), 'utf8'), /navChannels/);
     for (const file of ['collector/controller.js', 'collector/browser-adapter.js', 'overlay.js']) {
       assert.ok(existsSync(join(collector, file)), file);
       assert.ok(existsSync(join(agent, file)), file);
@@ -45,4 +65,22 @@ test('collector installs without model files, optional model hosts or settings; 
     assert.equal(listeners.length, 1);
     assert.equal(listeners[0]({ type: 'model:analyze' }, {}, () => { throw new Error('Unexpected model response'); }), undefined);
   } finally { rmSync(temporary, { recursive: true, force: true }); }
+});
+
+test('optional profile rejects misplaced frontend, web-exposed worker files and incomplete worker imports', async () => {
+  const { checkProfiles, validateProfile } = await import('../scripts/build-extensions.mjs');
+  const source = join(__dirname, '../extension');
+  const { manifest, generated } = checkProfiles(source).find(profile => profile.name === 'chat');
+  const mutate = change => { const next = structuredClone(manifest); change(next); return next; };
+  for (const change of [group => { group.world = 'MAIN'; }, group => { group.all_frames = true; },
+    group => { group.js.splice(group.js.indexOf('chat/agent-profile.js'), 1); }, group => { group.js.reverse(); }]) {
+    assert.throws(() => validateProfile(source, mutate(next => change(next.content_scripts.find(group => group.world === 'ISOLATED'))), generated), /ISOLATED/);
+  }
+  for (const resource of ['chat/*.js', '*completion-inbox.js', 'review-summary.js', 'options.html']) {
+    assert.throws(() => validateProfile(source, mutate(next => next.web_accessible_resources[0].resources.push(resource)), generated), /exposed to the game page/);
+  }
+  const worker = readFileSync(join(source, 'background-chat.js'), 'utf8');
+  for (const file of ['match-completion-inbox.js', 'review-summary.js']) {
+    assert.throws(() => validateProfile(source, manifest, { ...generated, 'background-chat.js': worker.replace(`'${file}', `, '') }), /worker dependency|worker resources/);
+  }
 });

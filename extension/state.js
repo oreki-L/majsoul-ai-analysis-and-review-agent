@@ -47,7 +47,8 @@
     if (e.kind === 'Seat') return selectSelfSeat(s, e.seat);
     if (['DealTile', 'DiscardTile', 'ChiPengGang', 'AnGangAddGang', 'BaBei'].includes(e.kind) &&
         (!Number.isInteger(e.seat) || e.seat < 0 || e.seat >= (s.scores.length === 3 ? 3 : 4))) throw new Error('无效动作座位');
-    if (e.kind === 'MJStart') return initial(e.source);
+    // Authentication precedes MJStart, including full syncGame replay.
+    if (e.kind === 'MJStart') return initial(e.source, s.selfSeat);
     if (e.kind === 'NewRound') {
       s = initial(e.source, s.selfSeat);
       if (e.source === 'live' && e.operation?.types?.length) s.selfSeat = e.operation.seat;

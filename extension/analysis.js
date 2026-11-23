@@ -119,7 +119,40 @@
     if (!value.danger.length && !value.efficiency.length && !value.decision.reasons.length && !value.limitations.length) fail('模型未提供任何分析结论或限制说明。', 'empty_result', 'result');
     return JSON.parse(JSON.stringify(value));
   }
-  const api = { systemPrompt, normalizeTask, prepare, responseSchema, parseResult, visibleCounts };
+  function hasDuplicateKeys(text) {
+    // JSON.parse has already checked the grammar; scan the original keys before their values can overwrite each other.
+    const tokens = text.match(/"(?:\\[\s\S]|[^"\\])*"|[{}\[\]:]/g) || [], stack = [];
+    for (let i = 0; i < tokens.length; i++) {
+      const token = tokens[i];
+      if (token === '{' || token === '[') stack.push(token === '{' ? new Set() : null);
+      else if (token === '}' || token === ']') stack.pop();
+      else if (token[0] === '"' && tokens[i + 1] === ':') {
+        const keys = stack.at(-1), key = JSON.parse(token);
+        if (keys.has(key)) return true;
+        keys.add(key);
+      }
+    }
+    return false;
+  }
+  function parseXfResult(text, prepared) {
+    try { return { result: parseResult(text, prepared) }; }
+    catch (original) {
+      if (typeof text !== 'string' || text.trimStart()[0] !== '{' || original.validation?.code !== 'missing_fields' || original.validation.path !== 'result') throw original;
+      const value = JSON.parse(text), decision = value.decision;
+      if (Object.hasOwn(value, 'limitations') || !decision || typeof decision !== 'object' || Array.isArray(decision) ||
+          !Object.hasOwn(decision, 'limitations') || !Array.isArray(decision.limitations) ||
+          !decision.limitations.every(line => typeof line === 'string') || hasDuplicateKeys(text)) throw original;
+      const { limitations, ...rest } = decision;
+      try {
+        const result = parseResult({ ...value, decision: rest, limitations }, prepared);
+        return { result, repairedText: JSON.stringify(result) };
+      } catch (error) {
+        if (!error.validation) throw error;
+        throw original;
+      }
+    }
+  }
+  const api = { systemPrompt, normalizeTask, prepare, responseSchema, parseResult, parseXfResult, visibleCounts };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.MJAnalysis = api;
 })(globalThis);
