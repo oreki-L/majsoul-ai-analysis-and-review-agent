@@ -7,6 +7,7 @@ const S = require('../extension/state.js');
 const C = require('../extension/collector/snapshot-adapter.js');
 const Contract = require('../extension/contracts/snapshot.js');
 const Discussions = require('../extension/decision-discussions.js');
+const Review = require('../extension/postgame-review.js');
 const flush = () => new Promise(resolve => setImmediate(resolve));
 function panel(options = {}) {
   const discussionStorage = options.discussionStorage || { value: {}, async get() { return structuredClone(this.value); }, async set(value) { this.value = structuredClone(value); } };
@@ -17,11 +18,13 @@ function panel(options = {}) {
   const container = { innerHTML: '', querySelector(id) { return id === '[data-analysis-content]' ? (this.innerHTML.includes('data-analysis-content') ? content : null) : content.querySelector(id); } };
   const state = S.initial('live', 1); Object.assign(state, { complete: true, round: { wind: 0, index: 0 }, scores: [25000,25000,25000,25000], phase: 'playing', selfHand: ['1m','2m','3m','4m','5m','6m','7m','8m','9m','1s','2s','3s','4z','4z'] });
   if (options.turnProgress) state.turnProgress = structuredClone(options.turnProgress);
-  const context = { MJAnalysis: A, MJSnapshotContract: Contract, URL, setTimeout: options.manualTimers ? (fn, delay) => { const id = ++timerId; timers.set(id, { fn, delay }); return id; } : setTimeout,
+  const context = { MJAnalysis: A, MJSnapshotContract: Contract, MJPostgameReview: Review, URL, setTimeout: options.manualTimers ? (fn, delay) => { const id = ++timerId; timers.set(id, { fn, delay }); return id; } : setTimeout,
     clearTimeout: options.manualTimers ? id => timers.delete(id) : clearTimeout,
     document: { currentScript: { src: 'https://fixture/extension/analysis-panel.js' } }, location: { href: 'https://fixture/tests/preview.html' }, window: { addEventListener() {}, removeEventListener() {} },
     chrome: { runtime: { id: 'fixture', getURL: p => 'chrome-extension://fixture/' + p, sendMessage: async m => {
       messages.push(m);
+      if (options.reviewRecords && m.type === 'discussion:list') return { ok: true, records: structuredClone(options.reviewRecords) };
+      if (options.chatReply && m.type === 'chat:prepare-share') return options.chatReply;
       if (options.discussions && m.type === 'discussion:list') return { ok: true, records: await discussions.list() };
       if (options.discussions && m.type === 'discussion:save') return { ok: true, record: await discussions.save(m.record) };
       if (options.discussions && m.type === 'discussion:ask') return { ok: true, record: await discussions.ask(m.id, m.question, m.token) };
@@ -31,14 +34,47 @@ function panel(options = {}) {
       if (m.type === 'model:analyze') return new Promise(resolve => { resolveAnalysis = async value => { if (options.discussions && m.discussionId) await discussions.answer(m.discussionId, m.discussionToken, value); resolve(value); }; }); return { ok: true };
     }, onMessage: { addListener: fn => { configChanged = fn; }, removeListener: fn => { if (configChanged === fn) configChanged = null; } } } } };
   if (options.offline) delete context.chrome;
+  let shareButton;
+  if (options.chatReply) {
+    Object.assign(content.querySelector('#review-refresh'), {
+      ownerDocument: { createElement: () => ({ isConnected: true }) },
+      after(button) { shareButton = button; }
+    });
+    vm.runInNewContext(fs.readFileSync(require.resolve('../extension/chat/panel.js'), 'utf8'), context);
+  }
   vm.runInNewContext(fs.readFileSync(require.resolve('../extension/analysis-panel.js'), 'utf8'), context);
   const render = () => context.MJAnalysisPanel.mount(container, { snapshot: selection => C.snapshot(state, selection), analysisContext: options.analysisContext, engineRequest: options.engineRequest, importOfficialReport: options.importOfficialReport, seatLabels: state.players.map((_, seat) => S.seatWind(state, seat) + '家 · 座位 ' + seat), phase: state.phase, matchEnded: state.result?.gameEnded === true, round: state.round, honba: state.honba, selfSeat: state.selfSeat, hintsReady: options.hintsReady !== false, hintsCalibrated: !!options.hintsCalibrated, selfHand: state.selfHand, drawnTile: state.drawnTiles[state.selfSeat], riichiLabels: options.riichiLabels || [], recordCount: options.recordCount || 0,
     onMode: mode => { position.mode = mode; position.cursor = mode === 'replay' ? 1 : null; render(); },
     onCursor: cursor => { position.cursor = cursor; render(); }, onSelfSeat: seat => { state.selfSeat = seat; render(); }, onRoundStart: () => roundStartCalls++,
-    onCollector: () => collectorCalls++, onHistory: () => historyCalls++, onCalibrateHints: () => calibrateCalls++ }, position, render, { onHints: value => hints.push(value) });
+    onCollector: () => collectorCalls++, onHistory: () => historyCalls++, onCalibrateHints: () => calibrateCalls++ }, position, render, { onHints: value => hints.push(value), reviewActions: context.majsoulAddon?.reviewActions });
   render();
-  return { timers, fireTimer: () => { const [id, timer] = timers.entries().next().value; timers.delete(id); return timer.fn(); }, render, state, messages, hints, position, details, section, calls: () => [collectorCalls, historyCalls, calibrateCalls], roundStartCalls: () => roundStartCalls, destroy: () => context.MJAnalysisPanel.destroy(), element: id => elements.get('#' + id), html: () => container.innerHTML.replace('<div data-analysis-content></div>', '<div data-analysis-content>' + content.innerHTML + '</div>'), stage: message => configChanged?.({ type: 'model:stage', ...message }, { id: 'fixture' }), configChanged: (sender = { id: 'fixture' }) => configChanged?.({ type: 'model:config-changed' }, sender), resolve: value => resolveAnalysis(value) };
+  return { timers, fireTimer: () => { const [id, timer] = timers.entries().next().value; timers.delete(id); return timer.fn(); }, render, state, messages, hints, position, details, section, shareButton: () => shareButton, calls: () => [collectorCalls, historyCalls, calibrateCalls], roundStartCalls: () => roundStartCalls, destroy: () => context.MJAnalysisPanel.destroy(), element: id => elements.get('#' + id), html: () => container.innerHTML.replace('<div data-analysis-content></div>', '<div data-analysis-content>' + content.innerHTML + '</div>'), stage: message => configChanged?.({ type: 'model:stage', ...message }, { id: 'fixture' }), configChanged: (sender = { id: 'fixture' }) => configChanged?.({ type: 'model:config-changed' }, sender), resolve: value => resolveAnalysis(value) };
 }
+test('chat review shares only the currently selected group and shows a safe error', async () => {
+  const state = S.initial('live', 1);
+  state.round = { wind: 0, index: 0 };
+  state.scores = [25000, 25000, 25000, 25000];
+  const snapshot = C.snapshot(state, { game: true, rivers: 'none' });
+  const records = ['live-one', 'live-two'].map(id => ({
+    id, snapshot, at: 0, chat: [], context: { identity: { matchId: id } },
+    analysis: { result: { decision: { action: 'fold', reasons: ['fixture'] } } }
+  }));
+  const p = panel({ reviewRecords: records, chatReply: { ok: false, code: 'disabled', error: 'PRIVATE_WEBHOOK' } });
+  await flush();
+  p.state.result = { gameEnded: true };
+  p.render();
+  p.element('review-toggle').onclick();
+  assert.match(p.html(), /<option value="1" selected>对局 · live-two/);
+  p.element('review-match').onchange({ target: { value: '0' } });
+  assert.match(p.html(), /<option value="0" selected>对局 · live-one/);
+  const chatMessages = () => structuredClone(p.messages.filter(message => message.type.startsWith('chat:')));
+  await p.shareButton().onclick({ isTrusted: false });
+  assert.deepEqual(chatMessages(), []);
+  await p.shareButton().onclick({ isTrusted: true });
+  assert.deepEqual(chatMessages(), [{ type: 'chat:prepare-share', groupKey: Review.groupKey(records[0]) }]);
+  assert.match(p.html(), /开启发送/);
+  assert.doesNotMatch(p.html(), /PRIVATE_WEBHOOK|确认发送摘要/);
+});
 test('global preview and request use combined data regardless of automatic features, and escape model text', async () => {
   const p = panel(); await flush();
   p.element('feature-strategy').onchange({ isTrusted: true, target: { checked: false } }); p.element('feature-danger').onchange({ isTrusted: true, target: { checked: false } }); p.element('model-preview').onclick(); await flush();
