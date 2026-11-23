@@ -101,7 +101,10 @@ test('r3 JSON object flag reaches every real product Pi HTTP tool continuation a
   await h.discussions.ask(result.discussionRecord.id, '请解释前答的模拟教学', 'follow');
   const answer = await h.worker.analyze({ provider: 'chat', discussionId: result.discussionRecord.id, question: '请解释前答的模拟教学', discussionToken: 'follow', selection: { hand: true, game: true, rivers: 'all' } }, 1);
   assert.equal(answer.ok, true, answer.error);
-  assert.ok(JSON.stringify(h.traces.at(-1).messages).includes('仅用于验证链路的模拟教学'));
+  assert.match(result.explanation.summary, /^引擎选择.*9筒/);
+  const followUpContext = JSON.stringify(h.traces.at(-1).messages);
+  assert.ok(followUpContext.includes(result.explanation.summary));
+  assert.ok(followUpContext.includes('模拟文本不构成真实教学质量证据。'));
   assert.ok(modelBodies.length >= 4);
   for (const body of modelBodies) assert.deepEqual(body.response_format, { type: 'json_object' });
   assert.equal(engineBodies.length, 1);
