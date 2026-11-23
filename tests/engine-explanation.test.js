@@ -6,7 +6,7 @@ const Agent = require('../extension/agent.js');
 const { fixture } = require('../agent/eval.cjs');
 
 test('production prompt carries scoped fact semantics and preserves optional comparisons', () => {
-  assert.equal(E.PROMPT_VERSION, 16);
+  assert.equal(E.PROMPT_VERSION, 19);
   for (const requirement of [/facts\.explanationFocus/, /handTileAvailability按牌种/, /只有complete且已见4/,
     /全见不否定已有组合/, /单张也不等于孤张/, /先核对实体是否重叠/,
     /核对summary、reasons、limitations/, /从candidateEfficiency按括号内的精确牌码定位同一行/,
@@ -16,7 +16,7 @@ test('production prompt carries scoped fact semantics and preserves optional com
     /由你根据教学价值决定是否比较备选/, /历史建议与教学只用于承接/]) assert.match(E.prompt, requirement);
   assert.doesNotMatch(E.prompt, /自动分析的历史教学正文已移除|只保留历史动作和时点|至少比较一个实质备选/);
   assert.deepEqual(E.parse('{"summary":"打出这张牌。","reasons":[],"limitations":[]}'), {
-    summary: '打出这张牌。', reasons: [], limitations: [], promptVersion: 16
+    summary: '打出这张牌。', reasons: [], limitations: [], promptVersion: 19
   });
 });
 
@@ -37,10 +37,35 @@ async function capture(options = {}) {
       checkpoint: { position: 4 }, lane: 'live', timeline: [], events: [] },
     ...options, transport: async () => { throw Error('No model network expected'); },
     runtime: { run: async request => { sent = request; return {
-      text: JSON.stringify({ summary: '说明当前首选的依据。', reasons: [], limitations: [] }), turns: 1, toolCalls: 0
+      text: JSON.stringify(options.answer ?? { summary: '说明当前首选的依据。', reasons: [], limitations: [] }), turns: 1, toolCalls: 0
     }; } } });
   return { sent, result };
 }
+
+test('automatic summary and safety come from the frozen discard while a safety question keeps the explanation', async () => {
+  const answer = { summary: '保留东对子。', reasons: ['本次不考虑防守。弃后维持向听。'], limitations: ['缺少安全依据。'] };
+  const automatic = await capture({ answer });
+  assert.match(automatic.result.explanation.summary, /^引擎选择摸切赤5筒/);
+  assert.deepEqual(automatic.result.explanation.reasons, ['弃后维持向听。']);
+  assert.deepEqual(automatic.result.explanation.limitations, []);
+  assert.ok(automatic.sent.systemPrompt.endsWith(E.automaticPrompt));
+
+  const s = snapshot();
+  s.rivers = [{ seat: 3, discards: ['6z', '5z', '7z', '0m', '9p'].map(tile => ({ tile })) }];
+  const asked = await capture({ snapshot: s, question: '打这张牌对上家安全吗？', answer });
+  assert.deepEqual(asked.result.explanation, { ...answer, promptVersion: 19 });
+  assert.ok(!asked.sent.systemPrompt.includes(E.automaticPrompt));
+  const { safetyByOpponent } = parse(asked.sent.messages.at(-1)).facts.explanationFocus.discard;
+  assert.equal(safetyByOpponent.find(o => o.relativeName === '上家').evidenceGapWording,
+    '上家当前可见牌河未找到同种牌。当前资料未确认赤5筒对上家的安全依据');
+  assert.equal(safetyByOpponent.find(o => o.relativeName === '下家').evidenceGapWording,
+    '下家的牌河资料缺失。当前资料未确认赤5筒对下家的安全依据');
+  const riverTool = asked.sent.tools.find(t => t.name === 'get_player_discards');
+  const readRiver = async seat => JSON.parse((await riverTool.execute('river', { seat })).content[0].text);
+  assert.deepEqual((await readRiver(3)).discards.map(d => [d.tile, d.name]),
+    [['6z', '发'], ['5z', '白'], ['7z', '中'], ['0m', '赤5万'], ['9p', '9筒']]);
+  assert.deepEqual(await readRiver(1), { seat: 1, discards: null });
+});
 
 test('model projection converts every honor, red five and consumed tile without mutating stored actions or identity', () => {
   for (const [raw, expected] of [['E','1z'],['S','2z'],['W','3z'],['N','4z'],['P','5z'],['F','6z'],['C','7z'],
@@ -128,7 +153,7 @@ test('a useful summary without an alternative remains valid with one or multiple
     const { sent, result } = await capture({ snapshot: s });
     const legal = parse(sent.messages.at(-2)).outputConstraints.legalDiscards;
     assert.equal(legal.length === 1, riichi);
-    assert.equal(result.explanation.summary, '说明当前首选的依据。');
+    assert.match(result.explanation.summary, /^引擎选择摸切赤5筒/);
     assert.deepEqual(result.explanation.reasons, []);
     assert.throws(() => E.parse(JSON.stringify({ summary: '改打另一张牌', reasons: [], limitations: [], tile: '5p' })), /合同/);
   }

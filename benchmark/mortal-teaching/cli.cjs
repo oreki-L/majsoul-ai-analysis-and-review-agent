@@ -34,7 +34,7 @@ async function main(argv) {
       allowedReferences: ['group:G'], credentialsFile: path.resolve(args.credentials),
       budgetDirectory: path.resolve(output, '../billing'),
       scope: 'all paid teaching, continuation, retry, follow-up and API review attempts in this round; no old budget reuse; no credential rotation',
-      reviewExecution: 'export/import gpt-6.1-sol medium; a paid evaluator adapter requires frozen CNY rates and admission through this same total budget' };
+      reviewExecution: `export/import ${RULES.requiredModel} ${RULES.reasoningEffort}; a paid evaluator adapter requires frozen CNY rates and admission through this same total budget` };
     const key = await createCredentialResolver({ credentialsFile: authorization.credentialsFile, authorization })('group:G');
     if (!key) throw new Error('Previously configured credential unavailable');
     const pricing = { model: 'deepseek-flash', modelVersion: 'DeepSeek-V4.1-Flash-1017', endpoint: 'https://api.deepseek.com/chat/completions',

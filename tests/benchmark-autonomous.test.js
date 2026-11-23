@@ -136,14 +136,14 @@ test('autonomous: supplemental uses original frozen input and never inserts its 
 test('review: interrupted service persists pending; freed concurrency slots schedule all without blocking requests', async t => {
   const out = temp(t), s = suite(), state = await run(s, out); const queue = createReviewQueue(out, 'contract'); queue.sync(state);
   await queue.drain(async () => { throw new Error('service down'); }, { concurrency: 2, retries: 0 }); assert.equal(queue.snapshot()[0].state, 'pending');
-  const resumed = createReviewQueue(out, 'contract'); await resumed.drain(async packet => ({ blindId: packet.blindId, sourceHash: packet.sourceHash, rulesHash: packet.rulesHash, model: 'gpt-6-sol', reasoningEffort: 'medium', scores: Object.fromEntries(DIMENSIONS.map(d => [d, 3])), citations: [{ target: 'answer', quote: 'SYNTHETIC' }], severeErrors: [] }), { concurrency: 2, retries: 2 });
+  const resumed = createReviewQueue(out, 'contract'); await resumed.drain(async packet => ({ blindId: packet.blindId, sourceHash: packet.sourceHash, rulesHash: packet.rulesHash, model: 'gpt-6.2-sol', reasoningEffort: 'low', scores: Object.fromEntries(DIMENSIONS.map(d => [d, 3])), citations: [{ target: 'answer', quote: 'SYNTHETIC' }], severeErrors: [] }), { concurrency: 2, retries: 2 });
   assert.equal(resumed.snapshot()[0].state, 'complete'); assert.equal(resumed.snapshot()[0].review.mean, 3);
   const blind = fs.readFileSync(path.join(out, 'review/blind', resumed.snapshot()[0].blindId + '.json'), 'utf8'); for (const forbidden of ['schemeId', 'credentialAlias', 'keyAlias', 'preferred', 'current-only']) assert.equal(blind.includes(forbidden), false, forbidden);
 });
 
 test('review: import verifies source/rules/model/six scores/quotes and cannot overwrite previous grade', async t => {
   const out = temp(t), state = await run(suite(), out), queue = createReviewQueue(out, 'contract'); queue.sync(state); const job = queue.snapshot()[0];
-  const result = { blindId: job.blindId, sourceHash: job.sourceHash, rulesHash: job.rulesHash, model: 'gpt-6-sol', reasoningEffort: 'medium', scores: Object.fromEntries(DIMENSIONS.map(d => [d, 4])), citations: [{ target: 'answer', quote: 'SYNTHETIC' }], severeErrors: [] };
+  const result = { blindId: job.blindId, sourceHash: job.sourceHash, rulesHash: job.rulesHash, model: 'gpt-6.2-sol', reasoningEffort: 'low', scores: Object.fromEntries(DIMENSIONS.map(d => [d, 4])), citations: [{ target: 'answer', quote: 'SYNTHETIC' }], severeErrors: [] };
   for (const changed of [{ sourceHash: 'wrong' }, { rulesHash: 'wrong' }, { model: 'other' }, { scores: { factual_accuracy: 5 } }, { citations: [{ target: 'answer', quote: 'not in source' }] }]) assert.throws(() => queue.importResults([{ ...result, ...changed }]));
   queue.importResults([result]); queue.importResults([result]); assert.throws(() => queue.importResults([{ ...result, scores: Object.fromEntries(DIMENSIONS.map(d => [d, 2])) }]), /overwritten/);
 });

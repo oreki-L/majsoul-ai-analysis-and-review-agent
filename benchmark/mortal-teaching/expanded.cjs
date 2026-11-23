@@ -90,7 +90,7 @@ async function prepare(source, output, evidenceRoot) {
     datasetHash: data.datasetHash, inventoryHash: stableHash(inventory), cohorts, budgetAtPreparation: budget, planning,
     order: ['previous84 comparison and complete blind review', 'freeze previous84 selection', 'additional43 comparison of every candidate and complete blind review', '18 repeats + 6 followups on selected previous84 variant'],
     inference: 'One local Yuchen582500 action per unique node, cached and shared by all five candidates; no new engine cache has been generated during preparation.',
-    limitations: ['Only one match and one self seat; 127 correlated decisions across 12 rounds.', 'Old 84 already examined; additional 43 are new to the preceding Mortal/LLM run, not globally unseen data.', 'No concurrent pure-LLM group. Only existing released X-F first-pass references.', 'Ordinary discard comparison is optional; unchanged six-dimension gpt-6.1-sol/medium review.', 'No prompt or product changes and no paid request during preparation.'] };
+    limitations: ['Only one match and one self seat; 127 correlated decisions across 12 rounds.', 'Old 84 already examined; additional 43 are new to the preceding Mortal/LLM run, not globally unseen data.', 'No concurrent pure-LLM group. Only existing released X-F first-pass references.', `Ordinary discard comparison is optional; six-dimension ${RULES.requiredModel}/${RULES.reasoningEffort} review.`, 'No prompt or product changes and no paid request during preparation.'] };
   freeze(path.join(output, 'expansion-contract.json'), contract);
   return { prepared: true, output, cohorts, uniqueNodes: 127, mainJobs: 635, supplementJobs: 24, paidRequests: 0, budget, planning };
 }

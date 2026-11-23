@@ -1,7 +1,7 @@
 /* Teaching text has no authority to select or mutate an engine action. */
 (function (root) {
   'use strict';
-  const PROMPT_VERSION = 16;
+  const PROMPT_VERSION = 19;
   const prompt = [
     '你是日式立直麻将教学解释器。引擎最终动作已通过本地校验，不得更换首选、鸣牌对象、实体用牌或立直配套弃牌。校验通过不代表战略最优；解释不是引擎内部思考。',
     '本次结构化数据统一使用snapshot牌编码：m/p/s为万/筒/索，1z至7z依次为东南西北白发中，0m/0p/0s为赤五，?为未知。引擎动作的pai和consumed已转换为同一编码，赤五与普通五不可互换。selfHand含已知新摸牌，不能再次追加selfDrawnTile。',
@@ -22,9 +22,34 @@
     '解释安全时，摘要和正文都沿用discard.safetyByOpponent各自的wording。该字段按本人牌河、立直后通过、可见牌排除等待依次择一；已经有直接证据时不再叠加牌形推断。一句中的相对方位、牌名和依据一起引用，不换算座位，不合并玩家。本人弃过该牌与立直后通过是不同依据；只有该玩家确有riichi-passed才能说立直后通过。牌河序号不是巡目，筋参考牌不是被评估牌。unknown不等于危险，筋、壁不保证安全。',
     '待打的幺九牌四枚可见包含自家这张，单凭它见尽不能排除对手缺这张的国士单骑。用牌形排除国士时只能引用visible-exclusion证据中kokushi.excludedByFullyVisible所指的另一种必需牌；没有该证据就不作这种排除。',
     '输出前核对summary、reasons、limitations中的动作、牌名、对象与数值是否一致。先说可验证的动作效果，例如“打出后维持听牌，这张对下家是现物”。牌效、安全或打点证据可以支持解释，不能证明引擎为何选它。取舍无法确定时，在limitations简述具体缺口；不编引擎Q值、胜率、放铳率或内部动机。',
-    '防守说明以当前问题和可核对证据为准。当前问题未问防守，且没有相关的已确认安全依据时，summary、reasons、limitations全部省略安全评述，直接解释可核对的牌形、效率或打点。当前问题问了防守但证据不足时，按需引用discard.safetyEvidenceGapWording，或者说明资料不足以判断该牌对指定对手的安全性。风险结论只限具体牌、对手、时点和依据；有无安全证据及有无人立直，都不能说明引擎是否考虑防守或如何加权。',
+    '防守说明以当前问题和可核对证据为准。当前问题未问防守，且没有相关的已确认安全依据时，summary、reasons、limitations全部省略安全评述，直接解释可核对的牌形、效率或打点。风险结论只限具体牌、对手、时点和依据；有无安全证据及有无人立直，都不能说明引擎是否考虑防守或如何加权。',
+    '只问防守时，summary先给结论，reasons给该牌对所问对手的依据，limitations给对应范围。问的是引擎所选弃牌时，直接按explanationFocus.discard.safetyByOpponent定位对手，引用该行wording或evidenceGapWording。问其他牌时查对应牌的风险证据。无需抄录牌河来证明没找到同种牌。确需引用其他弃牌时，用get_player_discards结果的中文name；6z是发，7z是中，字牌编码里的数字不是数量。事实卡里的字段是程序提供的数据，勿称为本次工具调用。只有本轮确实调用并取得结果才能说查过工具。只问防守就省略向听、进张、牌形及打点。',
     '用简短自然的简体中文回答当前问题。只输出JSON {"limitations":[],"summary":"简短解释","reasons":["可核查的依据或取舍"]}。先写limitations，即使没有限制也必须输出"limitations":[]；没有理由时写"reasons":[]。三个字段都必填，数组只能填字符串，不用null。不输出动作字段、Markdown或额外文字。'
   ].join('\n');
+  const automaticPrompt = '\n自动教学的动作摘要和已核实的安全说明由程序生成。你的summary只简短写出一条可核对的牌形或效率结论。reasons和limitations专注于牌形、效率、打点及相关限制，省略摸切／手切的复述。需要点名所弃牌时用actionTransition.discardedTile.name；selfDrawnTile表示本巡摸入牌，只有冻结动作明确打出它时才可说已打出。涉及对子时，只用弃后sameTileGroups中count为2的牌种，并与孤张分开。';
+
+  function composeAutomatic(explanation, facts) {
+    const transition = facts?.actionTransition;
+    const discard = facts?.explanationFocus?.discard;
+    let summary = explanation.summary;
+    if (facts?.selectedAction?.action?.type === 'dahai' && transition?.status === 'available') {
+      const method = { 'drawn-tile': '摸切', 'hand-tile': '手切' }[transition.discardMethod] ?? '打出';
+      const action = `引擎选择${method}${transition.discardedTile.name}`;
+      summary = `${[action, transition.shantenWording].filter(Boolean).join('，')}。`;
+    }
+    if (!discard || discard.status !== 'available') return { ...explanation, summary };
+
+    // Keep free-form defense claims out of automatic discard teaching. One
+    // sentence may mix defense and shape claims, so we drop it as a unit.
+    const defenseTerms = /安全|防守|放[铳銃]|现物|避铳|危[险險]|立直后.{0,8}通过|筋壁|筋[、与和或]壁|(?:无人|无任何家|均未|均无|没有人)立直/;
+    const withoutDefense = text => text.split('\n').map(line => (line.match(/[^。！？]+[。！？]?/g) ?? [])
+      .filter(sentence => !defenseTerms.test(sentence)).join('').trim()).filter(Boolean).join('\n');
+    const reasons = explanation.reasons.map(withoutDefense).filter(Boolean);
+    const confirmed = discard.safetyByOpponent.filter(o => o.status === 'confirmed').flatMap(o => o.wording);
+    const withEvidence = confirmed.length ? [...reasons.slice(0, 7), `${confirmed.join('。')}。`] : reasons;
+    return { ...explanation, summary: withoutDefense(summary) || '以下为当前局面的教学说明。',
+      reasons: withEvidence, limitations: explanation.limitations.map(withoutDefense).filter(Boolean) };
+  }
   // A model-only copy: engine storage, legality checks and mjai transport keep their original encoding.
   function forModel(value) {
     const output = JSON.parse(JSON.stringify(value));
@@ -65,6 +90,6 @@
     if (typeof value.summary !== 'string' || !value.summary.trim() || value.summary.length > 1000) throw formatError('解释摘要无效。');
     return { summary: value.summary, reasons: texts(value.reasons, 8), limitations: texts(value.limitations, 8), promptVersion: PROMPT_VERSION };
   }
-  const api = { parse, prompt, repairPrompt, forModel, PROMPT_VERSION };
+  const api = { parse, prompt, automaticPrompt, composeAutomatic, repairPrompt, forModel, PROMPT_VERSION };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.MJEngineExplanation = api;
 })(globalThis);

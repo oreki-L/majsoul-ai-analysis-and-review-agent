@@ -103,6 +103,26 @@ test('preparation versions share one campaign cap and cannot move their ledger t
   for (let i = 22; i <= 23; i++) await nextVersion.request(pricing.endpoint, wire, attempt(i));
   await assert.rejects(nextVersion.request(pricing.endpoint, wire, attempt(24)), /Budget cap/); nextVersion.close();
 });
+test('a 10 CNY round enforces its own cap across restarts and a new round starts at zero', async t => {
+  const root = temp(t), dir = path.join(root, 'first'); let calls = 0;
+  const options = directory => ({ directory, expectedCap: 10,
+    authorization: { ...authorization, manifestId: path.basename(directory), cap: 10, budgetDirectory: directory }, pricing,
+    fetchImpl: async () => { calls++; return Response.json({ usage: { prompt_tokens: 1048576, prompt_cache_hit_tokens: 0, completion_tokens: 4096 } }); } });
+  const first = openBudget(options(dir));
+  try { for (let i = 1; i <= 4; i++) await first.request(pricing.endpoint, wire, attempt(i)); } finally { first.close(); }
+  const resumed = openBudget(options(dir));
+  try {
+    assert.equal(resumed.snapshot().estimatedCost, 8.51968);
+    await assert.rejects(resumed.request(pricing.endpoint, wire, attempt(5)), /Budget cap/);
+    assert.equal(calls, 4);
+  } finally { resumed.close(); }
+  const second = openBudget(options(path.join(root, 'next')));
+  try {
+    assert.equal(second.snapshot().estimatedCost, 0);
+    await second.request(pricing.endpoint, wire, attempt(1));
+    assert.equal(calls, 5);
+  } finally { second.close(); }
+});
 test('transport failure and corrupt/incomplete usage preserve reservation and block continuation', async t => {
   for (const response of ['throw', 'invalid']) {
     const directory = path.join(temp(t), response);
@@ -112,7 +132,7 @@ test('transport failure and corrupt/incomplete usage preserve reservation and bl
     await assert.rejects(b.request(pricing.endpoint, wire, attempt(2)), /Unsettled/); b.close();
   }
 });
-const attest = { model: 'gpt-6.1-sol', reasoningEffort: 'medium', evidence: 'test execution metadata; mock only', billing: { kind: 'included-in-subscription', additionalApiChargeCny: 0, evidence: 'synthetic subscription attestation; no real execution' } };
+const attest = { model: 'gpt-6.2-sol', reasoningEffort: 'low', evidence: 'test execution metadata; mock only', billing: { kind: 'included-in-subscription', additionalApiChargeCny: 0, evidence: 'synthetic subscription attestation; no real execution' } };
 function review(packet) {
   return { blindId: packet.blindId, sourceHash: packet.sourceHash, rulesHash: packet.rulesHash, datasetHash: packet.datasetHash, model: attest.model, reasoningEffort: attest.reasoningEffort,
     comparison: { actual: false, requested: false, rationale: '未比较且问题未要求比较。' },
@@ -127,7 +147,8 @@ test('NA comparison neither penalizes nor adds an automatic full score; major ga
 });
 test('review rejects wrong model, forged quotes, missing requested comparison and source changes', t => {
   const q = createQueue(temp(t), 'dataset'), p = q.add({ resultId: 'r', answer: '测试回答', facts: { snapshot: {} } });
-  assert.throws(() => validateReview(p, { ...review(p), model: 'gpt-6-sol' }, attest), /model/);
+  const old = { ...attest, model: 'gpt-6.1-sol', reasoningEffort: 'medium' };
+  assert.throws(() => validateReview(p, { ...review(p), model: old.model, reasoningEffort: old.reasoningEffort }, old), /model/);
   assert.throws(() => validateReview(p, { ...review(p), citations: [{ target: 'answer', quote: '不存在' }] }, attest), /Citation/);
   assert.throws(() => validateReview(p, review(p), { ...attest, reasoningEffort: 'high' }), /attestation/);
   assert.throws(() => validateReview(p, review(p), { ...attest, billing: { kind: 'unknown' } }), /budget/);

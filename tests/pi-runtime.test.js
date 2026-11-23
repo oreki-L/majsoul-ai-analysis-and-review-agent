@@ -113,6 +113,8 @@ test('invalid repair, exhausted budget, action injection and truncation cannot c
   for (const scenario of [
     { text: '{"summary":"说明","reasons":[]}', turns: 3, expected: 2 },
     { text: '{"summary":"说明","reasons":[]}', turns: 1, expected: 1 },
+    { text: '{"summary":"说明","reasons":[],"limitations":[],"reasons_note":null}', turns: 3, expected: 2 },
+    { text: '{"summary":"说明","reasons":[],"limitations":[],"reasons_note":null,"action":"dahai"}', turns: 3, expected: 1 },
     { text: '{"summary":"说明","reasons":[],"limitations":[],"tile":"1m"}', turns: 3, expected: 1 },
     { text: '{"summary":"截断', stopReason: 'length', turns: 3, expected: 1 }
   ]) {

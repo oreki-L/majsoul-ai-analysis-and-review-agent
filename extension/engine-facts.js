@@ -246,6 +246,7 @@ function safetyFocus(opponent, tile) {
   const name = Snapshot.label(tile);
   const sources = { river: '对手本人弃过该牌', 'riichi-passed': '已核实立直后通过', 'visible-exclusion': '可见牌排除等待' };
   let wording = null;
+  let evidenceGapWording = null;
   if (player && player !== 'unknown' && primary) {
     if (primary.type === 'river') wording = `${player}本人牌河第${primary.discardNumbers.join('、')}张弃过${Snapshot.label(Analysis.canonical(tile))}，${name}对${player}是现物`;
     else if (primary.type === 'riichi-passed') wording = `${player}立直后已有他家打出同种牌并通过，${name}在当前时点对${player}安全`;
@@ -255,8 +256,14 @@ function safetyFocus(opponent, tile) {
         (blocker ? `；其中排除国士单骑的依据是另一种必需牌「${Snapshot.label(blocker)}」四枚可见` : '');
     }
   }
+  if (player && player !== 'unknown' && safety.status === 'unknown') {
+    const gap = `当前资料未确认${name}对${player}的安全依据`;
+    evidenceGapWording = riverAvailable
+      ? `${player}当前可见牌河未找到同种牌。${gap}`
+      : `${player}的牌河资料缺失。${gap}`;
+  }
   return { seat, relativeName: player, ...safety, evidence: primary ? [primary] : [],
-    confirmedSources: primary ? [sources[primary.type]] : [], wording: wording ? [wording] : [],
+    confirmedSources: primary ? [sources[primary.type]] : [], wording: wording ? [wording] : [], evidenceGapWording,
     sujiReferences: riverAvailable ? sujiReferences?.map(describe) ?? null : null };
 }
 function focusFor(f, expectedTiles, tenpai) {
@@ -335,7 +342,7 @@ function buildFactCard(snapshot, engine = {}, analysis, context = {}) {
   const events = authorizedTimeline(s, context.events);
   const visible = efficiency.visibleTiles;
   const card = {
-    format: 'mortal-teaching-fact-card-v13',
+    format: 'mortal-teaching-fact-card-v14',
     binding: { position: s.lastStep ?? null, source: s.source ?? 'unknown', selfSeat: self },
     tileLegend: [...ALL, '0m', '0p', '0s'].map(describe),
     round: { prevailingWind: describe(wind === null ? null : (wind + 1) + 'z'), roundIndex: dealer, handNumber: dealer === null ? null : dealer + 1, dealerSeat: dealer, selfSeat: self, selfWind: describe(selfWind), honba: game?.honba ?? null },

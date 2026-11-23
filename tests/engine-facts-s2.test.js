@@ -82,7 +82,7 @@ test('production Agent passes only authorized past events to facts and the risk 
  const sessionContext={baseline:{snapshot:s,position:0,origin:'round-start'},checkpoint:{position:s.lastStep},lane:'live',timeline:[],events:[...events,{kind:'DiscardTile',source:'live',position:17,seat:3,tile:'9s'},{kind:'DiscardTile',source:'replay',position:25,seat:3,tile:'9s'}]};
  const result=await Agent.run({snapshot:s,engineDecision:{engine:{phase:'draw',...engine(),tileEncoding:'snapshot-v1'}},sessionContext,
   transport:async()=>{throw Error('No provider call expected');},runtime:{run:async options=>{request=options;return{text:'{"summary":"切9索，保留当前形状。","reasons":[],"limitations":[]}',turns:1,toolCalls:0};}}});
- assert.equal(result.explanation.summary,'切9索，保留当前形状。');
+ assert.equal(result.explanation.summary,'引擎选择手切9索，从弃前和牌形状变为弃后0向听（形状听牌）。');
  const message=request.messages.at(-1).content,facts=JSON.parse(message.slice(message.indexOf('{'))).facts;
  assert.equal(opponent(facts,'9s',1).safety.status,'confirmed');
  const tool=request.tools.find(t=>t.name==='get_danger_evidence'),response=await tool.execute('test',{}),risk=JSON.parse(response.content[0].text);

@@ -7,13 +7,13 @@ const crypto = require('node:crypto');
 const { stableHash } = require('../core.cjs');
 const { journal } = require('../durable.cjs');
 const { createSharedLedger, normalizeUsage, estimateCost, validateRates, redact } = require('../accounting.cjs');
-function openBudget({ directory, authorization, pricing, fetchImpl = fetch, secrets = [] }) {
-  if (authorization?.cap !== 50 || authorization.currency !== 'CNY' || authorization.approved !== true || !authorization.manifestId) throw new Error('This experiment requires the approved independent CNY 50 authorization');
+function openBudget({ directory, authorization, pricing, expectedCap = 50, fetchImpl = fetch, secrets = [] }) {
+  if (!Number.isFinite(expectedCap) || expectedCap <= 0 || authorization?.cap !== expectedCap || authorization.currency !== 'CNY' || authorization.approved !== true || !authorization.manifestId) throw new Error('This experiment requires the approved independent CNY budget');
   if (authorization.budgetDirectory && path.resolve(directory) !== path.resolve(authorization.budgetDirectory)) throw new Error('All preparation versions must use the same campaign budget directory');
   if (!validateRates(pricing?.rates) || !Number.isSafeInteger(pricing.inputBound) || pricing.inputBound < 1 || !Number.isSafeInteger(pricing.maxOutputTokens) || pricing.maxOutputTokens < 1 || pricing.currency !== 'CNY' || !pricing.model || !pricing.endpoint || !pricing.sourceSha256) throw new Error('Frozen pricing and full-context liability bound required');
   const binding = { authorization, pricing }, filename = path.join(directory, 'budget.json');
   fs.mkdirSync(directory, { recursive: true });
-  const ledger = createSharedLedger({ filename, cap: 50, currency: 'CNY', autonomous: true });
+  const ledger = createSharedLedger({ filename, cap: expectedCap, currency: 'CNY', autonomous: true });
   let log;
   try {
     log = journal(path.join(directory, 'attempts.jsonl'));

@@ -14,12 +14,13 @@ function harness(mode){
  const node=fixture(),mock=createMock({nodes:[node]},{tools:mode==='tools'}),requests=[];let llm=0;
  const fetchModel=async(url,options)=>{
   if(!url.startsWith('http://127.0.0.1')){llm++;requests.push(JSON.parse(options.body));
-   if((mode==='repair'||mode==='repair-fails')&&(llm===1||mode==='repair-fails'))return Response.json({choices:[{finish_reason:'stop',message:{content:'{"summary":"missing arrays"}'}}],usage:{prompt_tokens:100,completion_tokens:20}});
+   if((mode==='repair'||mode==='repair-fails')&&(llm===1||mode==='repair-fails'))return Response.json({choices:[{finish_reason:'stop',message:{content:'{"summary":"依据当前牌形弃牌。","reasons":["弃后维持听牌。"]}'}}],usage:{prompt_tokens:100,completion_tokens:20}});
+   if(mode==='invalid-envelope')return new Response('<html>upstream error</html>',{headers:{'content-type':'application/json'}});
    if(mode==='forbidden')return Response.json({choices:[{finish_reason:'stop',message:{content:'{"summary":"invalid override","reasons":[],"limitations":[],"action":"dahai"}'}}],usage:{prompt_tokens:100,completion_tokens:20}});
   }
   return mock.fetch(url,options);
  };
- const h=createProductHarness({versions:{prompt:16,facts:13},engineConfig:{model:'Yuchen1457-mortal-v4-582500',engineProfile:'yuchen-582500',endpoint:'http://127.0.0.1:17342/analyze',apiKey:'mock-engine'},llmConfig:{model:'deepseek-flash',endpoint:'https://api.deepseek.com/chat/completions',apiKey:'mock-llm'},fetchModel});
+ const h=createProductHarness({versions:{prompt:19,facts:14},engineConfig:{model:'Yuchen1457-mortal-v4-582500',engineProfile:'yuchen-582500',endpoint:'http://127.0.0.1:17342/analyze',apiKey:'mock-engine'},llmConfig:{model:'deepseek-flash',endpoint:'https://api.deepseek.com/chat/completions',apiKey:'mock-llm'},fetchModel});
  return {h,node,requests,count:()=>llm};
 }
 test('current workspace reaches production Worker/Pi and preserves tool continuation and final action',async ()=>{
@@ -27,9 +28,10 @@ test('current workspace reaches production Worker/Pi and preserves tool continua
   assert.equal(r.explanation.status,'completed',r.explanation.error);assert.equal(r.result.decision.tile,'9p');assert.equal(count(),2);assert.equal(h.traces[0].toolResults.length,1);
   assert.ok(requests[1].messages.some(m=>m.role==='tool'));assert.ok(h.traces[0].validateFinal);assert.ok(h.traces[0].formatRepairMessage);
 });
-test('one format repair recovers missing arrays through the original parser',async ()=>{
-  const {h,node,count}=harness('repair'),r=await h.worker.analyze(node.message,'test');
+test('one format repair recovers a missing limitations field through the original parser',async ()=>{
+  const {h,node,requests,count}=harness('repair'),r=await h.worker.analyze(node.message,'test');
   assert.equal(r.explanation.status,'completed',r.explanation.error);assert.equal(count(),2);assert.equal(r.result.decision.tile,'9p');
+  assert.match(requests[1].messages.at(-1).content,/\{"limitations":\[\],"summary":"原摘要","reasons":\[\]\}/);
 });
 test('unrepaired invalid JSON structure stops after one repair and retains the Mortal action',async ()=>{
  const {h,node,count}=harness('repair-fails'),r=await h.worker.analyze(node.message,'test');
@@ -39,26 +41,36 @@ test('forbidden action field stays a delivery failure and is never accepted as a
  const {h,node,count}=harness('forbidden'),r=await h.worker.analyze(node.message,'test');
  assert.equal(r.explanation.status,'failed');assert.equal(count(),1);assert.equal(r.result.decision.tile,'9p');
 });
-test('current v16 prompt and v13 facts send selected waits and confirmed yaku through Worker/Pi',async ()=>{
+test('an HTTP 200 with an unreadable response body does not trigger answer format repair',async ()=>{
+ const {h,node,count}=harness('invalid-envelope'),r=await h.worker.analyze(node.message,'test');
+ assert.equal(r.explanation.status,'failed');assert.equal(count(),1);assert.equal(r.result.decision.tile,'9p');
+});
+test('current prompt and facts send the shared shanten wording, selected waits and confirmed yaku through Worker/Pi',async ()=>{
  const {h,node}=harness('tools'),r=await h.worker.analyze(node.message,'test');
  const Explanation=require('../extension/contracts/engine-explanation.js'),trace=h.traces[0];
- assert.equal(trace.promptVersion,16);assert.ok(trace.systemPrompt.startsWith(Explanation.prompt));
+ assert.equal(trace.promptVersion,19);assert.ok(trace.systemPrompt.startsWith(Explanation.prompt));
  assert.ok(!trace.systemPrompt.includes('S1')&&!trace.systemPrompt.includes('S2')&&!trace.systemPrompt.includes('S3'));
  const text=trace.messages.at(-1).content,payload=JSON.parse(text.slice(text.indexOf('{')));
- assert.equal(payload.facts.format,'mortal-teaching-fact-card-v13');
+ assert.equal(payload.facts.format,'mortal-teaching-fact-card-v14');
  assert.deepEqual(payload.facts.handTileAvailability.columns,['牌','已见','未见上界']);
  assert.equal(payload.facts.explanationFocus.position,node.position);
  assert.equal(payload.facts.actionTransition.status,'available');
  assert.equal(payload.facts.actionTransition.discardedTile.code,'9p');
  assert.equal(payload.facts.actionTransition.discardMethod,'drawn-tile');
  assert.equal(payload.facts.actionTransition.shanten.change,'unchanged');
+ assert.equal(payload.facts.actionTransition.shantenWording,'弃牌后维持0向听（形状听牌）');
  assert.ok(payload.facts.hand.shape.isolatedTiles.some(t=>t.code==='9p'));
  assert.ok(payload.facts.situation.players.every(p=>Array.isArray(p.melds)));
- assert.match(trace.systemPrompt,/取舍无法确定时/);
+ assert.match(trace.systemPrompt,/取舍无法确定时，在limitations简述具体缺口/);
  assert.match(trace.systemPrompt,/只有对应集合确实仅一张/);
  assert.deepEqual(payload.facts.explanationFocus.discard.tenpai.shapeWaits,[['南(2z)',3]]);
+ assert.equal(payload.facts.explanationFocus.discard.waitState,'形状听牌');
+ assert.match(payload.facts.explanationFocus.discard.removedKindWording,/弃后暗手已无9筒/);
+ assert.deepEqual(payload.facts.explanationFocus.discard.tenpai.fixedYakuhaiSources,[]);
+ assert.equal(payload.facts.explanationFocus.discard.tenpai.verifiedWaitType,null);
+ assert.deepEqual(payload.facts.explanationFocus.discard.selectedKindIsolated,{before:true,after:false});
  assert.ok(payload.facts.explanationFocus.discard.tenpai.knownYakuByDiscard.some(row=>row.discard==='9筒(9p)'&&row.waits.some(([tile,yaku])=>tile==='南(2z)'&&yaku.includes('三色同顺'))));
- assert.equal(r.explanation.promptVersion,16);
+ assert.equal(r.explanation.promptVersion,19);
  for(const c of payload.facts.risk.candidates)for(const o of c.opponents){assert.ok(['confirmed','unknown'].includes(o.safety.status));assert.ok(Array.isArray(o.safety.evidence));}
 });
 test('neutral blind history preserves prior action and actual teaching excerpt without policy prose',()=>{

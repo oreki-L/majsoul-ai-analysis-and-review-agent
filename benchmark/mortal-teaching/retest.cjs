@@ -60,7 +60,7 @@ async function prepare(source, output) {
     smokeGate: { candidate: 'r3-json', required: 'real JSON-object HTTP + tool-call continuation + strict JSON delivery + reconciled usage; mock cannot pass', initialState: 'pending' },
     comparison: 'New results only; all 84 decisions were previously examined. This is development/regression, never held-out validation.',
     billing: 'Original authorization/pricing bytes; original shared ledger, including prior spend; no reset',
-    selection: 'Unchanged report.cjs development and regression adoption gates; completed blinded gpt-6.1-sol medium review required' };
+    selection: `Unchanged report.cjs development and regression adoption gates; completed blinded ${RULES.requiredModel} ${RULES.reasoningEffort} review required` };
   contract.batchId = stableHash(contract).slice(0, 16);
   fs.mkdirSync(output, { recursive: true });
   for (const file of COPIED) fs.copyFileSync(path.join(source, file), path.join(output, file), fs.constants.COPYFILE_EXCL);

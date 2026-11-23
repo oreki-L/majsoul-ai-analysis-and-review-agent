@@ -15,7 +15,7 @@ function fixture(t) {
   const sourceDirectory = path.join(directory, 'source'), targetDirectory = path.join(directory, 'target');
   const source = createQueue(sourceDirectory, 'old-dataset');
   const packet = source.add({ resultId: 'old-result', answer: '原始测试回答', facts: { snapshot: { hand: ['1m'] }, legalActions: ['1m'] } });
-  const attestation = { model: 'gpt-6.1-sol', reasoningEffort: 'medium', evidence: 'synthetic offline test',
+  const attestation = { model: 'gpt-6.2-sol', reasoningEffort: 'low', evidence: 'synthetic offline test',
     billing: { kind: 'included-in-subscription', additionalApiChargeCny: 0, evidence: 'synthetic offline test' } };
   const review = { blindId: packet.blindId, sourceHash: packet.sourceHash, rulesHash: packet.rulesHash, datasetHash: packet.datasetHash,
     model: attestation.model, reasoningEffort: attestation.reasoningEffort,

@@ -128,11 +128,11 @@ test('conflicting explanation contract and HTTP failure retain action; explicit 
   const w = setup(async () => fail ? Response.json({ choices: [{ message: { content: '{"summary":"bad","decision":{"tile":"1m"},"reasons":[],"limitations":[]}' } }] }) : answer());
   const first = await w.service.analyze(input(), 1);
   assert.equal(first.ok, true); assert.equal(first.result.decision.tile, '9p'); assert.equal(first.explanation.status, 'failed'); assert.equal(first.calls, 1);
-  assert.equal(first.explanation.promptVersion, 16);
+  assert.equal(first.explanation.promptVersion, 19);
   fail = false;
   const retry = await w.service.analyze({ provider: 'chat', discussionId: first.discussionRecord.id, retryExplanation: true, selection: { hand: true, game: true, rivers: 'all' } }, 1);
   assert.equal(retry.ok, true, retry.error); assert.equal(retry.explanation.status, 'completed'); assert.equal(w.requests.filter(x => x.url.includes('127.0.0.1')).length, 1);
-  assert.equal(retry.explanation.promptVersion, 16);
+  assert.equal(retry.explanation.promptVersion, 19);
   assert.equal((await w.discussions.get(first.discussionRecord.id)).analysis.explanation.status, 'completed');
 });
 test('cancelled paid explanation retains action, accounts unknown usage, cannot resurrect cleared history', async () => {
@@ -185,9 +185,9 @@ test('two follow-ups retain the original teaching and previous teaching answer w
     assert.equal(response.ok, true, response.error);
   }
   const body = w.requests.at(-1).options.body;
-  assert.match(body, /TEACHING_1/); assert.match(body, /TEACHING_2/); assert.match(body, /weak-example/);
+  assert.match(body, /引擎选择摸切9筒/); assert.match(body, /TEACHING_2/); assert.match(body, /weak-example/);
   const original = (await w.discussions.get(id)).analysis;
-  assert.equal(original.explanation.summary, 'TEACHING_1'); assert.equal(original.result.decision.tile, '9p');
+  assert.match(original.explanation.summary, /^引擎选择摸切9筒/); assert.equal(original.result.decision.tile, '9p');
 });
 
 test('first hybrid teaching receives isolated live history and pinned memory, engine never sees either', async () => {
