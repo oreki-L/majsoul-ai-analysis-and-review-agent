@@ -90,10 +90,10 @@ test('discarded red five cannot form an after-discard group and fixed dragon yak
  const d=buildFactCard(s,action('0m',true)).explanationFocus.discard;
  assert.match(d.removedKindWording,/弃后暗手已无5万/);
  assert.deepEqual(d.tenpai.shapeWaits.map(([tile])=>tile),['3筒(3p)','4筒(4p)']);
- assert.deepEqual(d.tenpai.fixedYakuhaiSources,['明刻「中」提供役牌（三元牌），与补牌或雀头无关']);
+ assert.deepEqual(d.fixedYakuhaiSources,['明刻「中」提供役牌（三元牌），与补牌或雀头无关']);
  s.game.players[0].melds[0]={type:3,tiles:['7z','7z','7z','7z'],froms:[]};
- assert.match(buildFactCard(s,action('0m',true)).explanationFocus.discard.tenpai.fixedYakuhaiSources[0],/^暗杠「中」/);
- assert.equal(buildFactCard(base('123m123p123s55z789p'),action('9p')).explanationFocus.discard.tenpai.fixedYakuhaiSources.length,0);
+ assert.match(buildFactCard(s,action('0m',true)).explanationFocus.discard.fixedYakuhaiSources[0],/^暗杠「中」/);
+ assert.equal(buildFactCard(base('123m123p123s55z789p'),action('9p')).explanationFocus.discard.fixedYakuhaiSources.length,0);
 });
 test('transition never guesses unavailable efficiency, unspecified discard method, missing reach followup or a post-call hand',()=>{
  const s=base(),unavailable=buildFactCard(s,{action:{type:'dahai',pai:'9p'}},{efficiency:{status:'unavailable',candidates:[]},danger:{candidates:[]}});
@@ -126,7 +126,11 @@ test('same-shanten ranking identifies unique, tied, lower and singleton cases an
  assert.equal(card([[0,8],[0,7],[0,5]]).sameShantenUnseen.conclusion,'唯一最高');
  const tie=card([[0,8],[0,8],[0,5]]).sameShantenUnseen;
  assert.equal(tie.conclusion,'并列最高');assert.equal(tie.tiedWithOtherDiscards.length,1);
- assert.equal(card([[0,5],[0,8],[0,7]]).sameShantenUnseen.conclusion,'非最高');
+ const below = card([[0,5],[0,8],[0,8],[1,10]]).sameShantenUnseen;
+ const labels = candidates.slice(1,3).map(r => require('../extension/contracts/snapshot.js').label(r.tile));
+ assert.equal(below.conclusion,'非最高');
+ assert.ok(below.wording.endsWith(`同档切${labels.join('、')}为最高8枚`));
+ assert.ok(tie.wording.includes(`与切${labels[0]}并列0向听档最高`));
  assert.equal(card([[0,5],[1,8],[1,7]]).sameShantenUnseen.conclusion,'该向听档只有这一项');
  assert.equal(card([[0,5]],true),null);
 });

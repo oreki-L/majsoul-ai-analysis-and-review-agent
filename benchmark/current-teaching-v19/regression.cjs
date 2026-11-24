@@ -41,7 +41,8 @@ const checkFacts = (id, facts) => {
   }
 };
 
-run(process.argv.slice(2), { prompt: 19, facts: 14 }, {
+if (require.main === module) run(process.argv.slice(2), { prompt: 19, facts: 14 }, {
   questions, checkFacts,
   priorRound: { directory: 'current-teaching-v18-ready-20261123', hash: 'e44fe052f76598e35a3aa5f4ae8e429c227dea4b48d8609ee1b7748aa0eed593' }
 });
+module.exports = { questions, checkFacts };

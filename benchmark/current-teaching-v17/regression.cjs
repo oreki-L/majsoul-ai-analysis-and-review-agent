@@ -41,7 +41,7 @@ async function main([mode, evidenceArg, outputArg, ...extra], versions = default
   function makePlan(s, out, cap) {
     assert.equal(cap, 10);
     const extraControls = Object.fromEntries(prior.jobs.filter(j => j.protection).map(j => [j.nodeId, j.protection]));
-    const extraCode = ['benchmark/current-teaching-v17/regression.cjs'];
+    const extraCode = ['benchmark/current-teaching-v17/regression.cjs', ...(expansion?.extraCode ?? [])];
     if (versions.prompt !== defaultVersions.prompt) extraCode.push(`benchmark/current-teaching-v${versions.prompt}/regression.cjs`);
     const prepared = plan(s, out, cap, { versions, selection: { extraControls }, extraCode });
     for (const key of ['datasetHash', 'sourceHashes', 'binding', 'rules']) assert.deepEqual(prepared.manifest[key], prior[key]);

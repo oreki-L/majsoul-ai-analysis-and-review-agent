@@ -20,7 +20,7 @@ function harness(mode){
   }
   return mock.fetch(url,options);
  };
- const h=createProductHarness({versions:{prompt:19,facts:14},engineConfig:{model:'Yuchen1457-mortal-v4-582500',engineProfile:'yuchen-582500',endpoint:'http://127.0.0.1:17342/analyze',apiKey:'mock-engine'},llmConfig:{model:'deepseek-flash',endpoint:'https://api.deepseek.com/chat/completions',apiKey:'mock-llm'},fetchModel});
+ const h=createProductHarness({versions:{prompt:20,facts:15},engineConfig:{model:'Yuchen1457-mortal-v4-582500',engineProfile:'yuchen-582500',endpoint:'http://127.0.0.1:17342/analyze',apiKey:'mock-engine'},llmConfig:{model:'deepseek-flash',endpoint:'https://api.deepseek.com/chat/completions',apiKey:'mock-llm'},fetchModel});
  return {h,node,requests,count:()=>llm};
 }
 test('current workspace reaches production Worker/Pi and preserves tool continuation and final action',async ()=>{
@@ -48,10 +48,10 @@ test('an HTTP 200 with an unreadable response body does not trigger answer forma
 test('current prompt and facts send the shared shanten wording, selected waits and confirmed yaku through Worker/Pi',async ()=>{
  const {h,node}=harness('tools'),r=await h.worker.analyze(node.message,'test');
  const Explanation=require('../extension/contracts/engine-explanation.js'),trace=h.traces[0];
- assert.equal(trace.promptVersion,19);assert.ok(trace.systemPrompt.startsWith(Explanation.prompt));
+ assert.equal(trace.promptVersion,20);assert.ok(trace.systemPrompt.startsWith(Explanation.prompt));
  assert.ok(!trace.systemPrompt.includes('S1')&&!trace.systemPrompt.includes('S2')&&!trace.systemPrompt.includes('S3'));
  const text=trace.messages.at(-1).content,payload=JSON.parse(text.slice(text.indexOf('{')));
- assert.equal(payload.facts.format,'mortal-teaching-fact-card-v14');
+ assert.equal(payload.facts.format,'mortal-teaching-fact-card-v15');
  assert.deepEqual(payload.facts.handTileAvailability.columns,['牌','已见','未见上界']);
  assert.equal(payload.facts.explanationFocus.position,node.position);
  assert.equal(payload.facts.actionTransition.status,'available');
@@ -66,11 +66,11 @@ test('current prompt and facts send the shared shanten wording, selected waits a
  assert.deepEqual(payload.facts.explanationFocus.discard.tenpai.shapeWaits,[['南(2z)',3]]);
  assert.equal(payload.facts.explanationFocus.discard.waitState,'形状听牌');
  assert.match(payload.facts.explanationFocus.discard.removedKindWording,/弃后暗手已无9筒/);
- assert.deepEqual(payload.facts.explanationFocus.discard.tenpai.fixedYakuhaiSources,[]);
+ assert.deepEqual(payload.facts.explanationFocus.discard.fixedYakuhaiSources,[]);
  assert.equal(payload.facts.explanationFocus.discard.tenpai.verifiedWaitType,null);
  assert.deepEqual(payload.facts.explanationFocus.discard.selectedKindIsolated,{before:true,after:false});
  assert.ok(payload.facts.explanationFocus.discard.tenpai.knownYakuByDiscard.some(row=>row.discard==='9筒(9p)'&&row.waits.some(([tile,yaku])=>tile==='南(2z)'&&yaku.includes('三色同顺'))));
- assert.equal(r.explanation.promptVersion,19);
+ assert.equal(r.explanation.promptVersion,20);
  for(const c of payload.facts.risk.candidates)for(const o of c.opponents){assert.ok(['confirmed','unknown'].includes(o.safety.status));assert.ok(Array.isArray(o.safety.evidence));}
 });
 test('neutral blind history preserves prior action and actual teaching excerpt without policy prose',()=>{
