@@ -48,7 +48,8 @@ async function main(args = process.argv.slice(2)) {
     const output = path.resolve(a.out), contract = require('./freeze.cjs').verifyRun(output);
     const release = require('./durable.cjs').acquireLock(path.join(output, 'review.lock'), true);
     try {
-      const queue = require('./review.cjs').createReviewQueue(output, contract.hash);
+      const rules = contract.reviewRules ? JSON.parse(fs.readFileSync(path.join(output, contract.reviewRules.path), 'utf8')) : undefined;
+      const queue = require('./review.cjs').createReviewQueue(output, contract.hash, rules);
       if (a.command === 'review-import') { if (!a.human) throw new Error('--human independent review file required'); queue.importResults(JSON.parse(fs.readFileSync(a.human, 'utf8')).results); }
       await require('./autonomous.cjs').refresh(output, null, queue, a.labels ? loadLabels(a.labels) : null);
     } finally { release(); }

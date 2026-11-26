@@ -47,8 +47,12 @@ async function runJobs(raw, options = {}) {
     if (!options.resume && fs.existsSync(checkpoint)) throw new Error('Job checkpoint exists; explicit resume required');
     if (prior && (prior.fingerprint !== fingerprint || Object.values(prior.requests).some(r => r.status === 'pending') || prior.ledger?.unknownLiability || prior.ledger?.blockedReason || prior.ledger?.reserved)) throw new Error('Job resume mismatch or unresolved paid liability; replay prohibited');
     const trustedLiabilityContracts = deriveTrustedLiabilityContracts(manifest.models);
-    ledger = options.budgetFile ? createSharedLedger({ filename: options.budgetFile, ...manifest.budget, trustedLiabilityContracts }) : createLedger({ ...manifest.budget, initial: prior?.ledger, trustedLiabilityContracts });
-    const state = prior ?? { schemaVersion: 1, fingerprint, authorizationHash, manifestId: manifest.id, mode, synthetic: mode === 'mock', sourceFreezeHash: manifest.sourceFreezeHash, requests: {}, results: [], status: 'running' }, secrets = [];
+    ledger = options.budgetFile ? createSharedLedger({ filename: options.budgetFile, ...manifest.budget, trustedLiabilityContracts, autonomous: true }) : createLedger({ ...manifest.budget, initial: prior?.ledger, trustedLiabilityContracts });
+    if (options.budgetFile && prior?.ledger) {
+      const shared = ledger.snapshot();
+      if (shared.nextId < prior.ledger.nextId || shared.estimatedCost + 1e-12 < prior.ledger.estimatedCost || stableHash(shared.records.slice(0, prior.ledger.records.length)) !== stableHash(prior.ledger.records)) throw new Error('Shared campaign budget no longer contains job checkpoint accounting; audited recovery required');
+    }
+    const state = prior ?? { schemaVersion: 1, runId: crypto.randomUUID(), fingerprint, authorizationHash, manifestId: manifest.id, mode, synthetic: mode === 'mock', sourceFreezeHash: manifest.sourceFreezeHash, requests: {}, results: [], status: 'running' }, secrets = [];
     const resolveCredential = mode === 'live' ? options.credentialResolver ?? createCredentialResolver({ credentialsFile: options.credentialsFile, authorization: options.authorization }) : null;
     const credentialResolver = resolveCredential ? async ref => { const key = await resolveCredential(ref); secrets.push(key); return key; } : null;
     function persist() { state.ledger = ledger.snapshot(); saveAtomic(checkpoint, state, secrets); }
@@ -58,12 +62,12 @@ async function runJobs(raw, options = {}) {
       if (ledger.snapshot().unknownLiability || ledger.snapshot().blockedReason) break;
       const started = Date.now(), model = { ...manifest.models[job.modelId], credentialAlias: job.credentialAlias };
       state.requests[job.id] = { status: 'pending', role: 'probe-summary-preparation', schemeId: job.schemeId }; persist();
-      const transport = createTransport({ model, mode: mode === 'live' ? 'real' : 'mock', ledger, credentialResolver, fetch: options.fetch,
+      const transport = createTransport({ runIdentity: state.runId, model, mode: mode === 'live' ? 'real' : 'mock', ledger, credentialResolver, fetch: options.fetch,
         beforeRequest: ({ requestBody }) => { persist(); fs.appendFileSync(path.join(output, 'requests.private.jsonl'), JSON.stringify(scrub({ jobId: job.id, body: requestBody }, secrets)) + '\n'); },
         onAttempt: ({ attempt, responseMessage }) => { persist(); fs.appendFileSync(path.join(output, 'responses.private.jsonl'), JSON.stringify(scrub({ jobId: job.id, attempt, responseMessage }, secrets)) + '\n'); }
       });
       try {
-        const response = await transport.runModel({ messages: job.descriptor.messages, tools: [], timeoutMs: manifest.timeoutMs ?? 180000, maxModelRequests: null, maxToolCalls: 0, meta: { requestId: job.id, schemeId: job.schemeId, role: 'probe-summary-preparation', campaignKind: 'probe-preparation', channel: 'realtime', modelId: job.modelId, keyAlias: job.credentialAlias, credentialAlias: job.credentialAlias }, mockText: job.descriptor.mockText ?? 'SYNTHETIC cold summary; never formal evidence.' });
+        const response = await transport.runModel({ messages: job.descriptor.messages, tools: [], timeoutMs: manifest.timeoutMs ?? 180000, maxModelRequests: null, maxToolCalls: 0, meta: { runId: state.runId, requestId: job.id, schemeId: job.schemeId, role: 'probe-summary-preparation', campaignKind: 'probe-preparation', channel: 'realtime', modelId: job.modelId, keyAlias: job.credentialAlias, credentialAlias: job.credentialAlias }, mockText: job.descriptor.mockText ?? 'SYNTHETIC cold summary; never formal evidence.' });
         if (job.descriptor.outputSchema) require('./discussion-policies.cjs').validateTypedSummary(response.text, job.descriptor);
         const record = { ...job.descriptor, text: response.text, schemeId: job.schemeId, preparedForDecisionId: job.decisionId, coldPreparationMs: Date.now() - started, actualOnlineLatency: false, synthetic: mode === 'mock' };
         state.results.push(record); state.requests[job.id] = { status: 'success', responseTextHash: stableHash(response.text), attempts: transport.attempts, latencyMs: Date.now() - started };
