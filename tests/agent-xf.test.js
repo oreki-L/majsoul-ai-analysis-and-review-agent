@@ -50,13 +50,47 @@ test('X-F restores misplaced limitations for result and history without requeryi
 test('X-F still rejects conflicting fields, duplicate keys, and invalid decisions', async () => {
   const s = snapshot(2), ctx = session(s), raw = misplaced();
   const duplicate = JSON.stringify(raw).replace('"tile":"0p"', '"t\\u0069le":"1p","tile":"0p"');
-  const conflicting = JSON.stringify({ ...raw, limitations: ['Top-level note.'] });
   const illegal = JSON.stringify({ ...raw, decision: { ...raw.decision, tile: '7z' } });
   const unknownField = JSON.stringify({ ...raw, decision: { ...raw.decision, note: 'Extra field.' } });
   const fenced = '```json\n' + JSON.stringify(raw) + '\n```';
-  for (const responseText of [duplicate, conflicting, illegal, unknownField, fenced]) {
+  for (const responseText of [duplicate, illegal, unknownField, fenced]) {
     await assert.rejects(capture(s, ctx, { responseText }), /limitations|未支持的字段/);
   }
+});
+
+test('X-F repairs complete extended layouts and preserves choice, reasons and limitations', async () => {
+  const s = snapshot(2), ctx = session(s), raw = misplaced();
+  const cases = [
+    { ...raw, limitations: ['Top-level note.', 'Risk unknown.'] },
+    { ...raw, decision: { ...raw.decision, reasons_note: null, tileNote: null, actionNote: '' } },
+  ];
+  for (const value of cases) {
+    const { result } = await capture(s, ctx, { responseText: JSON.stringify(value) });
+    assert.deepEqual(result.result.decision, { action: 'unknown', tile: '0p', reasons: ['Keep the pair.'] });
+    assert.deepEqual(result.result.limitations, value.limitations ? ['Top-level note.', 'Risk unknown.', 'Upper bound only.'] : raw.decision.limitations);
+    assert.deepEqual(JSON.parse(result.sessionTurn.answer), result.result);
+  }
+  const missingClose = JSON.stringify(raw).slice(0, -1);
+  const earlyClose = JSON.stringify({ task: raw.task, danger: raw.danger, efficiency: raw.efficiency }).slice(0, -1) + '}],"decision":' + JSON.stringify({ action: 'unknown', tile: '0p', reasons: ['Keep the pair.'] }) + ',"limitations":["Risk unknown."]}';
+  for (const responseText of [missingClose, earlyClose]) {
+    const { result } = await capture(s, ctx, { responseText });
+    assert.equal(result.result.decision.tile, '0p');
+    assert.deepEqual(result.result.decision.reasons, ['Keep the pair.']);
+  }
+});
+
+test('X-F repair rejects ambiguous fields, truncation, duplicate keys and unsupported safety', async () => {
+  const s = snapshot(2), ctx = session(s), raw = misplaced();
+  const cases = [
+    JSON.stringify({ ...raw, decision: { ...raw.decision, actionNote: 'meaningful' } }),
+    JSON.stringify({ ...raw, decision: { ...raw.decision, reasons_note: '' } }),
+    JSON.stringify({ ...raw, limitations: [''], decision: raw.decision }),
+    JSON.stringify(raw).replace('"tile":"0p"', '"t\\u0069le":"1p","tile":"0p"'),
+    JSON.stringify(raw).slice(0, -5),
+    JSON.stringify({ ...raw, danger: [{ tile: '0p', opponents: [{ seat: 1, level: 'safe', reasons: ['safe'] }] }] }),
+    JSON.stringify({ ...raw, decision: { ...raw.decision, tile: '7z', actionNote: null } }),
+  ];
+  for (const responseText of cases) await assert.rejects(capture(s, ctx, { responseText }));
 });
 
 test('X-F hashes match SHA-256 canonical JSON in Node and browser globals', () => {
@@ -126,4 +160,19 @@ test('unsupported tasks and revoked fields use NED; manual and question lanes re
     assert.match(sent.messages[0].content, /本小局已授权初始基线/);
     assert.doesNotMatch(JSON.stringify(sent.messages), /当前确定性事实目录/);
   }
+});
+test('X-F current card compares legal candidates and opponent-scoped evidence', async () => {
+  const s = snapshot(2), ctx = session(s), { sent } = await capture(s, ctx);
+  const card = parse(sent.messages.find(m => m.content.startsWith('本次局面的核对卡')));
+  const prepared = A.prepare(C.cleanSnapshot(s), 'combined');
+  assert.deepEqual(card.efficiency.map(row => row[0]), prepared.data.outputConstraints.legalDiscards);
+  assert.equal(card.position, s.lastStep);
+  assert.equal(card.discardComparison.perDiscard.length, card.efficiency.length);
+  for (const [tile, , seats] of card.discardComparison.perDiscard) {
+    const evidence = prepared.data.localAnalysis.danger.candidates.find(c => c.tile === tile);
+    assert.deepEqual(seats, evidence.opponents.filter(o => o.riverAvailable && o.genbutsu).map(o => o.seat));
+  }
+  assert.match(sent.systemPrompt, /全部限制写在顶层 limitations/);
+  const followup = await capture(s, ctx, { question: 'Why?' });
+  assert.equal(followup.sent.messages.some(m => m.content.startsWith('本次局面的核对卡')), false);
 });

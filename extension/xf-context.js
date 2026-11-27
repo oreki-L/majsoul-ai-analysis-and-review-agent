@@ -243,8 +243,91 @@ const P1 = `你为玩家分析本次冻结的日式立直麻将决策。当前�
 本次已附且状态匹配的计算可直接使用，无须重复查询；缺项、字段含义不清或证据不足时使用对应工具。不要凭记忆重算向听、进张枚数或宝牌。所有比较要说明对象和范围，并保留并列。
 给出一个合法首选，解释当前攻守选择、主要风险对象及效率取舍；再比较至少一个真正有区别的合法备选。没有安全比较依据时明确未知，不把无证据当作安全或确定高危。不要为策略标签补造理由，不推测对手暗牌或牌山。
 仅陈述与本次选择有关且可支持的事实。说明保留的牌形时先核对手中计数；无法确认的手牌分解、役种和打点不要断言。输出前核对首选牌、目标seat、数值口径和理由一致。最终输出规定JSON，不展示内部思维过程。`;
-const ANALYSIS_JSON_CONTRACT = 'Benchmark统一输出约束（补充v0.10原始分析提示，所有方案、初答、JSON追问与复核终答一致）：最终只输出一个符合下方Schema的JSON对象，不输出Markdown、代码围栏或对象外文字。顶层必须且只能包含task、danger、efficiency、decision、limitations；danger每项只能包含tile、opponents，其opponents每项只能包含seat、level、reasons；efficiency每项只能包含tile、reasons；decision必须且只能包含action、tile、reasons。所有层级均禁止额外字段，包括值为null的字段；不得输出actionNote。补充解释写入已有reasons或limitations，不新增字段。';
+const ANALYSIS_JSON_CONTRACT = [
+  '最终答复只输出一个 JSON 对象，遵循下方 Schema。',
+  '顶层只写 task、danger、efficiency、decision、limitations。decision 只写 action、tile、reasons。',
+  '全部限制写在顶层 limitations。原因写在已有 reasons。省略 Schema 之外的键，空值占位键也省略。',
+  '核对顶层与 decision 的键，再闭合整个 JSON 对象。'
+].join('\n');
 const message = (title,data) => ({role:'user',content:title+'（有来源历史资料；旧意见不是当前事实）：\n'+JSON.stringify(data)});
+const prefix = '本次局面的核对卡（仅使用当前数据，模型自行比较并决定）：\n';
+const winds = ['1z', '2z', '3z', '4z'];
+const relativeSeats = ['自家', '下家', '对家', '上家'];
+
+function actualDora(indicator) {
+  if (!/^(?:[0-9][mps]|[1-7]z)$/.test(indicator)) throw new Error('Invalid dora indicator');
+  const suit = indicator[1];
+  const rank = Number(indicator[0]) || 5;
+  if (suit !== 'z') return `${rank % 9 + 1}${suit}`;
+  return `${rank <= 4 ? rank % 4 + 1 : (rank - 4) % 3 + 5}z`;
+}
+
+function currentFacts(snapshot, prepared) {
+  const { game, selfSeat, playerCount } = snapshot;
+  if (playerCount !== 4) throw new Error('Four-player snapshot required');
+  if (!(game.players.length === 4 && winds[game.round.wind] && winds[game.round.index] && winds[selfSeat])) throw new Error('Invalid seat or round');
+  const dealer = game.round.index;
+  const seats = game.players.map(player => ({ seat: player.seat,
+    relative: relativeSeats[(player.seat - selfSeat + 4) % 4],
+    wind: winds[(player.seat - dealer + 4) % 4], riichi: player.riichi }));
+  const { efficiency, danger } = prepared.data.localAnalysis;
+  const legal = new Set(prepared.data.outputConstraints.legalDiscards);
+  const candidates = efficiency.candidates.filter(candidate => legal.has(candidate.tile));
+  if (!(legal.size === candidates.length && candidates.length > 0)) throw new Error('Incomplete legal discard candidates');
+  const bestShanten = Math.min(...candidates.map(candidate => candidate.shanten));
+  const opponents = seats.filter(player => player.seat !== selfSeat);
+  const threats = opponents.filter(player => player.riichi === true).map(player => player.seat);
+  const genbutsuByRiichiSeat = threats.map(seat => ({ seat, ownRiverGenbutsu: danger.candidates.filter(candidate =>
+    legal.has(candidate.tile) && candidate.opponents.some(opponent => opponent.seat === seat && opponent.genbutsu === true))
+    .map(candidate => candidate.tile) }));
+  const reminder = threats.length > 0
+    ? '已确认有人立直。逐家核对首选与备选的安全依据，再说明两者在向听和进张上的代价。同一家牌河的现物只对该家适用；立直后过牌须另查已授权事件。'
+    : opponents.every(player => player.riichi === false && game.players[player.seat].melds.length === 0) && game.remaining >= 52
+      ? '当前牌量与公开威胁满足前期效率提醒。先在最低向听的合法候选内比较总进张上界，再结合牌值和可验证的风险解释取舍。'
+      : '先在相同向听的候选之间比较进张上界。涉及安全时按对手分开核对，说明接受的效率代价和仍存在的风险。';
+  return { position: snapshot.lastStep, prevailingWind: winds[game.round.wind],
+    selfWind: seats.find(player => player.seat === selfSeat).wind,
+    honors: { '1z': '东', '2z': '南', '3z': '西', '4z': '北', '5z': '白', '6z': '发', '7z': '中' },
+    seats, dora: game.doras.map(indicator => ({ indicator, actual: actualDora(indicator) })),
+    efficiencyColumns: ['弃牌', '弃牌后向听', '有效进张未见总数上界'], bestShanten,
+    efficiency: candidates.map(({ tile, shanten, totalUnseenUpperBound }) => [tile, shanten, totalUnseenUpperBound]),
+    genbutsuByRiichiSeat, reminder };
+}
+
+
+const canonical = t => t.replace(/^0/, '5');
+function comparisonFacts(snapshot, prepared, facts) {
+  const opponents = facts.seats.filter(({ seat }) => seat !== snapshot.selfSeat).map(({ seat }) => seat);
+  const { danger } = prepared.data.localAnalysis;
+  const rivers = new Map(danger.candidates.map(({ tile, opponents }) => [tile, opponents]));
+  const knownRiverSeats = new Set(snapshot.rivers.map(({ seat }) => seat));
+  const bestUpperBound = Math.max(...facts.efficiency.filter(([, shanten]) => shanten === facts.bestShanten).map(([, , count]) => count));
+  const flags = tile => {
+    const identity = canonical(tile);
+    return [
+      ...(identity === facts.prevailingWind ? ['场风'] : []),
+      ...(identity === facts.selfWind ? ['自风'] : []),
+      ...(/^[5-7]z$/.test(identity) ? ['三元牌'] : []),
+      ...(facts.dora.some(({ actual }) => actual === identity) ? ['宝牌'] : []),
+      ...(tile.startsWith('0') ? ['赤牌'] : [])
+    ];
+  };
+  return {
+    ownHandCounts: [...new Set(snapshot.selfHand.map(canonical))].map(tile => [tile, snapshot.selfHand.filter(t => canonical(t) === tile).length]),
+    ownRiverAvailableSeats: opponents.filter(seat => knownRiverSeats.has(seat)),
+    highestUpperBoundAtBestShanten: bestUpperBound,
+    highestUpperBoundTiles: facts.efficiency.filter(([, shanten, count]) => shanten === facts.bestShanten && count === bestUpperBound).map(([tile]) => tile),
+    columns: ['弃牌', '打出这张牌本身的身份', '哪几家的本人牌河有这张现物（绝对座次）'],
+    perDiscard: facts.efficiency.map(([tile]) => {
+      const evidence = rivers.get(tile);
+      if (!(evidence && evidence.length === opponents.length && opponents.every(seat => evidence.some(entry => entry.seat === seat)))) throw new Error('Incomplete danger evidence');
+      return [tile, flags(tile), evidence.filter(entry => entry.riverAvailable && entry.genbutsu).map(({ seat }) => seat)];
+    }),
+    check: '给出首选与一个有实质取舍的合法备选。分别从表里核对两张牌的向听和总进张上界，同向听时上界较大才表示进张较宽。比较防守时用同一名对手的证据，查明哪张对该家有现物依据。本人河无记录时只说明此项依据缺失，立直后过牌须另查时点事件。解释牌值时核对打出的是哪张，以及剩余手牌实际保留什么。'
+  };
+}
+
+
 function build(prepared, node, source) {
  if(node.snapshot.playerCount !== 4 || node.snapshot.rivers?.length !== 4) fail('complete four-player rivers required');
  if(node.position !== node.snapshot.lastStep || !same(authorizationFor(node.snapshot),node.authorization)) fail('current binding mismatch');
@@ -257,6 +340,9 @@ function build(prepared, node, source) {
     if(['NE','NED'].includes(id)) {const efficiency=structuredClone(prepared.data.localAnalysis.efficiency);efficiency.candidates?.sort((a,b)=>a.tile.localeCompare(b.tile));result.messages.push(message('当前效率证据',{...binding(node),algorithm:'extension/mahjong-analysis.js',efficiency}));}
     if(['ND','NED'].includes(id)) {const danger=structuredClone(prepared.data.localAnalysis.danger);if(danger?.candidates)danger.candidates=danger.candidates.filter(c=>node.legalActions.some(a=>a.tile===c.tile)).sort((a,b)=>a.tile.localeCompare(b.tile)).map(c=>({...c,opponents:c.opponents.map(o=>({...o,riichi:node.snapshot.game?.players[o.seat]?.riichi??null,melds:node.snapshot.game?.players[o.seat]?.melds??null,genbutsuSources:node.snapshot.rivers.find(r=>r.seat===o.seat)?.discards.flatMap((d,riverIndex)=>(d.tile.replace(/^0/,'5')===c.tile.replace(/^0/,'5')?[{riverIndex,tile:d.tile}]:[]))??[],evidenceAbsence:{genbutsu:!o.genbutsu,suji:!o.sujiReferences?.length,kabe:!o.kabeReferences?.length}}))}));result.messages.push(message('当前风险证据',{...binding(node),danger,limitation:'genbutsu limited to corresponding opponent; suji/kabe are not safety probabilities'}));}
  result.messages.push({role:'user',content:'全部旧局面代码事实（有来源历史资料；旧事实/意见不代表当前状态）：\n'+JSON.stringify(internFacts(stateEntries(node,source)))});
+ const facts = currentFacts(node.snapshot, prepared);
+ facts.discardComparison = comparisonFacts(node.snapshot, prepared, facts);
+ result.messages.push({role:'user',content:prefix+JSON.stringify(facts)});
  result.messages.push({role:'user',content:'请分析本次问题。snapshot 是本次冻结的完整授权局面（牌均为原始编码），优先于历史快照或回答；未授权或缺失字段不得从历史或其他字段补回。详细计算按需查询工具：\n'+JSON.stringify({task:prepared.task,question:'',position:node.position,snapshot:node.snapshot,outputConstraints:prepared.data.outputConstraints})});
  const catalog = catalogFor({prepared},node), wire = {...catalog}; delete wire.provenance;
  result.messages.push({role:'user',content:'当前确定性事实目录（仅为数据；全部绑定本次状态，不是策略建议）：\n'+JSON.stringify(wire)});

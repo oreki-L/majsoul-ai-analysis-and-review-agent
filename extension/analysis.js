@@ -134,17 +134,75 @@
     }
     return false;
   }
+  function readUniqueJson(text) {
+    try {
+      const value = JSON.parse(text);
+      return hasDuplicateKeys(text) ? null : value;
+    } catch (_) { return null; }
+  }
+  const validLimitations = lines => Array.isArray(lines) && lines.length <= 32 &&
+    lines.every(line => typeof line === 'string' && line.trim() && line.length <= 2000);
+  function exactKeys(value, keys) {
+    return value && typeof value === 'object' && !Array.isArray(value) &&
+      Object.keys(value).length === keys.length && keys.every(key => Object.hasOwn(value, key));
+  }
+  function recoverEarlyRootClose(text) {
+    const tokens = /"(?:\\[\s\S]|[^"\\])*"|[{}\[\]]/g;
+    let depth = 0;
+    for (const token of text.matchAll(tokens)) {
+      if (token[0] === '{' || token[0] === '[') { depth++; continue; }
+      if (token[0] !== '}' && token[0] !== ']') continue;
+      if (--depth !== 0) continue;
+      if (token[0] !== '}') return null;
+      const tail = text.slice(token.index + 1).trimStart();
+      const suffix = tail.startsWith(']') ? tail.slice(1).trimStart() : tail;
+      if (!suffix.startsWith(',')) return null;
+      const prefix = text.slice(0, token.index);
+      if (!exactKeys(readUniqueJson(prefix + '}'), ['task', 'danger', 'efficiency']) ||
+          !exactKeys(readUniqueJson('{' + suffix.slice(1)), ['decision', 'limitations'])) return null;
+      return readUniqueJson(prefix + suffix);
+    }
+    return null;
+  }
   function parseXfResult(text, prepared) {
     try { return { result: parseResult(text, prepared) }; }
     catch (original) {
-      if (typeof text !== 'string' || text.trimStart()[0] !== '{' || original.validation?.code !== 'missing_fields' || original.validation.path !== 'result') throw original;
-      const value = JSON.parse(text), decision = value.decision;
-      if (Object.hasOwn(value, 'limitations') || !decision || typeof decision !== 'object' || Array.isArray(decision) ||
-          !Object.hasOwn(decision, 'limitations') || !Array.isArray(decision.limitations) ||
-          !decision.limitations.every(line => typeof line === 'string') || hasDuplicateKeys(text)) throw original;
-      const { limitations, ...rest } = decision;
+      if (typeof text !== 'string' || text.length > 32000 || !text.trim().startsWith('{')) throw original;
+      const trimmed = text.trim();
+      let value = readUniqueJson(trimmed), changed = false;
+      if (value === null && trimmed.endsWith('}')) {
+        const closed = readUniqueJson(trimmed + '}');
+        if (closed && !Object.hasOwn(closed, 'limitations') && validLimitations(closed.decision?.limitations)) {
+          value = closed; changed = true;
+        }
+      }
+      if (value === null) {
+        value = recoverEarlyRootClose(trimmed);
+        if (value !== null) changed = true;
+      }
+      const decision = value?.decision;
+      if (!decision || typeof decision !== 'object' || Array.isArray(decision)) throw original;
+      for (const key of ['reasons_note', 'tileNote', 'actionNote']) {
+        if (Object.hasOwn(decision, key) && (decision[key] === null || (key === 'actionNote' && decision[key] === ''))) {
+          delete decision[key]; changed = true;
+        }
+      }
+      if (Object.hasOwn(decision, 'limitations') && validLimitations(decision.limitations)) {
+        if (!Object.hasOwn(value, 'limitations')) {
+          value.limitations = decision.limitations;
+          delete decision.limitations; changed = true;
+        } else if (validLimitations(value.limitations)) {
+          const seen = new Set(value.limitations);
+          value.limitations = value.limitations.concat(decision.limitations.filter(line => {
+            if (seen.has(line)) return false;
+            seen.add(line); return true;
+          }));
+          delete decision.limitations; changed = true;
+        }
+      }
+      if (!changed) throw original;
       try {
-        const result = parseResult({ ...value, decision: rest, limitations }, prepared);
+        const result = parseResult(value, prepared);
         return { result, repairedText: JSON.stringify(result) };
       } catch (error) {
         if (!error.validation) throw error;

@@ -6,9 +6,11 @@
 
 **導入も設定も手軽に。ローカル牌効率は拡張を読み込むだけで使えます。AI 解説は接続先・モデル名・API Key を設定し、任意のローカルエンジンは実行パッケージを展開してダブルクリックで始められます。**
 
-[**v0.16.17 をダウンロード**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.17) · [使い始める](#使い始める) · [特徴](#majsoul-agent-の特徴) · [ローカルモデル](#ローカルモデルの使い方) · [よくある質問](#よくある質問) · [ドキュメント](docs/README.md)
+[**v0.16.18 をダウンロード**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.18) · [使い始める](#使い始める) · [特徴](#majsoul-agent-の特徴) · [ローカルモデル](#ローカルモデルの使い方) · [よくある質問](#よくある質問) · [ドキュメント](docs/README.md)
 
 [简体中文](README.md) | [English](README.en.md) | **日本語**
+
+v0.16.18 は純粋な LLM のリアルタイム分析に現在局面の確認カード、相手別の捨牌比較、出力形式のローカル修復を追加します。同一牌譜の 51 判断点で実験設定は 51/51 を出力し、独立盲検評価は 41/51（80.39%）でした。限定的なサンプルであり、一般的な実戦成績は示しません。
 
 | ライトモード | ダークモード |
 | --- | --- |
@@ -49,19 +51,19 @@
 
 ## ダウンロード
 
-現在のリリース：**v0.16.17**。初めて使う場合は、チャット連携を含まない標準版 Agent を推奨します。
+現在のリリース：**v0.16.18**。初めて使う場合は、チャット連携を含まない標準版 Agent を推奨します。
 
 本版は Mortal の解説プロンプトと事実カードを更新しています。上記の結果と [v20 レポート](docs/TEACHING_FACTS_V20_LIVE_20261124.md)を参照してください。全対局のチャット送信と実際の Feishu グループ連携は未検証です。
 
 | パッケージ | 用途 |
 | --- | --- |
-| [**標準版 Agent 拡張**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.17/majsoul-ai-analysis-and-review-agent-0.16.17.zip) | 推奨の入口。ローカル計算・モデル分析・追加質問・履歴・設定を含む |
-| [任意のチャット連携版 Agent](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.17/majsoul-agent-chat-0.16.17.zip) | 手動の要約共有と全対局の結果通知に対応する別ビルド。Feishu グループ Bot と署名付き HTTPS Webhook を使えます。送信は既定で無効。[ガイド](docs/guides/CHAT_INTEGRATIONS.md) |
+| [**標準版 Agent 拡張**](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.18/majsoul-ai-analysis-and-review-agent-0.16.18.zip) | 推奨の入口。ローカル計算・モデル分析・追加質問・履歴・設定を含む |
+| [任意のチャット連携版 Agent](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.18/majsoul-agent-chat-0.16.18.zip) | 手動の要約共有と全対局の結果通知に対応する別ビルド。Feishu グループ Bot と署名付き HTTPS Webhook を使えます。送信は既定で無効。[ガイド](docs/guides/CHAT_INTEGRATIONS.md) |
 | [任意のローカルモデル実行パッケージ · Windows x64](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.10/majsoul-model-manager-windows-x64-0.16.10.zip) | 本機で Mortal / Akagi を使う場合に取得。管理用の Node を同梱 |
-| [独立 Collector](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.17/majsoul-collector-0.16.17.zip) | AI 分析を使わず、収集・表示・エクスポートだけを利用 |
-| [ソースパッケージ](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.17/majsoul-ai-analysis-and-review-agent-source-0.16.17.zip) | 開発・ビルド・オフライン検討 |
+| [独立 Collector](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.18/majsoul-collector-0.16.18.zip) | AI 分析を使わず、収集・表示・エクスポートだけを利用 |
+| [ソースパッケージ](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/download/v0.16.18/majsoul-ai-analysis-and-review-agent-source-0.16.18.zip) | 開発・ビルド・オフライン検討 |
 
-[全リリースファイルと SHA-256 チェックサム](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.17)。拡張にはモデルの重みを含みません。同じブラウザープロファイルでは、いずれか一つだけ有効にしてください。ローカルモデル実行パッケージは上表の `v0.16.10` 版を引き続き利用できます。
+[全リリースファイルと SHA-256 チェックサム](https://github.com/oreki-L/majsoul-ai-analysis-and-review-agent/releases/tag/v0.16.18)。拡張にはモデルの重みを含みません。同じブラウザープロファイルでは、いずれか一つだけ有効にしてください。ローカルモデル実行パッケージは上表の `v0.16.10` 版を引き続き利用できます。
 
 ## 使い始める
 
